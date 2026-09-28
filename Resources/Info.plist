@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleName</key><string>WeChat AI Bot</string>
+<key>CFBundleDisplayName</key><string>微信 AI 助手</string>
+<key>CFBundleIdentifier</key><string>org.dafeiyu.bot</string>
+<key>CFBundleExecutable</key><string>WeChatAIBot</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSAccessibilityUsageDescription</key><string>读取你指定的微信聊天并自动输入回复。</string>
+<key>NSScreenCaptureUsageDescription</key><string>仅在本机识别微信窗口中的未读提示和聊天文字，截图不上传。</string>
+</dict></plist>
