@@ -40,10 +40,18 @@ server.serve_forever()
             let (data, response) = try await download.value
             #expect(["normal", "redirect"].contains(mode))
             #expect(data == Data("hello".utf8))
-            #expect((response as? HTTPURLResponse)?.statusCode == (mode == "redirect" ? 302 : 200))
+            let expectedStatus = mode == "redirect" ? 302 : 200
+            let actualStatus = (response as? HTTPURLResponse)?.statusCode
+            #expect(actualStatus == expectedStatus)
         } catch {
-            if mode == "cancel" { #expect(error is CancellationError || (error as? URLError)?.code == .cancelled) }
-            else { #expect(["length", "stream"].contains(mode)); #expect((error as? URLError)?.code == .dataLengthExceedsMaximum) }
+            let code = (error as? URLError)?.code
+            if mode == "cancel" {
+                let cancelled = error is CancellationError || code == URLError.Code.cancelled
+                #expect(cancelled)
+            } else {
+                #expect(["length", "stream"].contains(mode))
+                #expect(code == URLError.Code.dataLengthExceedsMaximum)
+            }
         }
     }
 }
