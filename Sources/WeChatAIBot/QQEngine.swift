@@ -425,7 +425,10 @@ struct QQRuntimeCredentials: Decodable {
         heldOwnerEvents.removeAll()
     }
     func disconnect(reason: String = "QQ 已断开") {
-        pause(); session = nil; busy = false; connected = false; contacts = []; loginCode = nil
+        pause(); session = nil; busy = false; connected = false; contacts = []
+        #if os(macOS)
+        loginCode = nil
+        #endif
         watchdog?.cancel(); watchdog = nil; connection.close(); status = reason
         if runtimeLock >= 0 { close(runtimeLock); runtimeLock = -1 }
     }
