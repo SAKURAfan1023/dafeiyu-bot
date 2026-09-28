@@ -8,10 +8,13 @@ jobs:
     container: swift:6.1.3-noble
     timeout-minutes: 20
     env:
-      DAFEIYU_RESOURCES: ${{ github.workspace }}/Resources
       DAFEIYU_BUILD_JOBS: 2
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve the checked-out container workspace
+        run: |
+          git config --global --add safe.directory "$(pwd -P)"
+          echo "DAFEIYU_RESOURCES=$(pwd -P)/Resources" >> "$GITHUB_ENV"
       - name: Image and test dependencies
         run: apt-get update && apt-get install -y python3 python3-pil
       - name: Privacy check
