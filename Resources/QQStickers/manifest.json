@@ -1,0 +1,38 @@
+[
+  {
+    "id": "neutral",
+    "title": "在呢",
+    "emotion": "neutral",
+    "file": "neutral.png",
+    "sha256": "399edf3a2df71e765609765d22ca2871df44925dcc7e0f15d76419ea4c57f9c3",
+    "source": "https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/THIRD_PARTY_NOTICES.md",
+    "context": "平静招呼、自然回应，不用于悲伤危机或尖锐回怼"
+  },
+  {
+    "id": "joy",
+    "title": "好耶",
+    "emotion": "joy",
+    "file": "joy.png",
+    "sha256": "7a35690bb9168d42124d9e42a01d4e5acf335ad0c8905671d02b40083bdabe81",
+    "source": "https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/THIRD_PARTY_NOTICES.md",
+    "context": "庆祝、好消息，不用于失败或难过"
+  },
+  {
+    "id": "sleepy",
+    "title": "晚安",
+    "emotion": "sleepy",
+    "file": "sleepy.png",
+    "sha256": "de50549a3c85d515bf0aecd00077bb709deafd414a73c2ed06dd7a3b19366164",
+    "source": "https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/THIRD_PARTY_NOTICES.md",
+    "context": "困倦、睡前收尾，不用于白天普通问候"
+  },
+  {
+    "id": "teasing",
+    "title": "哼哼",
+    "emotion": "teasing",
+    "file": "teasing.png",
+    "sha256": "5454d82ba09e4a8217e7a4bc2e0cc402c0a4f858dfc291a50dcd06eda2474305",
+    "source": "https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/THIRD_PARTY_NOTICES.md",
+    "context": "轻松互损、小得意，不用于认真求助或安慰"
+  }
+]
