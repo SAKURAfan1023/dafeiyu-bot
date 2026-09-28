@@ -38,7 +38,7 @@ import FoundationNetworking
                 }
             } catch {
                 guard let self, self.socket === socket else { return }
-                self.close(); self.disconnected?()
+                self.close(error: error); self.disconnected?()
             }
         }
     }
@@ -66,11 +66,11 @@ import FoundationNetworking
         deadlines.removeValue(forKey: echo)?.cancel()
         pending.removeValue(forKey: echo)?.resume(throwing: error)
     }
-    func close() {
+    func close(error: Error? = nil) {
         socket?.cancel(with: .goingAway, reason: nil); socket = nil
         receiver?.cancel(); receiver = nil
         let callbacks = pending.values; pending.removeAll()
         deadlines.values.forEach { $0.cancel() }; deadlines.removeAll()
-        callbacks.forEach { $0.resume(throwing: AppFailure.message("QQ 连接已关闭；未确认的发送不重试")) }
+        callbacks.forEach { $0.resume(throwing: error ?? AppFailure.message("QQ 连接已关闭；未确认的发送不重试")) }
     }
 }

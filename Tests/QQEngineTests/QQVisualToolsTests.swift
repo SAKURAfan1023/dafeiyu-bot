@@ -139,7 +139,7 @@ private final class VisualFixture: URLProtocol, @unchecked Sendable {
         engine.config.effectiveVisionEnabled = true; engine.config.effectiveOnlineEnabled = true
         if mode == "quota" { engine.config.ai.dailyLimit = 1 }
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first(where: { $0.group }))); engine.config.targets[0].enabled = true
         engine.config.effectiveGroupParticipationEnabled = ["proactive", "unread"].contains(mode)
         engine.config.effectiveGroupParticipationEvery = 2

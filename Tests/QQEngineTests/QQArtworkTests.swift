@@ -454,7 +454,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         engine.config.effectiveArtwork.enabled = true
         if ["agentWithoutLicense", "commandWithoutLicense", "artistWithoutLicense", "hotWithoutLicense"].contains(mode) { engine.config.effectiveArtwork.imagePermissions = [:] }
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         let privateChat = mode == "private"
         engine.add(try #require(engine.contacts.first { $0.number == (privateChat ? "54321" : "99999") }))
         engine.config.targets[0].enabled = true

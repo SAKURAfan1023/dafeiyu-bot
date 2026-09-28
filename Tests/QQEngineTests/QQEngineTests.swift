@@ -102,7 +102,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         engine.config.memoryEnabled = false; engine.config.effectiveGroupParticipationEnabled = true
         engine.config.effectiveGroupParticipationEvery = 2; engine.config.effectivePersona.stickersEnabled = true
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" }))
         engine.config.targets[0].enabled = true; engine.start()
         var rows: [[String: Any]] = []
@@ -152,7 +152,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         engine.config.ai.cooldownSeconds = 1; engine.config.ai.effectiveSendLimits.globalIntervalSeconds = 1
         engine.config.effectivePersona.stickersEnabled = false
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" }))
         engine.config.targets[0].enabled = true; engine.start()
         func event(_ id: Int, _ text: String?, mention: Bool = false) -> [String: Any] {
@@ -218,7 +218,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         engine.config.effectivePersona.stickersEnabled = false
         if mode == "quota" { engine.config.ai.dailyLimit = 1 }
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         for contact in engine.contacts where contact.group {
             engine.add(contact)
             if contact.number == "99999" || mode == "isolation" { engine.config.targets[engine.config.targets.count - 1].enabled = true }
@@ -343,7 +343,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         engine.config.memoryEnabled = true; engine.config.effectiveMemoryOptions.messageThreshold = 4
         engine.config.effectiveGroupParticipationEnabled = false
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" && $0.group }))
         engine.config.targets[0].enabled = true; engine.start(); try #require(engine.running)
         if mode != "timed" {
@@ -476,7 +476,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         if control == "unknown" { try Data().write(to: directory.appendingPathComponent("drop-send")) }
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
         await engine.connect()
-        try #require(engine.connected)
+        try #require(engine.connected, "\(engine.error ?? engine.status)")
         let otherPanel = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
         otherPanel.save()
         #expect(otherPanel.error != nil) // Even an unchanged snapshot cannot write through the live engine's lock.

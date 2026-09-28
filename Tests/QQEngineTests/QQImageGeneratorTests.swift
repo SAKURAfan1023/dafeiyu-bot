@@ -189,7 +189,7 @@ private final class ImageProviderFixture: URLProtocol, @unchecked Sendable {
         engine.saveImageGeneration(settings, zhipuKey: credentials.zhipuKey, cloudflareToken: credentials.cloudflareToken, persistCredentials: false)
         if mode == "quota" { engine.config.ai.dailyLimit = 2 }
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first(where: { $0.group == (mode == "proactive") }))); engine.config.targets[0].enabled = true
         if mode == "proactive" { engine.config.effectiveGroupParticipationEnabled = true; engine.config.effectiveGroupParticipationEvery = 1 }
         engine.start(singleReply: true); try #require(engine.running)
