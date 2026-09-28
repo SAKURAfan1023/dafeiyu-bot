@@ -24,3 +24,5 @@ jobs:
         run: bash scripts/build-linux.sh
       - name: Real HTTP control boundary
         run: python3 scripts/test-control-panel.py dist/dafeiyu-linux/dafeiyu
+      - name: Real synthetic OneBot WebSocket transport
+        run: python3 scripts/test-onebot-transport.py dist/dafeiyu-linux/dafeiyu

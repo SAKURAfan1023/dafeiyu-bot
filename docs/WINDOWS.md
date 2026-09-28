@@ -56,6 +56,7 @@ bash scripts/test.sh
 python3 scripts/test-linux-images.py
 bash scripts/build-linux.sh
 python3 scripts/test-control-panel.py dist/dafeiyu-linux/dafeiyu
+python3 scripts/test-onebot-transport.py dist/dafeiyu-linux/dafeiyu
 ```
 
 源码放在 WSL 的 `~/dafeiyu-bot`，避免放在 `/mnt/c` 的同步目录中导致编译和文件权限问题。产物为 `dist/dafeiyu-linux/dafeiyu` 和旁边的 `Resources`，两者要一起保留。
