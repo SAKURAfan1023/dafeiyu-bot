@@ -1,11 +1,18 @@
 import Foundation
+#if canImport(ImageIO)
 import ImageIO
 import UniformTypeIdentifiers
+#endif
 import Testing
 @testable import WeChatAIBot
 
 struct QQIncomingImagesTests {
     static func animatedFixture() throws -> Data {
+        #if os(Linux)
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("synthetic-images.json")
+        let images = try JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))
+        return try #require(Data(base64Encoded: try #require(images["animated"])))
+        #else
         let bytes = NSMutableData()
         let destination = try #require(CGImageDestinationCreateWithData(bytes, UTType.gif.identifier as CFString, 12, nil))
         for index in 0..<12 {
@@ -19,6 +26,7 @@ struct QQIncomingImagesTests {
         }
         #expect(CGImageDestinationFinalize(destination))
         return bytes as Data
+        #endif
     }
     @Test func animatedFramesCoverMotionAndRespectSharedBudget() throws {
         let gif = try Self.animatedFixture()
@@ -40,10 +48,12 @@ struct QQIncomingImagesTests {
         #expect((1...3).contains(frames.count))
         for frame in frames {
             #expect(frame.starts(with: [255,216])); #expect(frame.count <= 2_000_000)
+            #if canImport(ImageIO)
             let source = try #require(CGImageSourceCreateWithData(frame as CFData, nil))
             let props = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
             #expect((props[kCGImagePropertyPixelWidth] as! Int) <= 1280)
             #expect((props[kCGImagePropertyPixelHeight] as! Int) <= 1280)
+            #endif
         }
     }
 }

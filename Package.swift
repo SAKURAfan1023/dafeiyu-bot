@@ -5,12 +5,10 @@ import PackageDescription
 let dependencies: [Package.Dependency] = [.package(url: "https://github.com/apple/swift-crypto.git", exact: "3.12.3")]
 let crypto: [Target.Dependency] = [.product(name: "Crypto", package: "swift-crypto")]
 let desktopFiles = ["main.swift", "Views.swift", "QQView.swift", "QQArtworkSettingsView.swift", "BotEngine.swift", "WeChatBridge.swift"]
-let imageTests = ["QQIncomingImagesTests.swift", "QQArtworkTests.swift"]
 #else
 let dependencies: [Package.Dependency] = []
 let crypto: [Target.Dependency] = []
 let desktopFiles = ["LinuxMain.swift", "LinuxSupport.swift"]
-let imageTests: [String] = []
 #endif
 
 let package = Package(
@@ -22,6 +20,6 @@ let package = Package(
         .target(name: "BotCore", dependencies: crypto),
         .executableTarget(name: "WeChatAIBot", dependencies: [.target(name: "BotCore")] + crypto, exclude: desktopFiles),
         .testTarget(name: "BotCoreTests", dependencies: ["BotCore"]),
-        .testTarget(name: "QQEngineTests", dependencies: ["WeChatAIBot"], exclude: ["onebot_fixture.py"] + imageTests)
+        .testTarget(name: "QQEngineTests", dependencies: ["WeChatAIBot"], exclude: ["onebot_fixture.py", "synthetic-images.json"])
     ]
 )
