@@ -129,7 +129,7 @@ if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.argument
         let connection = OneBotConnection()
         do {
             var config = QQConfig(); config.endpoint = endpoint; config.expectedSelfID = expected; try config.validate()
-            try connection.connect(endpoint: endpoint, token: token)
+            try await connection.connect(endpoint: endpoint, token: token)
             async let login = connection.action("get_login_info")
             async let health = connection.action("get_status")
             let (a, b) = try await (login, health)

@@ -24,3 +24,13 @@ python3 scripts/test-onebot-transport.py 'dist/WeChat AI Bot.app/Contents/MacOS/
 ```
 
 传输测试使用合成的本机 WebSocket 服务，不会登录 QQ、发送聊天或调用付费模型。真实操作须使用自己的账号、凭证和明确授权会话；自动测试通过不能代替对端确认。公开版未带作者的聊天数据库、记忆、运行日志、凭证、会话白名单或第三方私人表情包集合。
+
+## Windows / WSL2 兼容增量
+
+新增同一 QQ 引擎的 Linux 入口、本机 Web 传输、内存凭证、Swift Crypto / Pillow 图像适配与完整 Windows 教程。没有将 macOS 的 SwiftUI / 微信窗口操作声明为 Windows 原生功能。
+
+- 本地 macOS 127 项回归通过；release 构建及临时签名通过。
+- 新传输的真实本机 HTTP 检查通过：静态资源、Token、Origin、Host、重复请求头、超大 Content-Length、Transfer-Encoding 拒绝和暂停；没有连接 QQ 或调用模型。
+- Pillow 合成图像检查通过：静态图、GIF 时间采样与帧预算、透明背景、清晰度门槛、尺寸、损坏输入与元数据清理。
+- Linux 编译、共享引擎测试和运行验证由 `.github/workflows/linux.yml` 检查，当前正在执行兼容验证。
+- Windows 实机 WSL 安装、跨系统浏览器访问、扫码与对端收发尚未验收；不能用 Linux CI 代替。

@@ -1,6 +1,16 @@
 import Foundation
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(ImageIO)
 import ImageIO
+#endif
+#if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
+#endif
 
 struct ModelToolResult: Sendable {
     var content: String
@@ -84,6 +94,9 @@ struct QQOnlineTools {
                   ["Public domain", "CC0", "CC BY 2.0", "CC BY 3.0", "CC BY 4.0", "CC BY-SA 2.0", "CC BY-SA 2.5", "CC BY-SA 3.0", "CC BY-SA 4.0"].contains(license) else { continue }
             do {
                 let bytes = try await fetch(imageURL, limit: 3_000_000)
+                #if os(Linux)
+                let output = try LinuxImages.process(bytes, mode: "search")[0]
+                #else
                 guard let image = CGImageSourceCreateWithData(bytes as CFData, nil), CGImageSourceGetCount(image) == 1,
                       let properties = CGImageSourceCopyPropertiesAtIndex(image, 0, nil) as? [CFString: Any],
                       let width = properties[kCGImagePropertyPixelWidth] as? Int, let height = properties[kCGImagePropertyPixelHeight] as? Int,
@@ -94,6 +107,7 @@ struct QQOnlineTools {
                 guard let destination = CGImageDestinationCreateWithData(output, UTType.png.identifier as CFString, 1, nil) else { continue }
                 CGImageDestinationAddImage(destination, decoded, nil)
                 guard CGImageDestinationFinalize(destination), output.length <= 3_000_000 else { continue }
+                #endif
                 let title = String((page["title"] as? String ?? "网络图片").prefix(120))
                 let artist = String((meta["Artist"]?["value"] as? String ?? "作者见来源页").replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression).prefix(120))
                 let attribution = "Wikimedia Commons · \(artist) · \(license)（缩略图转 PNG）\n\(source)"
@@ -108,13 +122,21 @@ struct QQOnlineTools {
               ["www.bing.com", "en.wikipedia.org", "zh.wikipedia.org", "commons.wikimedia.org", "upload.wikimedia.org", "thumb.wikimedia.org"].contains(url.host ?? "") else { throw URLError(.badURL) }
         var request = URLRequest(url: url); request.timeoutInterval = 15
         request.setValue("DaFeiYuBot/1.0 (personal QQ assistant)", forHTTPHeaderField: "User-Agent")
+        #if os(Linux)
+        let (linuxData, response) = try await session.boundedData(for: request, limit: limit)
+        #else
         let (bytes, response) = try await session.bytes(for: request, delegate: NoSearchRedirect())
+        #endif
         guard let http = response as? HTTPURLResponse, http.statusCode == 200, response.expectedContentLength <= limit else { throw URLError(.badServerResponse) }
         var result = Data()
+        #if os(Linux)
+        result = linuxData
+        #else
         for try await byte in bytes {
             if result.count >= limit { throw URLError(.dataLengthExceedsMaximum) }
             result.append(byte)
         }
+        #endif
         try Task.checkCancellation()
         return result
     }

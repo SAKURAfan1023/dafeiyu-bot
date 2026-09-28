@@ -8,3 +8,6 @@
 - OneBot 11：https://github.com/botuniverse/onebot-11
 - README 封面与 `Resources/QQStickers/` 四张示例图由本项目为公开版原创 AI 生成，按 CC0 1.0 提供（https://creativecommons.org/publicdomain/zero/1.0/）。生成记录日期：2026-09-28。商标或平台名称不在此授权范围内。
 - 公开版不含开发者私人环境收集的第三方表情图片，也不包含私有运行截图。运行中搜索到的插画属于各自创作者，来源链接不等于再授权；请尊重署名与来源站点访问规则。
+
+- Windows/WSL 与 Linux 使用 [Swift Crypto](https://github.com/apple/swift-crypto)（Apache-2.0）及其上游依赖，图像适配使用系统安装的 [Pillow](https://github.com/python-pillow/Pillow)（HPND）。这些依赖的许可证不会被本仓库 MIT 替代；分发编译产物时需同时保留对应许可与声明。
+- Linux 的 OneBot WebSocket 连接使用 [WebSocketKit](https://github.com/vapor/websocket-kit)（MIT）及 [SwiftNIO](https://github.com/apple/swift-nio)（Apache-2.0）生态依赖，版本范围见 `Package.swift`。重新分发这些依赖或编译产物时，同样需要保留上游许可证和声明。

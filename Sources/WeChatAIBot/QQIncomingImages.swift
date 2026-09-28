@@ -1,6 +1,13 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(ImageIO)
 import ImageIO
+#endif
+#if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
+#endif
 
 struct QQIncomingImages {
     private static let ephemeralSession: URLSession = {
@@ -20,17 +27,28 @@ struct QQIncomingImages {
     func load(_ value: String?, maxFrames: Int = 6) async throws -> [Data] {
         guard let url = Self.allowedURL(value) else { throw AppFailure.message("图片下载地址不受支持") }
         var request = URLRequest(url: url); request.timeoutInterval = 15
+        #if os(Linux)
+        let (linuxData, response) = try await session.boundedData(for: request, limit: 8_000_000)
+        #else
         let (bytes, response) = try await session.bytes(for: request, delegate: QQImageNoRedirect())
+        #endif
         guard let http = response as? HTTPURLResponse, http.statusCode == 200, response.expectedContentLength <= 8_000_000 else { throw AppFailure.message("图片暂时无法下载") }
         var data = Data()
+        #if os(Linux)
+        data = linuxData
+        #else
         for try await byte in bytes {
             guard data.count < 8_000_000 else { throw AppFailure.message("图片太大，未进行识别") }
             data.append(byte)
         }
+        #endif
         try Task.checkCancellation()
         return try Self.frames(data, maxFrames: maxFrames)
     }
     static func frames(_ data: Data, maxFrames: Int = 6) throws -> [Data] {
+        #if os(Linux)
+        return try LinuxImages.process(data, mode: "frames", options: ["maxFrames": maxFrames])
+        #else
         guard data.count <= 8_000_000, let source = CGImageSourceCreateWithData(data as CFData, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int, let height = properties[kCGImagePropertyPixelHeight] as? Int,
@@ -69,6 +87,7 @@ struct QQIncomingImages {
         }
         guard !frames.isEmpty else { throw AppFailure.message("图片解码失败") }
         return frames
+        #endif
     }
 }
 private final class QQImageNoRedirect: NSObject, URLSessionTaskDelegate {

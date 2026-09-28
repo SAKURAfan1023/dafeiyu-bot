@@ -6,15 +6,15 @@
 
 **DeepSeek 驱动的二次元 AI 聊天伙伴，让群聊多一点有趣的回应。**
 
-QQ 可用 · 微信测试中 · macOS 原生 / 本机 Web 面板 · 持续更新、完善与迭代中
+QQ 可用 · 微信测试中 · macOS 原生 / Windows WSL2 本机 Web 面板 · 持续更新、完善与迭代中
 
-[快速开始](docs/QUICKSTART.md) · [操作指南](docs/USER_GUIDE.md) · [全部命令](docs/COMMANDS.md) · [架构与开发](docs/ARCHITECTURE.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
+[Mac 快速开始](docs/QUICKSTART.md) · [Windows 安装](docs/WINDOWS.md) · [操作指南](docs/USER_GUIDE.md) · [全部命令](docs/COMMANDS.md) · [架构与开发](docs/ARCHITECTURE.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
 
 </div>
 
 大肥鱼是一个独立、非官方的成年蓝色鲸鱼娘 AI 角色。以 **DeepSeek** 为对话核心，通过 **NapCat + OneBot 11** 接入 QQ，支持独立会话记忆、十种性格、短句聊天、表情包、引用理解、图片/GIF 观察、联网检索、主备生图，以及 Pixiv 搜图与定时分享。
 
-> **项目状态：持续更新、完善与迭代中。** QQ 私聊与群真实 @ 回复已有真人接收确认，可用于个人测试和部署；不代表所有新功能、所有账号或连续运行时长均已验收。微信适配仍在测试，尚未完成可靠自动回复验收，请勿按成熟功能使用。当前源码面向 macOS 14+，QQ 桥接可在独立 Linux 环境运行；这不是全平台一键客户端。
+> **项目状态：持续更新、完善与迭代中。** QQ 私聊与群真实 @ 回复已有真人接收确认，可用于个人测试和部署；不代表所有新功能、所有账号或连续运行时长均已验收。微信适配仍在测试，尚未完成可靠自动回复验收，请勿按成熟功能使用。macOS 提供原生界面，Windows 提供 WSL2 + 本机 Web 面板部署方式（兼容验证中，见验证记录）；QQ 桥接可在独立 Linux 环境运行。当前没有 Windows 原生 exe 安装包。
 
 ## 能做什么
 
@@ -38,6 +38,8 @@ QQ 可用 · 微信测试中 · macOS 原生 / 本机 Web 面板 · 持续更新
 来自实际 QQ 群的匿名片段，**脱敏重排，非原始 QQ 截图**。保留选中文本，省略无关发言；[取材方法与证据边界](docs/CHAT_EXAMPLE.md)。
 
 ## 五步开始
+
+**Windows 用户先看 [Windows 完整安装教程](docs/WINDOWS.md)**；以下命令用于 Mac。
 
 1. 准备 **macOS 14+、Swift 6 工具链、Python 3**，以及你自己的 **DeepSeek API Key**。
 2. 按 [快速开始](docs/QUICKSTART.md) 准备 NapCat / QQ，开启带 Token 的 OneBot 11 正向 WebSocket，并完成扫码。
@@ -110,6 +112,6 @@ QQ 可用 · 微信测试中 · macOS 原生 / 本机 Web 面板 · 持续更新
 
 ## 关键词 / Topics
 
-中文：大肥鱼、DeepSeek、QQ机器人、QQ群机器人、AI聊天、二次元、鲸鱼娘、猫娘、角色扮演、性格切换、自动回复、NapCat、OneBot、会话记忆、长期记忆、上下文压缩、引用回复、表情包、GIF识别、图片理解、AI生图、搜图、Pixiv、画师、热门榜单、定时推送、macOS、SwiftUI、本地面板、微信测试。
+中文：大肥鱼、DeepSeek、QQ机器人、QQ群机器人、AI聊天、二次元、鲸鱼娘、猫娘、角色扮演、性格切换、自动回复、NapCat、OneBot、会话记忆、长期记忆、上下文压缩、引用回复、表情包、GIF识别、图片理解、AI生图、搜图、Pixiv、画师、热门榜单、定时推送、Windows、WSL2、Linux、macOS、SwiftUI、本地面板、微信测试。
 
-English: DeepSeek, QQ bot, AI chatbot, anime companion, virtual character, roleplay, persona, NapCat, OneBot 11, conversation memory, context summarization, multimodal, GIF vision, image generation, image search, Pixiv, scheduled messages, macOS, Swift, SwiftUI, local control panel, experimental WeChat integration.
+English: DeepSeek, QQ bot, AI chatbot, anime companion, virtual character, roleplay, persona, NapCat, OneBot 11, conversation memory, context summarization, multimodal, GIF vision, image generation, image search, Pixiv, scheduled messages, Windows, WSL2, Linux, macOS, Swift, SwiftUI, local control panel, experimental WeChat integration.

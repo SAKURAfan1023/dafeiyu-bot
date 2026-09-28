@@ -1,8 +1,13 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
+#if canImport(ImageIO)
 import ImageIO
 import CoreGraphics
 import UniformTypeIdentifiers
+#endif
 import BotCore
 @testable import WeChatAIBot
 
@@ -29,10 +34,16 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
     static func photo() -> Data {
+        #if os(Linux)
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("synthetic-images.json")
+        let images = try! JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))
+        return Data(base64Encoded: images["artwork"]!)!
+        #else
         let context = CGContext(data: nil, width: 1600, height: 900, bitsPerComponent: 8, bytesPerRow: 6400, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
         context.setFillColor(CGColor(red: 0.2, green: 0.5, blue: 0.8, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: 1600, height: 900))
         let data = NSMutableData(), dest = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil)!
         CGImageDestinationAddImage(dest, context.makeImage()!, nil); CGImageDestinationFinalize(dest); return data as Data
+        #endif
     }
     override func startLoading() {
         let u = request.url!; Self.lock.lock(); Self.paths.append(u.absoluteString); Self.lock.unlock()
@@ -443,7 +454,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         engine.config.effectiveArtwork.enabled = true
         if ["agentWithoutLicense", "commandWithoutLicense", "artistWithoutLicense", "hotWithoutLicense"].contains(mode) { engine.config.effectiveArtwork.imagePermissions = [:] }
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         let privateChat = mode == "private"
         engine.add(try #require(engine.contacts.first { $0.number == (privateChat ? "54321" : "99999") }))
         engine.config.targets[0].enabled = true

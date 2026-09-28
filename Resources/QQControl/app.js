@@ -29,7 +29,7 @@ function render() {
   text('deadline', state.runDeadline ? `将在 ${new Date(state.runDeadline*1000).toLocaleString('zh-CN')} 自动暂停` : '');
   text('queue', `等待回复：${state.queued} / ${state.queueCapacity} 条（不含正在处理的消息）`);
   for (const id of ['calls','confirmed','uncertain','rejected']) text(id,state[id]);
-  text('credentials',state.temporaryCredentials ? '本次运行已有临时凭证，未持久化保存。' : '将使用钥匙串凭证，也可填写本次运行的临时凭证。');
+  text('credentials',state.temporaryCredentials ? '本次运行已有临时凭证，未持久化保存。' : (state.supportsKeychain === false ? '请填写本次运行的凭证；退出后需要重新填写。' : '将使用钥匙串凭证，也可填写本次运行的临时凭证。'));
   $('connect').disabled = state.connected || state.busy || pending;
   $('disconnect').disabled = !state.connected && !state.busy;
   $('start').disabled = !state.connected || state.running || state.busy || pending;
@@ -44,6 +44,9 @@ function render() {
   text('visualCredentials', `Google 凭证：${state.googleVisionCredential ? '已载入' : '未载入'}`);
   text('visualStatus',state.visualStatus ?? '尚未调用识图');
   for(const id of ['visionProvider','googleWebEnabled','googleVisionKey','visualPersist','visualSave']) $(id).disabled = state.running || state.busy || pending;
+  if (state.supportsKeychain === false) {
+    for (const id of ['imageGenPersist', 'visualPersist']) { $(id).checked = false; $(id).disabled = true; }
+  }
   renderArtwork(initial);
   if(initial) {
     $('visionProvider').value = state.visualTools?.provider ?? 'deepseek';

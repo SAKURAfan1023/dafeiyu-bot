@@ -1,9 +1,24 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(AppKit)
 import AppKit
+#endif
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
+#if canImport(CoreImage)
 import CoreImage
+#endif
 import BotCore
+#if canImport(Darwin)
 import Darwin
+#else
+import Glibc
+#endif
 
 private struct QQStored: Codable {
     var config = QQConfig()
@@ -47,7 +62,9 @@ struct QQRuntimeCredentials: Decodable {
     private var memoryWorker: Task<Void, Never>?
     private var memoryRetryAfter: [String: Date] = [:]
     @Published private(set) var preview = ""
+    #if canImport(AppKit)
     @Published private(set) var loginCode: NSImage?
+    #endif
     @Published private(set) var rejectedScopedEvents = 0
     @Published private(set) var runDeadline: Date?
     private let connection = OneBotConnection()
@@ -139,13 +156,19 @@ struct QQRuntimeCredentials: Decodable {
             }
         } catch { storageOK = false; self.error = "QQ 配置读取失败，已阻止启动：\(error.localizedDescription)" }
         connection.event = { [weak self] in self?.receive($0) }
-        connection.disconnected = { [weak self] in self?.disconnect(reason: "QQ 连接中断；请手动检查并重新连接") }
+        connection.disconnected = { [weak self] error in
+            self?.error = error.localizedDescription
+            self?.disconnect(reason: "QQ 连接中断；请手动检查并重新连接")
+        }
+        #if canImport(AppKit)
         for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
             observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in self?.disconnect(reason: "系统休眠或会话退出，QQ 已暂停") }
             })
         }
+        #endif
     }
+    #if canImport(AppKit)
     func setRuntime(start: Bool) async {
         guard !busy, !runtimeBusy else { return }
         if start && !NSRunningApplication.runningApplications(withBundleIdentifier: "com.tencent.qq").isEmpty {
@@ -216,7 +239,8 @@ struct QQRuntimeCredentials: Decodable {
             loginCode = NSImage(cgImage: image, size: NSSize(width: 280, height: 280))
             status = "请用手机 QQ 扫码并确认；登录后填写 QQ 号，再连接核对账号"
         } catch { if session == current { self.error = error.localizedDescription } }
-    }
+    }    #endif
+
     func save(token: String = "") {
         guard !connected, !busy, !runtimeBusy else { error = "请先断开 QQ 并等待环境操作完成后修改配置"; return }
         do {
@@ -308,12 +332,12 @@ struct QQRuntimeCredentials: Decodable {
             let lock = open(file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock").path, O_CREAT | O_RDWR, 0o600)
             guard lock >= 0 else { throw AppFailure.message("无法创建 QQ 运行锁") }
             guard flock(lock, LOCK_EX | LOCK_NB) == 0 else {
-                Darwin.close(lock); throw AppFailure.message("另一个 QQ 回复引擎正在运行，请先停止它")
+                close(lock); throw AppFailure.message("另一个 QQ 回复引擎正在运行，请先停止它")
             }
             runtimeLock = lock
             try config.validate(); try persist()
             let token = try runtimeCredentials?.oneBotToken ?? Keychain.load(account: "qq-onebot-token", allowAuthenticationUI: allowAuthenticationUI)
-            try connection.connect(endpoint: config.endpoint, token: token)
+            try await connection.connect(endpoint: config.endpoint, token: token)
             let response = try await connection.action("get_login_info")
             guard session == current else { return }
             guard let data = response["data"] as? [String: Any], QQPolicy.identifier(data["user_id"]) == config.expectedSelfID else {
@@ -372,10 +396,12 @@ struct QQRuntimeCredentials: Decodable {
             try persist(); self.singleReply = singleReply
             // Hold only an idle-system-sleep assertion; screen locking remains available.
             // Watching this process also releases the assertion after an unexpected exit.
+            #if os(macOS)
             let keepAwake = Process()
             keepAwake.executableURL = URL(fileURLWithPath: "/usr/bin/caffeinate")
             keepAwake.arguments = ["-i", "-w", String(ProcessInfo.processInfo.processIdentifier)]
             try keepAwake.run(); sleepPrevention = keepAwake
+            #endif
             fence.start(); running = true; started = Date().timeIntervalSince1970
             if let duration {
                 let epoch = fence.epoch
@@ -402,9 +428,12 @@ struct QQRuntimeCredentials: Decodable {
         heldOwnerEvents.removeAll()
     }
     func disconnect(reason: String = "QQ 已断开") {
-        pause(); session = nil; busy = false; connected = false; contacts = []; loginCode = nil
+        pause(); session = nil; busy = false; connected = false; contacts = []
+        #if os(macOS)
+        loginCode = nil
+        #endif
         watchdog?.cancel(); watchdog = nil; connection.close(); status = reason
-        if runtimeLock >= 0 { Darwin.close(runtimeLock); runtimeLock = -1 }
+        if runtimeLock >= 0 { close(runtimeLock); runtimeLock = -1 }
     }
     func takeOver(_ id: UUID) {
         // Cancel the active generation as well, preventing a response from escaping a removed scope.
@@ -1134,10 +1163,10 @@ struct QQRuntimeCredentials: Decodable {
             writeLock = open(file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock").path, O_CREAT | O_RDWR, 0o600)
             guard writeLock >= 0 else { throw AppFailure.message("无法创建 QQ 配置写入锁") }
             guard flock(writeLock, LOCK_EX | LOCK_NB) == 0 else {
-                Darwin.close(writeLock); throw AppFailure.message("另一处 QQ 引擎正在运行，不能覆盖其配置")
+                close(writeLock); throw AppFailure.message("另一处 QQ 引擎正在运行，不能覆盖其配置")
             }
         }
-        defer { if writeLock >= 0 { Darwin.close(writeLock) } }
+        defer { if writeLock >= 0 { close(writeLock) } }
         let current = FileManager.default.fileExists(atPath: file.path) ? try Data(contentsOf: file) : nil
         guard current == persistedData else { throw AppFailure.message("QQ 配置已由另一实例更新，请重新打开面板再操作") }
         seen = seen.filter { Date().timeIntervalSince1970 - $0.value < 86400 }

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 import BotCore
 @testable import WeChatAIBot
@@ -89,7 +92,7 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         engine.config.effectiveMemoryEnabled = true
         engine.config.effectiveGroupParticipationEnabled = mode != "noParticipation"; engine.config.effectiveGroupParticipationEvery = mode == "proactive" ? 1 : 10
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         for contact in engine.contacts { engine.add(contact) }
         for index in engine.config.targets.indices { engine.config.targets[index].enabled = true }
         let key = mode == "private" ? "private:54321" : "group:99999"

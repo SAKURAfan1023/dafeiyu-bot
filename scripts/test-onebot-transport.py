@@ -75,7 +75,7 @@ def scenario(mode):
         result = subprocess.run([binary, '--qq-check', f'ws://127.0.0.1:{port}', '12345'], input=TOKEN+'\n', text=True, capture_output=True, timeout=20)
         thread.join(timeout=10)
         assert not thread.is_alive(), mode + ': server did not finish'
-        assert not errors, str(errors)
+        assert not errors, str(errors) + ': ' + result.stdout + result.stderr
         assert (result.returncode == 0) == (mode == 'success'), mode + ': ' + result.stdout + result.stderr
         print('PASS', mode)
 

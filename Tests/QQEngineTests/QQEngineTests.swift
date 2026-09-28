@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 import BotCore
 @testable import WeChatAIBot
@@ -38,6 +41,13 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {
         Self.lock.lock(); defer { Self.lock.unlock() }
         if !stopped { stopped = true; Self.cancellations += 1 }
+    }
+    static func requireCancellation() async throws {
+        // URLSession cancellation is asynchronous. Emitting URLProtocol callbacks
+        // while Corelibs removes a cancelled task violates the mock's lifecycle.
+        let deadline = Date().addingTimeInterval(2)
+        while counts.cancelled == 0 && Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        try #require(counts.cancelled > 0)
     }
     static func completePending(intensity: Int = 3, summary: Bool = false, participate: Bool? = true) {
         lock.lock()
@@ -99,7 +109,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         engine.config.memoryEnabled = false; engine.config.effectiveGroupParticipationEnabled = true
         engine.config.effectiveGroupParticipationEvery = 2; engine.config.effectivePersona.stickersEnabled = true
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" }))
         engine.config.targets[0].enabled = true; engine.start()
         var rows: [[String: Any]] = []
@@ -149,7 +159,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         engine.config.ai.cooldownSeconds = 1; engine.config.ai.effectiveSendLimits.globalIntervalSeconds = 1
         engine.config.effectivePersona.stickersEnabled = false
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" }))
         engine.config.targets[0].enabled = true; engine.start()
         func event(_ id: Int, _ text: String?, mention: Bool = false) -> [String: Any] {
@@ -215,7 +225,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         engine.config.effectivePersona.stickersEnabled = false
         if mode == "quota" { engine.config.ai.dailyLimit = 1 }
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         for contact in engine.contacts where contact.group {
             engine.add(contact)
             if contact.number == "99999" || mode == "isolation" { engine.config.targets[engine.config.targets.count - 1].enabled = true }
@@ -278,6 +288,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         }
         if mode == "pause" {
             engine.pause(); #expect(engine.groupMessageCounts.isEmpty); #expect(engine.queuedCount == 0)
+            try await DelayedModelProtocol.requireCancellation()
             DelayedModelProtocol.completePending(); try await Task.sleep(nanoseconds: 100_000_000)
             #expect(engine.sends.attempts == 0)
             engine.start(); #expect(engine.groupMessageCounts.isEmpty)
@@ -340,7 +351,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         engine.config.memoryEnabled = true; engine.config.effectiveMemoryOptions.messageThreshold = 4
         engine.config.effectiveGroupParticipationEnabled = false
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
-        await engine.connect(); try #require(engine.connected)
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" && $0.group }))
         engine.config.targets[0].enabled = true; engine.start(); try #require(engine.running)
         if mode != "timed" {
@@ -357,6 +368,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(DelayedModelProtocol.counts.bodies.first?.contains("OWNER") == true)
         if mode == "pause" { engine.pause() }
         if mode == "clear" { engine.clearMemory(engine.config.targets[0].id) }
+        if ["pause", "clear"].contains(mode) { try await DelayedModelProtocol.requireCancellation() }
         DelayedModelProtocol.completePending()
         let completed = Date().addingTimeInterval(3)
         while ["capture", "timed"].contains(mode), engine.memoryBooks["12345:group:99999"]?.pending.isEmpty != true, Date() < completed { try await Task.sleep(nanoseconds: 20_000_000) }
@@ -473,7 +485,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         if control == "unknown" { try Data().write(to: directory.appendingPathComponent("drop-send")) }
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
         await engine.connect()
-        try #require(engine.connected)
+        try #require(engine.connected, "\(engine.error ?? engine.status)")
         let otherPanel = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
         otherPanel.save()
         #expect(otherPanel.error != nil) // Even an unchanged snapshot cannot write through the live engine's lock.
@@ -584,7 +596,8 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             else {
                 try #require(segments.count == 2)
                 #expect(segments[1]["type"] as? String == "image")
-                #expect(((segments[1]["data"] as? [String: String])?["file"] ?? "").hasPrefix("base64://"))
+                let imageFile = (segments[1]["data"] as? [String: String])?["file"] ?? ""
+                #expect(imageFile.hasPrefix("base64://"))
             }
             #expect(actions.components(separatedBy: expectedAction).count - 1 == desired)
             if control == "periodicStickers" {

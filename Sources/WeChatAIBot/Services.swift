@@ -1,5 +1,10 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(Security)
 import Security
+#endif
 import BotCore
 
 enum AppFailure: LocalizedError {
@@ -13,6 +18,7 @@ func automationInterlock() -> AutomationInterlock {
     return AutomationInterlock(file: directory.appendingPathComponent("safety-stop.json"))
 }
 
+#if canImport(Security)
 enum Keychain {
     private static let service = "org.dafeiyu.bot.deepseek"
     private static func query(account: String) -> [String: Any] {
@@ -45,6 +51,8 @@ enum Keychain {
     }
 }
 
+#endif
+
 struct StoredState: Codable {
     var config = BotConfig()
     var usage = Usage()
@@ -55,8 +63,16 @@ final class LocalStore {
     let directory: URL
     let url: URL
     init() throws {
-        directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("WeChatAIBot", isDirectory: true)
+        if let path = ProcessInfo.processInfo.environment["DAFEIYU_DATA_DIR"] {
+            directory = URL(fileURLWithPath: path, isDirectory: true)
+        } else {
+            #if os(Linux)
+            directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/dafeiyu", isDirectory: true)
+            #else
+            directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("WeChatAIBot", isDirectory: true)
+            #endif
+        }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                               attributes: [.posixPermissions: 0o700])
         url = directory.appendingPathComponent("state.json")

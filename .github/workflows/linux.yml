@@ -1,0 +1,35 @@
+name: Linux and Windows WSL engine
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    container: swift:6.1.3-noble
+    timeout-minutes: 20
+    env:
+      DAFEIYU_BUILD_JOBS: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve the checked-out container workspace
+        run: |
+          git config --global --add safe.directory "$(pwd -P)"
+          echo "DAFEIYU_RESOURCES=$(pwd -P)/Resources" >> "$GITHUB_ENV"
+      - name: Image and test dependencies
+        run: apt-get update && apt-get install -y python3 python3-pil
+      - name: Privacy check
+        run: python3 scripts/check-public.py
+      - name: Verify OneBot transport before integration cases
+        run: |
+          swift build --jobs 2
+          python3 scripts/test-onebot-transport.py "$(swift build --show-bin-path)/WeChatAIBot"
+      - name: Shared engine tests
+        run: bash scripts/test.sh
+      - name: Linux image boundaries
+        run: python3 scripts/test-linux-images.py
+      - name: Build headless app
+        run: bash scripts/build-linux.sh
+      - name: Real HTTP control boundary
+        run: python3 scripts/test-control-panel.py dist/dafeiyu-linux/dafeiyu
+      - name: Real synthetic OneBot WebSocket transport
+        run: python3 scripts/test-onebot-transport.py dist/dafeiyu-linux/dafeiyu
