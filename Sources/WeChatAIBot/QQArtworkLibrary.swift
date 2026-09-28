@@ -377,6 +377,11 @@ struct QQArtworkPrepared: Sendable {
         var request = URLRequest(url: url); request.timeoutInterval = 15
         request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
         if host.hasSuffix("pixiv.net") || host == "i.pximg.net" { request.setValue("https://www.pixiv.net/", forHTTPHeaderField: "Referer") }
+        #if os(Linux)
+        // Corelibs download tasks do not provide a file for URLProtocol responses.
+        // The shared Linux receiver bounds bytes while receiving and rejects redirects.
+        let (data, response) = try await session.boundedData(for: request, limit: limit)
+        #else
         // Download chunks to a temporary file off the main actor, instead of resuming Swift once per byte.
         let delegate = ArtworkDownloadGuard(limit: limit)
         let file: URL, response: URLResponse
@@ -386,15 +391,20 @@ struct QQArtworkPrepared: Sendable {
             throw error
         }
         defer { try? FileManager.default.removeItem(at: file) }
+        #endif
         guard let http = response as? HTTPURLResponse else { throw AppFailure.message("插画来源无有效响应") }
         if [403, 429].contains(http.statusCode) {
             blockedUntil[host] = Date().addingTimeInterval(min(3600, max(60, Double(http.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 300)))
         }
         if host == "i.pximg.net", [404, 410].contains(http.statusCode) { throw ArtworkAssetMissing() }
         guard http.statusCode == 200, response.expectedContentLength <= limit else { throw AppFailure.message("插画来源暂不可用（HTTP \(http.statusCode)），未绕过限制或自动重试") }
-        guard let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= limit else { throw AppFailure.message("插画响应过大，已停止") }
         try Task.checkCancellation()
+        #if os(Linux)
+        return data
+        #else
+        guard let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= limit else { throw AppFailure.message("插画响应过大，已停止") }
         return try Data(contentsOf: file)
+        #endif
     }
     static func normalized(_ data: Data, config: QQArtworkConfig) throws -> Data {
         #if os(Linux)
@@ -427,6 +437,7 @@ struct QQArtworkPrepared: Sendable {
 }
 private struct ArtworkAssetMissing: Error {}
 
+#if !os(Linux)
 private final class ArtworkDownloadGuard: NSObject, URLSessionDownloadDelegate {
     private let limit: Int64
     private let lock = NSLock()
@@ -443,3 +454,4 @@ private final class ArtworkDownloadGuard: NSObject, URLSessionDownloadDelegate {
         }
     }
 }
+#endif
