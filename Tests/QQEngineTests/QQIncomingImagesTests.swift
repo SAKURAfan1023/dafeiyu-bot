@@ -11,7 +11,8 @@ struct QQIncomingImagesTests {
         #if os(Linux)
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("synthetic-images.json")
         let images = try JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))
-        return try #require(Data(base64Encoded: try #require(images["animated"])))
+        let encoded = try #require(images["animated"])
+        return try #require(Data(base64Encoded: encoded))
         #else
         let bytes = NSMutableData()
         let destination = try #require(CGImageDestinationCreateWithData(bytes, UTType.gif.identifier as CFString, 12, nil))
