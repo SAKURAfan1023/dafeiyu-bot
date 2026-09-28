@@ -19,6 +19,10 @@ jobs:
         run: apt-get update && apt-get install -y python3 python3-pil
       - name: Privacy check
         run: python3 scripts/check-public.py
+      - name: Verify OneBot transport before integration cases
+        run: |
+          swift build --jobs 2
+          python3 scripts/test-onebot-transport.py "$(swift build --show-bin-path)/WeChatAIBot"
       - name: Shared engine tests
         run: swift test --jobs 2
       - name: Linux image boundaries
