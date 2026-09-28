@@ -1,4 +1,6 @@
-# 安装与快速开始
+# macOS 安装与快速开始
+
+**Windows 用户请阅读 [Windows / WSL2 教程](WINDOWS.md)**。Windows 使用同一引擎和 Web 面板，下面的 `.app`、Xcode、Lima 命令仅适用于 Mac。
 
 ## 支持范围
 

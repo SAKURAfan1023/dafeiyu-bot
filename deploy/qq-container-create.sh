@@ -2,7 +2,12 @@
 # Run inside the dedicated qq-ai VM after copying config and entrypoint here.
 set -euo pipefail
 cd "$HOME/qq-runtime"
-IMAGE='mlikiowa/napcat-docker@sha256:fbb892ec4bf3f922e0df79e65fe1192ddc55be638474819aeedb0a619bbe3ba5'
+# Architecture-specific manifests from the upstream multi-arch index.
+case "$(uname -m)" in
+  x86_64) IMAGE='mlikiowa/napcat-docker@sha256:41b1a8e10953065f4796ab19c0c8760cd3175376be976c5480710d29a77357ee' ;;
+  aarch64|arm64) IMAGE='mlikiowa/napcat-docker@sha256:fbb892ec4bf3f922e0df79e65fe1192ddc55be638474819aeedb0a619bbe3ba5' ;;
+  *) echo 'Unsupported CPU architecture' >&2; exit 1 ;;
+esac
 if sudo docker container inspect qq-ai >/dev/null 2>&1; then
   echo 'qq-ai already exists; use the lifecycle script to start it.'
   exit 0

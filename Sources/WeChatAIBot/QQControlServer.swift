@@ -1,38 +1,25 @@
 import Foundation
-import Network
 import BotCore
 
 /// An opt-in, loopback-only control surface for the same engine as the native panel.
 @MainActor final class QQControlServer {
     private let engine: QQEngine
-    private let listener: NWListener
+    private let listener: LoopbackListener
     private let token = UUID().uuidString + UUID().uuidString
     private var origin = ""
-    private var clients: [UUID: NWConnection] = [:]
+    private var clients: [UUID: LoopbackConnection] = [:]
     init(engine: QQEngine) throws {
         self.engine = engine
-        let parameters = NWParameters.tcp
-        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
-        listener = try NWListener(using: parameters)
+        listener = try LoopbackListener()
     }
     func start() {
-        listener.stateUpdateHandler = { [weak self] state in
-            Task { @MainActor in
-                guard let self else { return }
-                if case .ready = state, let port = self.listener.port {
-                    self.origin = "http://127.0.0.1:\(port.rawValue)"
-                    print("QQ_CONTROL_URL=\(self.origin)/#\(self.token)")
-                    print("本机控制页已就绪；尚未连接或开启自动回复")
-                } else if case .failed = state {
-                    self.engine.disconnect(); print("本机控制页启动失败"); exit(1)
-                }
-            }
-        }
-        listener.newConnectionHandler = { [weak self] connection in
+        origin = "http://127.0.0.1:\(listener.port)"
+        print("QQ_CONTROL_URL=\(origin)/#\(token)")
+        print("本机控制页已就绪；尚未连接或开启自动回复")
+        listener.start { [weak self] connection in
             Task { @MainActor in
                 guard let self, self.clients.count < 32 else { connection.cancel(); return }
                 let id = UUID(); self.clients[id] = connection
-                connection.start(queue: .main)
                 self.receive(connection, id: id, buffer: Data())
                 Task { @MainActor [weak self] in
                     try? await Task.sleep(nanoseconds: 15_000_000_000)
@@ -40,10 +27,9 @@ import BotCore
                 }
             }
         }
-        listener.start(queue: .main)
     }
-    private func receive(_ connection: NWConnection, id: UUID, buffer: Data) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, ended, error in
+    private func receive(_ connection: LoopbackConnection, id: UUID, buffer: Data) {
+        connection.read { [weak self] data, ended, error in
             Task { @MainActor in
                 guard let self, self.clients[id] != nil else { return }
                 var buffer = buffer; if let data { buffer.append(data) }
@@ -74,10 +60,10 @@ import BotCore
             }
         }
     }
-    private func handle(_ connection: NWConnection, id: UUID, method: String, path: String, headers: [String: String], body: Data) async {
+    private func handle(_ connection: LoopbackConnection, id: UUID, method: String, path: String, headers: [String: String], body: Data) async {
         if method == "GET", ["/", "/app.js"].contains(path) {
             let name = path == "/" ? "index" : "app", ext = path == "/" ? "html" : "js"
-            guard let url = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "QQControl"),
+            guard let url = RuntimeResources.directory?.appendingPathComponent("QQControl/\(name).\(ext)"),
                   let data = try? Data(contentsOf: url) else { reply(connection, id: id, code: 404); return }
             reply(connection, id: id, code: 200, data: data, type: path == "/" ? "text/html" : "text/javascript"); return
         }
@@ -178,6 +164,7 @@ import BotCore
             let object: [String: Any] = ["config": config, "connected": engine.connected, "running": engine.running,
                 "busy": engine.busy || engine.runtimeBusy, "status": engine.status, "error": engine.error ?? "",
                 "temporaryCredentials": engine.usesTemporaryCredentials,
+                "supportsKeychain": RuntimeResources.supportsKeychain,
                 "imageGeneration": try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.config.effectiveImageGeneration)),
                 "imageCredentials": ["zhipu": engine.hasZhipuImageKey, "cloudflare": engine.hasCloudflareImageToken],
                 "visualTools": try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.config.effectiveVisualTools)),
@@ -233,11 +220,11 @@ import BotCore
         var durationMinutes: Int?
         var singleReply: Bool?
     }
-    private func reply(_ connection: NWConnection, id: UUID, code: Int, data: Data = Data(), type: String = "application/json") {
+    private func reply(_ connection: LoopbackConnection, id: UUID, code: Int, data: Data = Data(), type: String = "application/json") {
         let header = "HTTP/1.1 \(code) Response\r\nContent-Type: \(type); charset=utf-8\r\nContent-Length: \(data.count)\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; form-action 'none'\r\n\r\n"
-        connection.send(content: Data(header.utf8) + data, completion: .contentProcessed { [weak self] _ in
+        connection.send(Data(header.utf8) + data) { [weak self] in
             connection.cancel()
             Task { @MainActor in self?.clients.removeValue(forKey: id) }
-        })
+        }
     }
 }

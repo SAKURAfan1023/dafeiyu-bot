@@ -1,6 +1,12 @@
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
+#if canImport(ImageIO)
 import ImageIO
+#endif
 import BotCore
 
 // Only the bundled, visually reviewed catalog can supply outgoing bytes. No model paths or remote fetching.
@@ -20,7 +26,7 @@ struct QQStickerLibrary {
         let sha256: String
         let at: Date
     }
-    init(directory: URL? = Bundle.main.resourceURL?.appendingPathComponent("QQStickers")) {
+    init(directory: URL? = RuntimeResources.directory?.appendingPathComponent("QQStickers")) {
         self.directory = directory
         guard let directory, let data = try? Data(contentsOf: directory.appendingPathComponent("manifest.json")),
               data.count < 1_000_000, let catalog = try? JSONDecoder().decode([Item].self, from: data),
@@ -45,12 +51,16 @@ struct QQStickerLibrary {
               let size = try? directory.appendingPathComponent(item.file).resourceValues(forKeys: [.fileSizeKey, .isSymbolicLinkKey]),
               size.isSymbolicLink == false, let bytes = size.fileSize, (1...3_000_000).contains(bytes),
               let data = try? Data(contentsOf: directory.appendingPathComponent(item.file)), data.count == bytes,
-              SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == item.sha256,
-              let image = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(image) == 1,
+              SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == item.sha256 else { return nil }
+        #if os(Linux)
+        guard (try? LinuxImages.process(data, mode: "sticker")) != nil else { return nil }
+        #else
+        guard let image = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(image) == 1,
               let properties = CGImageSourceCopyPropertiesAtIndex(image, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int,
               (1...4096).contains(width), (1...4096).contains(height) else { return nil }
+        #endif
         return data
     }
 }

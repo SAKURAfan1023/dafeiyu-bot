@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Fixed official endpoints. Only normalized image bytes and bounded current-image context leave the engine.
 struct QQVisualTools {
@@ -90,12 +93,20 @@ struct QQVisualTools {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(google ? key : "Bearer " + key, forHTTPHeaderField: google ? "X-Goog-Api-Key" : "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        #if os(Linux)
+        let (linuxData, response) = try await session.boundedData(for: request, limit: 1_000_000)
+        #else
         let (bytes, response) = try await session.bytes(for: request, delegate: NoVisualRedirect())
+        #endif
         guard let response = response as? HTTPURLResponse, response.expectedContentLength <= 1_000_000 else { throw AppFailure.message("识图响应无效或过大") }
         var data = Data()
+        #if os(Linux)
+        data = linuxData
+        #else
         for try await byte in bytes {
             guard data.count < 1_000_000 else { throw AppFailure.message("识图响应过大") }; data.append(byte)
         }
+        #endif
         try Task.checkCancellation()
         if response.statusCode != 200 {
             let error = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["error"] as? [String: Any]

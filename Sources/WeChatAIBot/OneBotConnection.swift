@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// One local, authenticated connection. A broken connection cancels all outstanding actions;
 /// sends are never retried because a missing acknowledgement is an unknown outcome.

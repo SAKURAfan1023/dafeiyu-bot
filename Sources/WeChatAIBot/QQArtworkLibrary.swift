@@ -1,7 +1,18 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
+#if canImport(ImageIO)
 import ImageIO
+#endif
+#if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
+#endif
 import BotCore
 
 struct QQArtworkPrepared: Sendable {
@@ -386,6 +397,9 @@ struct QQArtworkPrepared: Sendable {
         return try Data(contentsOf: file)
     }
     static func normalized(_ data: Data, config: QQArtworkConfig) throws -> Data {
+        #if os(Linux)
+        return try LinuxImages.process(data, mode: "artwork", options: ["minLongEdge": config.minLongEdge, "minShortEdge": config.minShortEdge])[0]
+        #else
         guard data.count <= 20_000_000, let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) == 1,
               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = props[kCGImagePropertyPixelWidth] as? Int, let height = props[kCGImagePropertyPixelHeight] as? Int,
@@ -397,6 +411,7 @@ struct QQArtworkPrepared: Sendable {
         CGImageDestinationAddImage(dest, image, [kCGImageDestinationLossyCompressionQuality: 0.88] as CFDictionary)
         guard CGImageDestinationFinalize(dest), output.length <= 3_000_000 else { throw AppFailure.message("插画压缩失败") }
         return output as Data
+        #endif
     }
     // Selected and visually checked anime/game female character works; all still pass current detail filters.
     nonisolated static let featuredIDs = ["53325959", "50533824", "49590533", "73164819", "29118503", "28260838"]

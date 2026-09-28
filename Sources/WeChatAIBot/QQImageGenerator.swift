@@ -1,5 +1,10 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(ImageIO)
 import ImageIO
+#endif
 import BotCore
 
 // Kept in memory or Keychain only. Never serialized with QQ configuration or model messages.
@@ -105,6 +110,11 @@ struct QQImageGenerator {
             }
             bytes = decoded
         }
+        #if os(Linux)
+        guard (try? LinuxImages.process(bytes, mode: "generated")) != nil else {
+            throw GenerationFailure(message: "图片解码或尺寸校验失败", allowsFallback: true)
+        }
+        #else
         guard let source = CGImageSourceCreateWithData(bytes as CFData, nil), CGImageSourceGetCount(source) == 1,
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int, let height = properties[kCGImagePropertyPixelHeight] as? Int,
@@ -112,6 +122,7 @@ struct QQImageGenerator {
               CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else {
             throw GenerationFailure(message: "图片无法解码或尺寸超限", allowsFallback: true)
         }
+        #endif
         return bytes // Preserve the provider's image and watermark; no prompt or image is stored locally.
     }
     private static func allowedImageURL(_ url: URL) -> Bool {
@@ -122,16 +133,24 @@ struct QQImageGenerator {
     }
     private func fetch(_ request: URLRequest, limit: Int) async throws -> (Data, Int) {
         try Task.checkCancellation()
+        #if os(Linux)
+        let (linuxData, response) = try await session.boundedData(for: request, limit: limit)
+        #else
         let (bytes, response) = try await session.bytes(for: request, delegate: NoGenerationRedirect())
+        #endif
         guard let response = response as? HTTPURLResponse, response.expectedContentLength <= limit else {
             throw GenerationFailure(message: "响应过大或无效", allowsFallback: true)
         }
         guard !(300...399).contains(response.statusCode) else { throw GenerationFailure(message: "接口重定向被拒绝", allowsFallback: false) }
         var data = Data()
+        #if os(Linux)
+        data = linuxData
+        #else
         for try await byte in bytes {
             guard data.count < limit else { throw GenerationFailure(message: "响应过大", allowsFallback: true) }
             data.append(byte)
         }
+        #endif
         try Task.checkCancellation()
         return (data, response.statusCode)
     }
