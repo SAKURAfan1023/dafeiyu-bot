@@ -1,0 +1,47 @@
+# Dedicated local QQ runtime; no macOS home/project mounts.
+vmType: vz
+arch: aarch64
+cpus: 2
+memory: 3GiB
+disk: 16GiB
+images:
+  - location: https://cloud-images.ubuntu.com/minimal/releases/noble/release-20260716/ubuntu-24.04-minimal-cloudimg-arm64.img
+    arch: aarch64
+    digest: sha256:7e938df669e3b1923595eeda97aa28569350c5283e05a835cc912a2486a54934
+mounts: []
+containerd:
+  system: false
+  user: false
+portForwards:
+  - guestPort: 6099
+    hostIP: 127.0.0.1
+    hostPort: 6099
+  - guestPort: 3001
+    hostIP: 127.0.0.1
+    hostPort: 3001
+  - guestPortRange: [1, 65535]
+    guestIP: 0.0.0.0
+    proto: any
+    ignore: true
+provision:
+  - mode: dependency
+    script: |
+      #!/bin/sh
+      set -eu
+      # Public Ubuntu mirror; Ubuntu's archive signature verification stays on.
+      sed -i 's|http://ports.ubuntu.com/ubuntu-ports|https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports|g' /etc/apt/sources.list.d/ubuntu.sources
+  - mode: system
+    script: |
+      #!/bin/sh
+      set -eu
+      if ! command -v docker >/dev/null 2>&1; then
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y docker.io
+      fi
+      systemctl enable --now docker
+probes:
+  - script: |
+      #!/bin/sh
+      sudo docker info >/dev/null 2>&1
+    hint: Docker is still installing; inspect cloud-init-output.log in the VM.
