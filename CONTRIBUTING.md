@@ -2,7 +2,7 @@
 
 项目持续更新、完善与迭代中。Bug 和改进建议欢迎提交 Issue；重大重构建议先描述问题与方案。
 
-1. 使用 macOS 14+ 和 Swift 6 工具链，克隆后执行 `bash scripts/test.sh`。
+1. 使用 macOS 14+ 和 Swift 6，或 Ubuntu 24.04 / WSL2 与 Swift 6.1.3；克隆后执行 `bash scripts/test.sh`。Linux 额外运行 `python3 scripts/test-linux-images.py` 和 `bash scripts/build-linux.sh`。
 2. 修改前沿调用链核对输入、状态所有权、权限、并发与失败处理；不要仅凭函数名称认定可复用。
 3. 新行为补必要回归测试；文本排版等低风险改动无需添加只复述实现的测试。
 4. 运行 `bash scripts/test.sh`、`bash scripts/build.sh` 和 `python3 scripts/check-public.py`。
