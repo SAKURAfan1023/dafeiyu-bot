@@ -1,0 +1,29 @@
+# Build outputs
+.build/
+.swiftpm/
+dist/
+.DS_Store
+__pycache__/
+*.pyc
+# Local credentials, accounts and operational data
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.p12
+*.log
+*.db
+*.sqlite*
+qq-state.json
+state.json
+config/
+local/
+private/
+artifacts/
+*.jsonl
+*.har
+*.heapsnapshot
+# Developer-specific files
+.vscode/
+.idea/
