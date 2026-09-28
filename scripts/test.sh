@@ -8,6 +8,7 @@ fi
 if [ -f "$PLUGIN" ]; then
   swift test -Xswiftc -load-plugin-library -Xswiftc "$PLUGIN"
 elif [ "$(uname -s)" = Linux ]; then
+  export DAFEIYU_RESOURCES="$PWD/Resources"
   swift test --jobs "${DAFEIYU_BUILD_JOBS:-2}"
 else
   swift test

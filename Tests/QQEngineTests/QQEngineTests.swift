@@ -42,6 +42,13 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         Self.lock.lock(); defer { Self.lock.unlock() }
         if !stopped { stopped = true; Self.cancellations += 1 }
     }
+    static func requireCancellation() async throws {
+        // URLSession cancellation is asynchronous. Emitting URLProtocol callbacks
+        // while Corelibs removes a cancelled task violates the mock's lifecycle.
+        let deadline = Date().addingTimeInterval(2)
+        while counts.cancelled == 0 && Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        try #require(counts.cancelled > 0)
+    }
     static func completePending(intensity: Int = 3, summary: Bool = false, participate: Bool? = true) {
         lock.lock()
         let active = pending.filter { !$0.stopped && !$0.completed }
@@ -281,6 +288,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         }
         if mode == "pause" {
             engine.pause(); #expect(engine.groupMessageCounts.isEmpty); #expect(engine.queuedCount == 0)
+            try await DelayedModelProtocol.requireCancellation()
             DelayedModelProtocol.completePending(); try await Task.sleep(nanoseconds: 100_000_000)
             #expect(engine.sends.attempts == 0)
             engine.start(); #expect(engine.groupMessageCounts.isEmpty)
@@ -360,6 +368,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(DelayedModelProtocol.counts.bodies.first?.contains("OWNER") == true)
         if mode == "pause" { engine.pause() }
         if mode == "clear" { engine.clearMemory(engine.config.targets[0].id) }
+        if ["pause", "clear"].contains(mode) { try await DelayedModelProtocol.requireCancellation() }
         DelayedModelProtocol.completePending()
         let completed = Date().addingTimeInterval(3)
         while ["capture", "timed"].contains(mode), engine.memoryBooks["12345:group:99999"]?.pending.isEmpty != true, Date() < completed { try await Task.sleep(nanoseconds: 20_000_000) }
