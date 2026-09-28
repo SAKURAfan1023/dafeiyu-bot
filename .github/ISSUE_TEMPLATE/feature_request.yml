@@ -1,0 +1,14 @@
+name: 功能建议
+description: 建议一个具体使用场景
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决的问题和使用场景
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望行为与验收方式

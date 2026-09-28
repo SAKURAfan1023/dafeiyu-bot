@@ -1,0 +1,25 @@
+name: Bug 反馈
+description: 报告大肥鱼的可复现问题（请先脱敏）
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "项目持续迭代中。请勿提交 API Key、Token、二维码、真实聊天或完整控制地址。微信仍在测试。"
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境与版本
+      description: macOS、Swift、大肥鱼提交版本、NapCat与QQ版本
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤、期望与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 脱敏错误与合成示例
+      description: 用合成称呼替代好友/群号，不粘贴真实秘密。
