@@ -45,4 +45,6 @@ OneBot 事件 → 核验账号/白名单/时间/方向/去重 → OWNER/BOT/PEER
 
 Linux 通过官方 Swift Crypto 实现原有 SHA-256；Pillow 子进程替代 ImageIO，校验图片大小/尺寸/帧数并保留 GIF 时间采样。子进程没有网络接口，设有内存、CPU、运行时间和输出上限。`BoundedDownload` 在下载过程中限制响应大小、拒绝重定向，替代 Linux 工具链没有的 AsyncBytes。
 
+Ubuntu 的系统 libcurl 可能没有 WebSocket 支持，因此 Linux 的 OneBot 传输使用 WebSocketKit / SwiftNIO。`LinuxOneBotTransport` 拥有每次连接的线程、10 秒握手期限、1 MB 帧/聚合上限和最多 32 条待处理入站消息；溢出或断线停止连接并释放线程。它只替换底层传输，`OneBotConnection` 继续统一处理 echo 对应、15 秒动作超时、取消和发送未知时不重发。HTTP 模型请求继续使用原有客户端。
+
 Mac 钥匙串、桌面二维码展示、Lima 管理与防休眠不迁移到 Linux；WSL 用户通过 NapCat 自己的 WebUI 扫码，凭证仅在内存中，电源策略在 Windows 中自行设置。原有 macOS 图像处理和原生界面保留。

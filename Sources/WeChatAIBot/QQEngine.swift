@@ -337,7 +337,7 @@ struct QQRuntimeCredentials: Decodable {
             runtimeLock = lock
             try config.validate(); try persist()
             let token = try runtimeCredentials?.oneBotToken ?? Keychain.load(account: "qq-onebot-token", allowAuthenticationUI: allowAuthenticationUI)
-            try connection.connect(endpoint: config.endpoint, token: token)
+            try await connection.connect(endpoint: config.endpoint, token: token)
             let response = try await connection.action("get_login_info")
             guard session == current else { return }
             guard let data = response["data"] as? [String: Any], QQPolicy.identifier(data["user_id"]) == config.expectedSelfID else {

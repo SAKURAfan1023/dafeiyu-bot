@@ -18,7 +18,7 @@ import BotCore
                 try config.validate()
                 let connection = OneBotConnection()
                 defer { connection.close() }
-                try connection.connect(endpoint: config.endpoint, token: readLine() ?? "")
+                try await connection.connect(endpoint: config.endpoint, token: readLine() ?? "")
                 async let login = connection.action("get_login_info")
                 async let health = connection.action("get_status")
                 let (a, b) = try await (login, health)
