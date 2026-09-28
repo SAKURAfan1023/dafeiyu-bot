@@ -156,7 +156,10 @@ struct QQRuntimeCredentials: Decodable {
             }
         } catch { storageOK = false; self.error = "QQ 配置读取失败，已阻止启动：\(error.localizedDescription)" }
         connection.event = { [weak self] in self?.receive($0) }
-        connection.disconnected = { [weak self] in self?.disconnect(reason: "QQ 连接中断；请手动检查并重新连接") }
+        connection.disconnected = { [weak self] error in
+            self?.error = error.localizedDescription
+            self?.disconnect(reason: "QQ 连接中断；请手动检查并重新连接")
+        }
         #if canImport(AppKit)
         for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
             observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

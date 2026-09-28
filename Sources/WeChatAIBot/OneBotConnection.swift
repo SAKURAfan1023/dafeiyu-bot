@@ -11,7 +11,7 @@ import FoundationNetworking
     private var pending: [String: CheckedContinuation<[String: Any], Error>] = [:]
     private var deadlines: [String: Task<Void, Never>] = [:]
     var event: (([String: Any]) -> Void)?
-    var disconnected: (() -> Void)?
+    var disconnected: ((Error) -> Void)?
     func connect(endpoint: String, token: String) throws {
         close()
         guard let url = URL(string: endpoint), !token.isEmpty else { throw AppFailure.message("请先配置 OneBot 令牌") }
@@ -38,7 +38,7 @@ import FoundationNetworking
                 }
             } catch {
                 guard let self, self.socket === socket else { return }
-                self.close(error: error); self.disconnected?()
+                self.close(error: error); self.disconnected?(error)
             }
         }
     }
