@@ -22,7 +22,7 @@ import WebSocketKit
 
     func connect(url: URL, token: String) async throws {
         try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 guard !closed else { continuation.resume(throwing: CancellationError()); return }
                 waiter = continuation
                 timeout = Task { [weak self] in
