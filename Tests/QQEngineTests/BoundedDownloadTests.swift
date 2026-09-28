@@ -1,6 +1,7 @@
 #if os(Linux)
 import Foundation
 import FoundationNetworking
+import Glibc
 import Testing
 @testable import WeChatAIBot
 
@@ -29,7 +30,9 @@ print(server.server_port, flush=True)
 server.serve_forever()
 """#]
         server.standardOutput = output; try server.run()
-        defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
+        // A child spawned from a Swift worker may inherit a blocked SIGTERM.
+        // This disposable fixture owns no persistent state; always reap it.
+        defer { if server.isRunning { _ = Glibc.kill(server.processIdentifier, SIGKILL); server.waitUntilExit() } }
         let port = try #require(Int(String(decoding: output.fileHandleForReading.availableData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)))
         let session = URLSession(configuration: .ephemeral)
         defer { session.finishTasksAndInvalidate() }
