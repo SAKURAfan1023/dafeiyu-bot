@@ -27,10 +27,20 @@ python3 scripts/test-onebot-transport.py 'dist/WeChat AI Bot.app/Contents/MacOS/
 
 ## Windows / WSL2 兼容增量
 
-新增同一 QQ 引擎的 Linux 入口、本机 Web 传输、内存凭证、Swift Crypto / Pillow 图像适配与完整 Windows 教程。没有将 macOS 的 SwiftUI / 微信窗口操作声明为 Windows 原生功能。
+2026-09-29，新增同一 QQ 引擎的 Linux 入口、本机 Web 传输、内存凭证、Swift Crypto / Pillow 图像适配与完整 Windows 教程。macOS 的 SwiftUI / 微信窗口操作未迁移到 Windows，暂无原生 exe 安装包。
 
-- 本地 macOS 127 项回归通过；release 构建及临时签名通过。
-- 新传输的真实本机 HTTP 检查通过：静态资源、Token、Origin、Host、重复请求头、超大 Content-Length、Transfer-Encoding 拒绝和暂停；没有连接 QQ 或调用模型。
-- Pillow 合成图像检查通过：静态图、GIF 时间采样与帧预算、透明背景、清晰度门槛、尺寸、损坏输入与元数据清理。
-- Linux 编译、共享引擎测试和运行验证由 `.github/workflows/linux.yml` 检查，当前正在执行兼容验证。
-- Windows 实机 WSL 安装、跨系统浏览器访问、扫码与对端收发尚未验收；不能用 Linux CI 代替。
+验证源码为 `12f327e`，通过 [PR #1](https://github.com/SAKURAfan1023/dafeiyu-bot/pull/1) 合并到主分支；后续状态标注只修改文档。
+
+| 检查 | 结果与证据 |
+| --- | --- |
+| macOS 回归与构建 | 127 项测试、release 构建和签名检查通过；[macOS CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/36450117176) |
+| Linux 共享引擎回归 | Ubuntu 24.04 x86_64、Swift 6.1.3，128 项测试通过；[Linux CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/36450117166) |
+| 真实本机 HTTP 下载 | 正常下载、声明长度超限、流式超限、取消、拒绝重定向均通过；采用合成本机服务，不只依赖 URLProtocol 模拟 |
+| Pillow 图像处理 | 静态图、GIF 时间采样与帧预算、透明背景、清晰度、尺寸、损坏输入和元数据清理通过 |
+| Linux release 产物 | 构建通过；从打包资源目录启动面板，资源、Token、Origin、Host、重复请求头、超大 Content-Length、Transfer-Encoding 拒绝与暂停均通过 |
+| OneBot 合成传输 | Linux debug / release 的成功、账号不符、离线、断线四个场景均通过 |
+| 隐私与文档 | 104 个公开文件的工作区/暂存扫描无命中；相对链接完整，提交采用 GitHub no-reply 邮箱 |
+
+兼容过程中修复了系统 libcurl 不支持 WebSocket、Linux 自定义 URLProtocol 下载文件行为不一致的问题；Linux 使用 NIO WebSocket 和有界 HTTP 数据接收。取消夹具等待 URLSession 确认后再检查旧结果，辅助 HTTP 进程在测试结束时可靠回收，没有删除暂停或取消覆盖来让检查通过。
+
+本次检查没有连接真实 QQ、调用付费模型、重启原有机器人或修改生产配置。Windows 实机 WSL 安装、跨系统浏览器访问、扫码与对端收发，以及 Linux ARM64 尚未验收；不能用上述 x86_64 CI 代替。微信和长期运行边界保持上表所述。
