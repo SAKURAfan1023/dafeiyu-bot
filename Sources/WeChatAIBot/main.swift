@@ -110,6 +110,11 @@ if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.argument
                 var editor = QQPanelState(); editor.refresh(qq.config); editor.section = section
                 previews.append(("QQ-" + section, AnyView(QQView(engine: qq, wechat: engine, editor: .constant(editor)).padding(24)), true))
             }
+            let partialSave = QQEngine(preview: true, allowAuthenticationUI: false)
+            partialSave.error = "生图配置已保存；智谱凭证未完成。合成钥匙串拒绝；输入已保留，可重试或取消钥匙串保存。"
+            var partialEditor = QQPanelState(); partialEditor.refresh(partialSave.config); partialEditor.section = "图片与工具"
+            partialEditor.imageZhipuKey = "synthetic-preview-only"
+            previews.append(("QQ-工具保存异常", AnyView(QQView(engine: partialSave, wechat: engine, editor: .constant(partialEditor)).padding(24)), true))
             for (name, content, fullHeight) in previews {
                 let view = NSHostingView(rootView: content.allowsHitTesting(false)
                     .frame(width: 1120).fixedSize(horizontal: false, vertical: fullHeight)
@@ -128,7 +133,7 @@ if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.argument
                 try png.write(to: directory.appendingPathComponent(name + ".png"))
                 window.close()
             }
-            print("已渲染 \(previews.count) 张合成数据面板（含 QQ 四个完整分区）；未读取密钥、用户配置或微信，不作为真实交互验收")
+            print("已渲染 \(previews.count) 张合成数据面板（含 QQ 四个完整分区与保存异常）；未读取密钥、用户配置或微信，不作为真实交互验收")
             exit(0)
         } catch { print(error.localizedDescription); exit(1) }
     }

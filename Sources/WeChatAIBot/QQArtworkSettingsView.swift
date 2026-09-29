@@ -95,6 +95,7 @@ struct QQArtworkSettingsView: View {
                     } catch { engine.error = error.localizedDescription }
                 }
                 Text(engine.artworkStatus).font(.caption)
+                QQPanelOperationError(message: engine.error)
             }.disabled(engine.running || engine.busy || engine.runtimeBusy)
         }
     }

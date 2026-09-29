@@ -12,6 +12,7 @@ const formNames = {connection:'连接配置',reply:'范围与回复',artwork:'�
 const actionForms = {saveConnection:'connection',connect:'connection',save:'reply',start:'reply',saveArtwork:'artwork',saveImageGeneration:'image',saveVisualTools:'visual'};
 const credentialFields = {connection:['token','key'],image:['imageGenZhipuKey','imageGenCloudflareToken'],visual:['googleVisionKey']};
 let requestSequence = 0, activeActions = 0, actionError = '';
+const inlineError=document.createElement('div'); inlineError.id='actionErrorInline'; inlineError.className='action-error';
 let runtimeSignature = '';
 let lastConfirmedAt = 0, syncError = '', statusRequestPending = false;
 // JSON object key order is not stable across server responses.
@@ -58,7 +59,11 @@ function syncForms() {
   text('replyDraftStatus',dirtyForms.has('reply')?'范围或回复设置有未提交修改。':'范围与回复设置已同步；开始回复才会实际运行。');
 }
 
-function showActionError(message) { actionError=message; text('error',message); }
+function showActionError(message, anchor=document.activeElement.closest('.buttons,.target')) {
+  actionError=message; text('error',message); inlineError.textContent=message;
+  if(message && anchor?.isConnected) anchor.after(inlineError);
+  else inlineError.remove();
+}
 function validateNumericInputs(ids) {
   for(const id of ids) {
     const input=$(id);
@@ -115,11 +120,12 @@ async function act(action) {
   if(dirtyForms.has('reply') && ['add','remove','setPersona'].includes(action.action)) {
     showActionError('范围与回复有未保存草稿。请先保存或放弃，再增删会话或切换会话性格。'); return false;
   }
-  actionError='';
+  showActionError('');
   const group=actionForms[action.action], draft=dirtyForms.get(group);
   if(draft && draft.base!==formSnapshot(group)) { showActionError('此区域存在配置冲突，草稿尚未提交。请先载入最新配置。'); return false; }
   action={...action,configurationRevision:draft?.revision??state?.configurationRevision};
   const focused=document.activeElement;
+  const errorAnchor=focused.closest('.buttons,.target');
   let focusMoved=false;
   const observeInteraction=()=>{focusMoved=true;};
   activeActions++; pending=true; if(state) render();
@@ -139,7 +145,7 @@ async function act(action) {
   } catch(e) { failure=e.message; }
   finally {
     for(const event of ['focusin','pointerdown','keydown']) document.removeEventListener(event,observeInteraction);
-    activeActions--; pending=activeActions>0; if(state) render(); if(failure) showActionError(failure);
+    activeActions--; pending=activeActions>0; if(state) render(); if(failure) showActionError(failure,errorAnchor);
     if(!pending && !focusMoved && focused!==document.body && document.activeElement===document.body) {
       let destination=focused.isConnected && !focused.disabled ? focused : null;
       if(!destination && action.target) {
@@ -301,7 +307,7 @@ document.addEventListener('input',event=>{
   renderScopeActions();
 });
 $('discardDrafts').addEventListener('click',()=>{
-  actionError=''; dirtyForms.clear(); syncedForms.clear(); targetDraft.clear(); targetSignature='';
+  showActionError(''); dirtyForms.clear(); syncedForms.clear(); targetDraft.clear(); targetSignature='';
   for(const id of ['token','key','imageGenZhipuKey','imageGenCloudflareToken','googleVisionKey']) $(id).value='';
   render();
 });

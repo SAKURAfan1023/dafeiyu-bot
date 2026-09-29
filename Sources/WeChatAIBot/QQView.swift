@@ -205,8 +205,11 @@ struct QQView: View {
                         ForEach(QQImageProvider.allCases, id: \.self) { provider in Text(provider.title).tag(provider) }
                     }
                     Toggle("默认失败后尝试另一个模型一次", isOn: $editor.imageDraft.value.fallbackEnabled)
+                    Text("智谱 API Key（留空保留）").font(.caption).foregroundStyle(.secondary)
                     SecureField("智谱 API Key（留空保留）", text: $editor.imageZhipuKey)
+                    Text("Cloudflare Account ID").font(.caption).foregroundStyle(.secondary)
                     TextField("Cloudflare Account ID", text: $editor.imageDraft.value.cloudflareAccountID)
+                    Text("Cloudflare API Token（Workers AI 权限，留空保留）").font(.caption).foregroundStyle(.secondary)
                     SecureField("Cloudflare API Token（Workers AI 权限，留空保留）", text: $editor.imageCloudflareToken)
                     Toggle("新填密钥保存至本机钥匙串（取消则仅本次运行）", isOn: $editor.persistImageCredentials)
                     Text("智谱 \(engine.hasZhipuImageKey ? "已载入" : "未载入") · Cloudflare \(engine.hasCloudflareImageToken ? "已载入" : "未载入")；开始回复时会尝试读取已有钥匙串凭证。").font(.caption)
@@ -217,6 +220,7 @@ struct QQView: View {
                         if engine.error == nil { editor.imageZhipuKey = ""; editor.imageCloudflareToken = "" }
                     }
                     Text(engine.imageGenerationStatus).font(.caption)
+                    QQPanelOperationError(message: engine.error)
                     Text("直连两平台官方接口。每次最多生成一张；超时/限流/服务异常可切换，取消或审核拒绝不切换。请求计入每日模型调用限额。智谱固定免费 Flash；Cloudflare 请使用 Free 套餐，付费账户超额可能计费。").font(.caption).foregroundStyle(.secondary)
                 }.padding(8).disabled(engine.running || engine.busy || engine.runtimeBusy)
             }
@@ -231,6 +235,7 @@ struct QQView: View {
                     }
                     Text("智谱复用生图区域的智谱 Key；主模型拥挤时最多切换一次免费 4.1V 备用。动图按时间最多取 6 帧，每轮最多 12 帧，再由 DeepSeek 理解对话。不保存原图。识图结果仍可能出错。").font(.caption)
                     Toggle("Google Web Detection（明确请求搜图/出处时）", isOn: $editor.visualDraft.value.googleWebEnabled)
+                    Text("Google Cloud Vision API Key（留空保留）").font(.caption).foregroundStyle(.secondary)
                     SecureField("Google Cloud Vision API Key（留空保留）", text: $editor.googleVisionKey)
                     Toggle("保存 Google Key 到钥匙串", isOn: $editor.persistVisualCredentials)
                     Text(engine.hasGoogleVisionKey ? "Google 凭证已载入" : "Google 凭证未载入").font(.caption)
@@ -243,6 +248,7 @@ struct QQView: View {
                         if engine.error == nil { editor.googleVisionKey = "" }
                     }
                     Text(engine.visualStatus).font(.caption)
+                    QQPanelOperationError(message: engine.error)
                 }.padding(8).disabled(engine.running || engine.busy || engine.runtimeBusy)
             }
             }
@@ -323,10 +329,7 @@ struct QQView: View {
                         .font(.caption).foregroundStyle(.secondary)
                     Button("保存范围与回复草稿（不启动）") { saveReplyDraft() }
                         .buttonStyle(.borderedProminent)
-                    if let error = engine.error {
-                        Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
-                    }
+                    QQPanelOperationError(message: engine.error)
                 }.padding(8).disabled(engine.running || engine.busy || engine.runtimeBusy)
             }
             }
@@ -362,5 +365,20 @@ struct QQView: View {
         }.textFieldStyle(.roundedBorder)
         .onAppear { editor.refresh(engine.config) }
         .onChange(of: engine.config) { _, current in editor.refresh(current) }
+    }
+}
+
+/// The engine owns one latest error, so repeated local feedback must not imply
+/// that unrelated forms each failed or that a partial credential save rolled back.
+struct QQPanelOperationError: View {
+    let message: String?
+    var body: some View {
+        if let message {
+            Label("最近一次操作提示：\(message)", systemImage: "exclamationmark.triangle.fill")
+                .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        }
     }
 }
