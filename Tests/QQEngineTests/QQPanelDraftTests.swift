@@ -4,6 +4,57 @@ import BotCore
 @testable import WeChatAIBot
 
 @Suite @MainActor struct QQPanelDraftTests {
+    @Test func replyLimitTextKeepsInvalidDraftAndPersistsAllCorrectedFieldsTogether() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        engine.save(expectedSelfID: "12345")
+        try #require(engine.error == nil)
+        let before = engine.config
+        var draft = QQPanelDraft(value: QQReplyForm(before))
+        draft.value.dailyLimit = "1000"; draft.value.sendDaily = ""; draft.value.perChatDaily = "1000"
+        draft.value.persona.maxCharacters = 42
+        draft.refresh(QQReplyForm(before))
+        #expect(draft.hasChanges && draft.value.sendDaily.isEmpty)
+        #expect(throws: (any Error).self) {
+            try engine.saveReplySettings(ai: draft.value.validatedAI(), persona: draft.value.persona)
+        }
+        #expect(engine.config == before)
+        #expect(QQEngine(allowAuthenticationUI: false, storageDirectory: directory).config == before)
+        draft.value.sendDaily = " 1000 "
+        engine.saveReplySettings(ai: try draft.value.validatedAI(), persona: draft.value.persona)
+        try #require(engine.error == nil)
+        draft.reset(QQReplyForm(engine.config))
+        #expect(!draft.hasChanges && draft.value.sendDaily == "1000")
+        let saved = QQEngine(allowAuthenticationUI: false, storageDirectory: directory).config
+        #expect(saved.ai.dailyLimit == 1000 && saved.ai.effectiveSendLimits.daily == 1000)
+        #expect(saved.ai.effectiveSendLimits.perChatDaily == 1000 && saved.effectivePersona.maxCharacters == 42)
+        #expect(!engine.running && engine.usage.calls == 0 && engine.sends.attempts == 0)
+    }
+
+    @Test func replyLimitTextRejectsMalformedValuesAndRetainsOtherAISettings() throws {
+        var config = QQConfig()
+        config.ai.prompt = "synthetic preference"
+        config.ai.cooldownSeconds = 7
+        config.ai.effectiveSendLimits.globalIntervalSeconds = 9
+        let fields: [WritableKeyPath<QQReplyForm, String>] = [\.dailyLimit, \.sendDaily, \.perChatDaily]
+        for field in fields {
+            for raw in ["", "0", "10001", "1.5", "-1", "1e3", String(repeating: "9", count: 50)] {
+                var form = QQReplyForm(config); form[keyPath: field] = raw
+                #expect(throws: (any Error).self) { try form.validatedAI() }
+                #expect(form[keyPath: field] == raw)
+            }
+        }
+        var form = QQReplyForm(config)
+        form.dailyLimit = "1"; form.sendDaily = "10000"; form.perChatDaily = " 1000 "
+        let result = try form.validatedAI()
+        #expect(result.dailyLimit == 1 && result.effectiveSendLimits.daily == 10000)
+        #expect(result.effectiveSendLimits.perChatDaily == 1000)
+        #expect(result.prompt == config.ai.prompt && result.cooldownSeconds == 7)
+        #expect(result.effectiveSendLimits.globalIntervalSeconds == 9)
+    }
+
     @Test func artworkTextDraftValidatesBeforePersistingAndSurvivesRefresh() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -50,7 +101,7 @@ import BotCore
         let engine = QQEngine(preview: true, allowAuthenticationUI: false)
         let original = engine.config
         var reply = QQPanelDraft(value: QQReplyForm(original))
-        reply.value.ai.dailyLimit = 17
+        reply.value.dailyLimit = "17"
         reply.value.memoryEnabled = true
         reply.value.persona.maxCharacters = 42
         #expect(reply.hasChanges)
@@ -59,13 +110,13 @@ import BotCore
         updated.effectiveImageGeneration.enabled = true
         reply.refresh(QQReplyForm(updated))
         #expect(!reply.conflicts(with: QQReplyForm(updated)))
-        #expect(reply.value.ai.dailyLimit == 17 && reply.value.memoryEnabled)
+        #expect(reply.value.dailyLimit == "17" && reply.value.memoryEnabled)
         updated.ai.dailyLimit = 31
         reply.refresh(QQReplyForm(updated))
         #expect(reply.conflicts(with: QQReplyForm(updated)))
-        #expect(reply.value.ai.dailyLimit == 17)
+        #expect(reply.value.dailyLimit == "17")
         reply.reset(QQReplyForm(updated))
-        #expect(!reply.hasChanges && reply.value.ai.dailyLimit == 31)
+        #expect(!reply.hasChanges && reply.value.dailyLimit == "31")
     }
 
     @Test func cleanDraftTracksExternalChangesAndSuccessfulSaveClearsDirty() {
@@ -91,13 +142,13 @@ import BotCore
         config.expectedSelfID = "12345"
         var editor = QQPanelState()
         editor.refresh(config)
-        editor.replyDraft.value.ai.dailyLimit = 17
+        editor.replyDraft.value.dailyLimit = "17"
         editor.artworkDraft.value.artists = "12345,67890"
         editor.artworkDraft.value.settings.scheduleMinute = 19
         editor.imageZhipuKey = "synthetic-test-input"
         // The actual QQ page's onAppear invokes refresh; the window keeps editor.
         editor.refresh(config)
-        #expect(editor.replyDraft.value.ai.dailyLimit == 17)
+        #expect(editor.replyDraft.value.dailyLimit == "17")
         #expect(editor.artworkDraft.value.artists == "12345,67890")
         #expect(editor.artworkDraft.value.settings.scheduleMinute == 19)
         #expect(editor.hasCredentialDrafts)
@@ -114,7 +165,7 @@ import BotCore
         editor.artworkDraft.reset(QQArtworkForm(config.effectiveArtwork))
         #expect(editor.artworkDraft.value.artists == "24680")
         #expect(!editor.artworkDraft.hasChanges)
-        #expect(editor.replyDraft.value.ai.dailyLimit == 17)
+        #expect(editor.replyDraft.value.dailyLimit == "17")
     }
 
 }

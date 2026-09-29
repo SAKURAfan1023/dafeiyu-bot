@@ -101,11 +101,20 @@ if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.argument
             NSApp.setActivationPolicy(.prohibited)
             NSApp.finishLaunching()
             let engine = BotEngine(preview: true)
-            for page in Page.allCases {
-                let bounds = NSRect(x: 0, y: 0, width: 1120, height: 780)
-                let view = NSHostingView(rootView: Dashboard(engine: engine, initialPage: page,
-                    openQQWebPanel: {}, closeQQWebPanel: {}, webPanelOpen: true)
-                    .allowsHitTesting(false).frame(width: bounds.width, height: bounds.height))
+            var previews = Page.allCases.map { page in
+                (page.rawValue, AnyView(Dashboard(engine: engine, initialPage: page,
+                    openQQWebPanel: {}, closeQQWebPanel: {}, webPanelOpen: true)), false)
+            }
+            let qq = QQEngine(preview: true, allowAuthenticationUI: false)
+            for section in ["连接与运行", "范围与回复", "图片与工具", "记忆与记录"] {
+                var editor = QQPanelState(); editor.refresh(qq.config); editor.section = section
+                previews.append(("QQ-" + section, AnyView(QQView(engine: qq, wechat: engine, editor: .constant(editor)).padding(24)), true))
+            }
+            for (name, content, fullHeight) in previews {
+                let view = NSHostingView(rootView: content.allowsHitTesting(false)
+                    .frame(width: 1120).fixedSize(horizontal: false, vertical: fullHeight)
+                    .background(Color(nsColor: .windowBackgroundColor)))
+                let bounds = NSRect(x: 0, y: 0, width: 1120, height: fullHeight ? ceil(view.fittingSize.height) : 780)
                 view.appearance = NSAppearance(named: .aqua)
                 let window = NSWindow(contentRect: bounds, styleMask: [.borderless], backing: .buffered, defer: false)
                 window.isReleasedWhenClosed = false
@@ -116,10 +125,10 @@ if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.argument
                 guard let bitmap = view.bitmapImageRepForCachingDisplay(in: bounds) else { throw AppFailure.message("面板渲染失败") }
                 view.cacheDisplay(in: bounds, to: bitmap)
                 guard let png = bitmap.representation(using: .png, properties: [:]) else { throw AppFailure.message("面板图片导出失败") }
-                try png.write(to: directory.appendingPathComponent(page.rawValue + ".png"))
+                try png.write(to: directory.appendingPathComponent(name + ".png"))
                 window.close()
             }
-            print("已渲染 \(Page.allCases.count) 页合成数据面板；未读取密钥、用户配置或微信")
+            print("已渲染 \(previews.count) 张合成数据面板（含 QQ 四个完整分区）；未读取密钥、用户配置或微信，不作为真实交互验收")
             exit(0)
         } catch { print(error.localizedDescription); exit(1) }
     }

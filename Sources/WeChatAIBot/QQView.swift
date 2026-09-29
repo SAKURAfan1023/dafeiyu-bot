@@ -8,11 +8,13 @@ struct QQView: View {
     private func saveReplyDraft() {
         guard !editor.replyDraft.conflicts(with: QQReplyForm(engine.config)) else { engine.error = "范围或回复配置已在别处更新，请先载入最新设置"; return }
         let value = editor.replyDraft.value
-        engine.saveReplySettings(ai: value.ai, persona: value.persona, onlineEnabled: value.onlineEnabled,
-            visionEnabled: value.visionEnabled, memoryEnabled: value.memoryEnabled,
-            groupParticipationEnabled: value.groupParticipationEnabled, groupParticipationEvery: value.groupParticipationEvery,
-            memoryOptions: value.memoryOptions, enabledTargets: Set(value.targets.filter(\.enabled).map(\.key)))
-        if engine.error == nil { editor.replyDraft.reset(QQReplyForm(engine.config)) }
+        do {
+            engine.saveReplySettings(ai: try value.validatedAI(), persona: value.persona, onlineEnabled: value.onlineEnabled,
+                visionEnabled: value.visionEnabled, memoryEnabled: value.memoryEnabled,
+                groupParticipationEnabled: value.groupParticipationEnabled, groupParticipationEvery: value.groupParticipationEvery,
+                memoryOptions: value.memoryOptions, enabledTargets: Set(value.targets.filter(\.enabled).map(\.key)))
+            if engine.error == nil { editor.replyDraft.reset(QQReplyForm(engine.config)) }
+        } catch { engine.error = error.localizedDescription }
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -254,6 +256,9 @@ struct QQView: View {
                         Button("复制微信 AI 参数") {
                             var ai = wechat.config; ai.chats = []
                             ai.prompt = editor.replyDraft.value.ai.prompt; editor.replyDraft.value.ai = ai
+                            editor.replyDraft.value.dailyLimit = String(ai.dailyLimit)
+                            editor.replyDraft.value.sendDaily = String(ai.effectiveSendLimits.daily)
+                            editor.replyDraft.value.perChatDaily = String(ai.effectiveSendLimits.perChatDaily)
                         }
                     }
                     Text("大肥鱼 · 成年鲸鱼娘同人角色。会话独立性格优先于默认；切换保留记忆与身份，下面填写补充偏好。").font(.caption)
@@ -283,17 +288,27 @@ struct QQView: View {
                     Text(engine.memoryStatus).font(.caption)
                     Text("每群、每好友独立保存重点和待整理片段，暂停不丢失；群内保留说话人标识。只检索相关记忆，后台整理占模型额度。").font(.caption)
                     Stepper("配图至少间隔 \(editor.replyDraft.value.persona.stickerIntervalSeconds) 秒", value: $editor.replyDraft.value.persona.stickerIntervalSeconds, in: 1...3600)
-                    Button("保存范围与回复草稿（不启动）") { saveReplyDraft() }
                     Text("本地精选 \(engine.stickerLibrary.items.count) 张，按配字和语境选图；同会话 24 小时不重复，重启保留记录，无合适图不硬配。群聊响应真实 @；主动接话须另行启用。").font(.caption).foregroundStyle(.secondary)
-                    TextEditor(text: $editor.replyDraft.value.ai.prompt).frame(height: 90).border(Color.secondary.opacity(0.2))
+                    Text("补充偏好").font(.caption)
+                    TextEditor(text: $editor.replyDraft.value.ai.prompt).frame(height: 90).border(Color.secondary.opacity(0.2)).accessibilityLabel("补充偏好")
                     HStack {
-                        Stepper("每日调用 \(editor.replyDraft.value.ai.dailyLimit)", value: $editor.replyDraft.value.ai.dailyLimit, in: 1...10000)
+                        VStack(alignment: .leading) {
+                            Text("每日模型调用上限 · 1–10000").font(.caption)
+                            TextField("每日模型调用上限", text: $editor.replyDraft.value.dailyLimit)
+                        }
                         Stepper("单会话间隔 \(editor.replyDraft.value.ai.cooldownSeconds) 秒", value: $editor.replyDraft.value.ai.cooldownSeconds, in: 1...300)
                     }
                     HStack {
-                        Stepper("每日发送 \(editor.replyDraft.value.ai.effectiveSendLimits.daily)", value: $editor.replyDraft.value.ai.effectiveSendLimits.daily, in: 1...10000)
-                        Stepper("单会话每日 \(editor.replyDraft.value.ai.effectiveSendLimits.perChatDaily)", value: $editor.replyDraft.value.ai.effectiveSendLimits.perChatDaily, in: 1...10000)
+                        VStack(alignment: .leading) {
+                            Text("每日发送上限 · 1–10000").font(.caption)
+                            TextField("每日发送上限", text: $editor.replyDraft.value.sendDaily)
+                        }
+                        VStack(alignment: .leading) {
+                            Text("单会话每日发送上限 · 1–10000").font(.caption)
+                            TextField("单会话每日发送上限", text: $editor.replyDraft.value.perChatDaily)
+                        }
                     }
+                    Text("可直接输入整数，例如 1000；保存时统一校验，错误输入会保留供修改。修改额度不重置今日计数。").font(.caption).foregroundStyle(.secondary)
                     Stepper("全局发送间隔 \(editor.replyDraft.value.ai.effectiveSendLimits.globalIntervalSeconds) 秒", value: $editor.replyDraft.value.ai.effectiveSendLimits.globalIntervalSeconds, in: 1...300)
                     Toggle("仅在指定时段回复", isOn: $editor.replyDraft.value.ai.workHoursEnabled)
                     if editor.replyDraft.value.ai.workHoursEnabled {
@@ -306,7 +321,13 @@ struct QQView: View {
                     Text("本次规则拒绝 \(engine.rejectedScopedEvents) 个名单内消息事件（如未 @、不支持的消息或历史事件）").font(.caption).foregroundStyle(.secondary)
                     Text("草稿只在点击保存后生效；开始回复使用已保存配置。连接地址和令牌请断开后编辑。发送超时不会重发。")
                         .font(.caption).foregroundStyle(.secondary)
-                }.padding(8).disabled(engine.running)
+                    Button("保存范围与回复草稿（不启动）") { saveReplyDraft() }
+                        .buttonStyle(.borderedProminent)
+                    if let error = engine.error {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
+                    }
+                }.padding(8).disabled(engine.running || engine.busy || engine.runtimeBusy)
             }
             }
             if editor.section == "记忆与记录" {
