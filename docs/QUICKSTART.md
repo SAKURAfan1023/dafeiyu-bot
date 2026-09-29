@@ -20,7 +20,7 @@ bash scripts/test.sh
 bash scripts/build.sh
 ```
 
-产物 `dist/WeChat AI Bot.app` 是本机临时签名的源码构建，不是已公证安装包。可以 `open 'dist/WeChat AI Bot.app'` 打开原生界面；如果原生交互有兼容问题，使用下文共用同一引擎的 Web 面板。
+产物 `dist/WeChat AI Bot.app` 是本机临时签名的源码构建，不是已公证安装包。可以 `open 'dist/WeChat AI Bot.app'` 打开原生界面，并在 QQ 页或菜单栏点击“在浏览器打开 QQ 面板”，两端控制同一个运行实例。也可退出客户端，使用下文命令独立启动 Web 后台；不要同时启动两个活动引擎。
 
 ## 2. 选择 QQ 桥接方式
 

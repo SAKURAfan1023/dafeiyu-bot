@@ -103,7 +103,9 @@ if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.argument
             let engine = BotEngine(preview: true)
             for page in Page.allCases {
                 let bounds = NSRect(x: 0, y: 0, width: 1120, height: 780)
-                let view = NSHostingView(rootView: Dashboard(engine: engine, initialPage: page).allowsHitTesting(false).frame(width: bounds.width, height: bounds.height))
+                let view = NSHostingView(rootView: Dashboard(engine: engine, initialPage: page,
+                    openQQWebPanel: {}, closeQQWebPanel: {}, webPanelOpen: true)
+                    .allowsHitTesting(false).frame(width: bounds.width, height: bounds.height))
                 view.appearance = NSAppearance(named: .aqua)
                 let window = NSWindow(contentRect: bounds, styleMask: [.borderless], backing: .buffered, defer: false)
                 window.isReleasedWhenClosed = false

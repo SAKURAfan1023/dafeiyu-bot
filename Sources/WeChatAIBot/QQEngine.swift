@@ -52,6 +52,13 @@ struct QQRuntimeCredentials: Decodable {
     @Published private(set) var status = "QQ 尚未连接"
     @Published private(set) var contacts: [QQContact] = []
     @Published private(set) var logs: [LogEntry] = []
+    var runtimeRecords: [QQRuntimeRecord] {
+        let secrets = [runtimeCredentials?.oneBotToken ?? "", runtimeCredentials?.deepSeekKey ?? "",
+                       imageCredentials.zhipuKey, imageCredentials.cloudflareToken, googleVisionKey]
+        return logs.suffix(30).reversed().map { entry in
+            QQRuntimeRecord(entry, target: config.targets.first { $0.id == entry.chatID }, secrets: secrets)
+        }
+    }
     @Published private(set) var usage = Usage()
     @Published private(set) var sends = SendUsage()
     @Published var error: String?
@@ -103,6 +110,7 @@ struct QQRuntimeCredentials: Decodable {
     private var runtimeLock: Int32 = -1
     private var singleReply = false
     private let allowAuthenticationUI: Bool
+    private let credentialWriter: (String, String) throws -> Void
     private let modelClient: DeepSeekClient
     private let incomingImageLoader: QQIncomingImages
     private let imageGenerator: QQImageGenerator
@@ -116,13 +124,51 @@ struct QQRuntimeCredentials: Decodable {
     @Published private(set) var imageGenerationStatus = "尚未调用生图"
     var hasZhipuImageKey: Bool { !imageCredentials.zhipuKey.isEmpty }
     var hasCloudflareImageToken: Bool { !imageCredentials.cloudflareToken.isEmpty }
+    /// Shared by native and Web panels. Describes saved configuration only;
+    /// unloaded credentials may still exist in Keychain and are not probed here.
+    var configurationHints: [String] {
+        var hints: [String] = []
+        let artwork = config.effectiveArtwork, image = config.effectiveImageGeneration, visual = config.effectiveVisualTools
+        let credentialNext = RuntimeResources.supportsKeychain ? "开始回复时会尝试读取钥匙串；若仍未载入，请在图片与工具中配置" : "请在图片与工具中填写本次运行的凭证"
+        if image.enabled {
+            let providers = image.fallbackEnabled ? [image.primary, image.primary.alternate] : [image.primary]
+            if providers.contains(.zhipu) && !hasZhipuImageKey { hints.append("智谱生图凭证当前未载入。" + credentialNext + "。") }
+            if providers.contains(.cloudflare) {
+                if image.cloudflareAccountID.isEmpty { hints.append("Cloudflare 生图缺少 Account ID；请在生图设置中填写并保存，备用模型也需要此项。") }
+                if !hasCloudflareImageToken { hints.append("Cloudflare 生图凭证当前未载入。" + credentialNext + "。") }
+            }
+        }
+        if config.effectiveVisionEnabled && visual.provider == .zhipu && !hasZhipuImageKey {
+            hints.append("智谱识图凭证当前未载入，与生图共用智谱 Key。" + credentialNext + "。")
+        }
+        if visual.googleWebEnabled {
+            if !config.effectiveVisionEnabled { hints.append("Google 搜图尚不能读取图片：请在范围与回复中启用识图并保存。") }
+            if !config.effectiveOnlineEnabled { hints.append("Google 搜图的联网开关未启用：请在范围与回复中开启联网并保存。") }
+            if !hasGoogleVisionKey { hints.append("Google 搜图凭证当前未载入。" + credentialNext + "。") }
+        }
+        if artwork.scheduleEnabled {
+            if !artwork.enabled { hints.append("定时发送已勾选，但插画功能未启用；请在插画设置中启用并保存。") }
+            let active = Set(config.targets.filter(\.enabled).map(\.key))
+            let scheduled = Set(artwork.scheduleTargets)
+            if scheduled.intersection(active).isEmpty { hints.append("定时发送没有已启用的目标：请保存回复范围，再在插画设置中选择定时会话。") }
+            else if !scheduled.isSubset(of: active) { hints.append("部分定时目标未在回复范围启用，将跳过这些会话；请核对回复范围。") }
+        }
+        if config.effectiveGroupParticipationEnabled && !config.targets.contains(where: { $0.group && $0.enabled }) {
+            hints.append("主动接话已开启，但没有已启用的群；请在回复范围中添加并启用群聊。")
+        }
+        if config.ai.workHoursEnabled && !config.ai.inWorkHours() {
+            hints.append("当前不在已保存的工作时段内，自动回复与定时发送暂不执行；工作时段使用服务所在系统的本地时间。")
+        }
+        return hints
+    }
     let stickerLibrary: QQStickerLibrary
     private var lastStickerAt: Date?
     private var recentStickers: [String: [QQStickerLibrary.Use]] = [:]
     private var repliesSinceSticker: [String: Int] = [:]
     @Published private var runtimeCredentials: QQRuntimeCredentials?
     var usesTemporaryCredentials: Bool { runtimeCredentials != nil }
-    init(preview: Bool = false, allowAuthenticationUI: Bool = true, storageDirectory: URL? = nil, modelClient: DeepSeekClient = DeepSeekClient(), stickerLibrary: QQStickerLibrary = QQStickerLibrary(), imageGenerator: QQImageGenerator = QQImageGenerator(), incomingImageLoader: QQIncomingImages = QQIncomingImages(), artworkLibrary: QQArtworkLibrary? = nil) {
+    init(preview: Bool = false, allowAuthenticationUI: Bool = true, storageDirectory: URL? = nil, modelClient: DeepSeekClient = DeepSeekClient(), stickerLibrary: QQStickerLibrary = QQStickerLibrary(), imageGenerator: QQImageGenerator = QQImageGenerator(), incomingImageLoader: QQIncomingImages = QQIncomingImages(), artworkLibrary: QQArtworkLibrary? = nil, credentialWriter: @escaping (String, String) throws -> Void = { value, account in try Keychain.save(value, account: account) }) {
+        self.credentialWriter = credentialWriter
         self.allowAuthenticationUI = allowAuthenticationUI
         self.modelClient = modelClient
         self.imageGenerator = imageGenerator
@@ -241,16 +287,31 @@ struct QQRuntimeCredentials: Decodable {
         } catch { if session == current { self.error = error.localizedDescription } }
     }    #endif
 
-    func save(token: String = "") {
-        guard !connected, !busy, !runtimeBusy else { error = "请先断开 QQ 并等待环境操作完成后修改配置"; return }
+    /// Returns whether the ordinary configuration reached disk. Credentials can
+    /// fail afterward; callers must keep their input and show the partial result.
+    @discardableResult
+    func save(token: String = "", endpoint: String? = nil, expectedSelfID: String? = nil) -> Bool {
+        guard !connected, !busy, !runtimeBusy else { error = "请先断开 QQ 并等待环境操作完成后修改配置"; return false }
+        let previous = config
+        var configurationSaved = false
         do {
-            try config.validate()
-            if !token.isEmpty { try Keychain.save(token, account: "qq-onebot-token") }
-            try persist(); status = "QQ 配置已保存"
-        } catch { self.error = error.localizedDescription }
+            let token = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard token.utf8.count <= 8192, !token.contains(where: { $0.isWhitespace }) else { throw AppFailure.message("OneBot 令牌格式无效") }
+            if let endpoint { config.endpoint = endpoint }
+            if let expectedSelfID { config.expectedSelfID = expectedSelfID }
+            try config.validate(); try persist(); configurationSaved = true
+            status = "QQ 地址与账号已保存，尚未连接"
+            if !token.isEmpty { try credentialWriter(token, "qq-onebot-token") }
+            error = nil
+        } catch {
+            if !configurationSaved { config = previous }
+            self.error = configurationSaved ? "地址与账号已保存，但 OneBot 令牌保存失败；输入已保留，请重试。\(error.localizedDescription)" : error.localizedDescription
+        }
+        return configurationSaved
     }
-    func saveReplySettings(ai: BotConfig, persona: QQPersona, onlineEnabled: Bool? = nil, visionEnabled: Bool? = nil, memoryEnabled: Bool? = nil, groupParticipationEnabled: Bool? = nil, groupParticipationEvery: Int? = nil, memoryOptions: QQMemoryOptions? = nil) {
+    func saveReplySettings(ai: BotConfig, persona: QQPersona, onlineEnabled: Bool? = nil, visionEnabled: Bool? = nil, memoryEnabled: Bool? = nil, groupParticipationEnabled: Bool? = nil, groupParticipationEvery: Int? = nil, memoryOptions: QQMemoryOptions? = nil, enabledTargets: Set<String>? = nil) {
         guard !running, !busy, !runtimeBusy else { error = "请先暂停并等待当前操作完成"; return }
+        let previous = config
         do {
             var updated = config; updated.ai = ai; updated.persona = persona
             if let onlineEnabled { updated.onlineEnabled = onlineEnabled }
@@ -259,9 +320,13 @@ struct QQRuntimeCredentials: Decodable {
             if let memoryOptions { updated.memoryOptions = memoryOptions }
             if let groupParticipationEnabled { updated.groupParticipationEnabled = groupParticipationEnabled }
             if let groupParticipationEvery { updated.groupParticipationEvery = groupParticipationEvery }
+            if let enabledTargets {
+                guard enabledTargets.isSubset(of: Set(updated.targets.map(\.key))) else { throw AppFailure.message("范围包含未知会话") }
+                for index in updated.targets.indices { updated.targets[index].enabled = enabledTargets.contains(updated.targets[index].key) }
+            }
             try updated.validate(); config = updated; try persist()
-            error = nil; status = "大肥鱼回复设置已保存，尚未启动回复"
-        } catch { self.error = error.localizedDescription }
+            error = nil; status = "回复范围与设置已保存，尚未启动回复"
+        } catch { config = previous; self.error = error.localizedDescription }
     }
     func useTemporaryCredentials(token: String, key: String) -> Bool {
         guard !connected, !busy, !runtimeBusy else { error = "请先断开 QQ，再更换临时凭证"; return false }
@@ -280,52 +345,59 @@ struct QQRuntimeCredentials: Decodable {
         googleVisionKey = ""
         imageCredentials = QQImageCredentials()
     }
-    func saveImageGeneration(_ settings: QQImageGenerationConfig, zhipuKey: String, cloudflareToken: String, persistCredentials: Bool) {
-        guard !running, !busy, !runtimeBusy else { error = "请先暂停再配置生图"; return }
+    @discardableResult
+    func saveImageGeneration(_ settings: QQImageGenerationConfig, zhipuKey: String, cloudflareToken: String, persistCredentials: Bool) -> Bool {
+        guard !running, !busy, !runtimeBusy else { error = "请先暂停再配置生图"; return false }
+        let previous = config
+        var configurationSaved = false
+        var completed: [String] = []
         do {
             try settings.validate()
             let zhipu = zhipuKey.trimmingCharacters(in: .whitespacesAndNewlines)
             let cloudflare = cloudflareToken.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard [zhipu, cloudflare].allSatisfy({ $0.utf8.count <= 8192 && !$0.contains(where: { $0.isNewline || $0.isWhitespace }) }) else {
+            guard [zhipu, cloudflare].allSatisfy({ $0.utf8.count <= 8192 && !$0.contains(where: { $0.isWhitespace }) }) else {
                 throw AppFailure.message("生图凭证格式无效")
             }
-            // Persist the settings under the existing writer lock before touching Keychain.
-            let old = config
-            config.imageGeneration = settings
-            do { try persist() } catch { config = old; throw error }
-            do {
-                if persistCredentials {
-                    if !zhipu.isEmpty { try Keychain.save(zhipu, account: "qq-image-zhipu") }
-                    if !cloudflare.isEmpty { try Keychain.save(cloudflare, account: "qq-image-cloudflare") }
-                }
-            } catch {
-                config = old; try persist()
-                throw error
+            config.imageGeneration = settings; try persist(); configurationSaved = true
+            imageGenerationStatus = "生图配置已保存；默认 " + settings.primary.title + (settings.fallbackEnabled ? "，失败尝试 " + settings.primary.alternate.title : "，不切换备用")
+            if !zhipu.isEmpty {
+                if persistCredentials { try credentialWriter(zhipu, "qq-image-zhipu") }
+                imageCredentials.zhipuKey = zhipu; completed.append("智谱")
             }
-            if !zhipu.isEmpty { imageCredentials.zhipuKey = zhipu }
-            if !cloudflare.isEmpty { imageCredentials.cloudflareToken = cloudflare }
-            imageGenerationStatus = "生图设置已保存；默认 " + settings.primary.title + (settings.fallbackEnabled ? "，失败尝试 " + settings.primary.alternate.title : "，不切换备用")
+            if !cloudflare.isEmpty {
+                if persistCredentials { try credentialWriter(cloudflare, "qq-image-cloudflare") }
+                imageCredentials.cloudflareToken = cloudflare; completed.append("Cloudflare")
+            }
             error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            if !configurationSaved { config = previous }
+            let progress = completed.isEmpty ? "本次凭证均未保存" : "本次已保存并载入：" + completed.joined(separator: "、")
+            self.error = configurationSaved ? "生图配置已保存；\(progress)，其余凭证未完成。输入已保留，可重试或取消钥匙串保存。\(error.localizedDescription)" : error.localizedDescription
+        }
+        return configurationSaved
     }
-    func saveVisualTools(_ settings: QQVisualConfig, googleKey: String, persistCredentials: Bool) {
-        guard !running, !busy, !runtimeBusy else { error = "请先暂停再配置识图"; return }
+    @discardableResult
+    func saveVisualTools(_ settings: QQVisualConfig, googleKey: String, persistCredentials: Bool) -> Bool {
+        guard !running, !busy, !runtimeBusy else { error = "请先暂停再配置识图"; return false }
+        let previous = config
+        var configurationSaved = false
         do {
             let key = googleKey.trimmingCharacters(in: .whitespacesAndNewlines)
             guard key.utf8.count <= 8192, !key.contains(where: { $0.isWhitespace }) else { throw AppFailure.message("Google 凭证格式无效") }
-            let old = config
-            config.visualTools = settings
-            do { try persist() } catch { config = old; throw error }
-            do { if persistCredentials && !key.isEmpty { try Keychain.save(key, account: "qq-google-vision") } }
-            catch { config = old; try persist(); throw error }
+            config.visualTools = settings; try persist(); configurationSaved = true
+            visualStatus = "识图配置已保存：" + settings.provider.title
+            if persistCredentials && !key.isEmpty { try credentialWriter(key, "qq-google-vision") }
             if !key.isEmpty { googleVisionKey = key }
-            visualStatus = "识图设置已保存：" + settings.provider.title
             error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            if !configurationSaved { config = previous }
+            self.error = configurationSaved ? "识图配置已保存，但 Google 凭证保存失败；输入已保留，可重试或取消钥匙串保存。\(error.localizedDescription)" : error.localizedDescription
+        }
+        return configurationSaved
     }
     func connect() async {
         guard !busy, !runtimeBusy, !connected, storageOK else { return }
-        busy = true; let current = UUID(); session = current
+        busy = true; error = nil; let current = UUID(); session = current
         defer { if session == current { busy = false } }
         do {
             guard let file else { throw AppFailure.message("QQ 状态目录不可用") }
@@ -441,14 +513,20 @@ struct QQRuntimeCredentials: Decodable {
         do { try persist() } catch { self.error = error.localizedDescription }
     }
     func add(_ contact: QQContact) {
-        guard !running, !config.targets.contains(where: { $0.key == contact.id }), config.targets.count < 20 else { return }
+        guard !running, !busy, !runtimeBusy else { error = "请先暂停并等待当前操作完成"; return }
+        guard !config.targets.contains(where: { $0.key == contact.id }) else { error = "该会话已在名单中"; return }
+        guard config.targets.count < 20 else { error = "最多托管 20 个会话"; return }
+        let previous = config.targets
         config.targets.append(QQTarget(number: contact.number, name: contact.name, group: contact.group))
-        do { try persist() } catch { self.error = error.localizedDescription }
+        do { try persist(); error = nil }
+        catch { config.targets = previous; self.error = error.localizedDescription }
     }
     func remove(_ id: UUID) {
         guard !running, !busy, !runtimeBusy else { error = "请先暂停并等待当前操作完成"; return }
+        let previous = config.targets
         config.targets.removeAll { $0.id == id }
-        do { try persist() } catch { self.error = error.localizedDescription }
+        do { try persist(); error = nil }
+        catch { config.targets = previous; self.error = error.localizedDescription }
     }
     private func receive(_ object: [String: Any]) {
         if object["post_type"] as? String == "meta_event" {

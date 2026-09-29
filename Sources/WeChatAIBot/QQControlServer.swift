@@ -8,17 +8,32 @@ import BotCore
     private let token = UUID().uuidString + UUID().uuidString
     private var origin = ""
     private var clients: [UUID: LoopbackConnection] = [:]
+    private var started = false
+    private(set) var isRunning = false
+    var controlURL: URL { URL(string: "http://127.0.0.1:\(listener.port)/#\(token)")! }
+    private var observedConfiguration: QQConfig?
+    private var configurationRevision = UUID().uuidString
+    private func currentConfigurationRevision() -> String {
+        if observedConfiguration != engine.config {
+            observedConfiguration = engine.config
+            configurationRevision = UUID().uuidString
+        }
+        return configurationRevision
+    }
     init(engine: QQEngine) throws {
         self.engine = engine
         listener = try LoopbackListener()
     }
-    func start() {
+    func start(announce: Bool = true) {
+        guard !started else { return }; started = true; isRunning = true
         origin = "http://127.0.0.1:\(listener.port)"
-        print("QQ_CONTROL_URL=\(origin)/#\(token)")
-        print("本机控制页已就绪；尚未连接或开启自动回复")
+        if announce {
+            print("QQ_CONTROL_URL=\(controlURL.absoluteString)")
+            print("本机控制页已就绪；打开控制页不会改变 QQ 的连接或运行状态")
+        }
         listener.start { [weak self] connection in
             Task { @MainActor in
-                guard let self, self.clients.count < 32 else { connection.cancel(); return }
+                guard let self, self.isRunning, self.clients.count < 32 else { connection.cancel(); return }
                 let id = UUID(); self.clients[id] = connection
                 self.receive(connection, id: id, buffer: Data())
                 Task { @MainActor [weak self] in
@@ -28,6 +43,13 @@ import BotCore
             }
         }
     }
+    /// Revoke this control surface without pausing or disconnecting the shared engine.
+    /// Actions already accepted by the engine may still finish there.
+    func stop() {
+        started = true; isRunning = false; listener.stop()
+        clients.values.forEach { $0.cancel() }; clients.removeAll()
+    }
+    deinit { listener.stop(); clients.values.forEach { $0.cancel() } }
     private func receive(_ connection: LoopbackConnection, id: UUID, buffer: Data) {
         connection.read { [weak self] data, ended, error in
             Task { @MainActor in
@@ -75,6 +97,7 @@ import BotCore
                   let data = engine.stickerLibrary.data(for: item) else { reply(connection, id: id, code: 404); return }
             reply(connection, id: id, code: 200, data: data, type: item.file.hasSuffix(".png") ? "image/png" : item.file.hasSuffix(".webp") ? "image/webp" : "image/jpeg"); return
         }
+        var configurationSaved = false
         if method == "POST", path == "/api/action" {
             guard headers["origin"] == origin, headers["content-type"]?.hasPrefix("application/json") == true else {
                 reply(connection, id: id, code: 403); return
@@ -82,7 +105,17 @@ import BotCore
             do {
                 let request = try JSONDecoder().decode(Action.self, from: body)
                 engine.error = nil
+                // Pause/takeover must remain available even from an old page. Editing
+                // and starting require the exact configuration the editor observed.
+                let writesConfiguration = ["saveConnection", "connect", "save", "start", "add", "remove", "setPersona", "saveArtwork", "addArtworkArtist", "removeArtworkArtist", "saveImageGeneration", "saveVisualTools"]
+                if writesConfiguration.contains(request.action) {
+                    guard request.configurationRevision == currentConfigurationRevision() else {
+                        throw AppFailure.message("配置已更新或页面版本过旧。草稿未提交，请载入最新配置后再操作。")
+                    }
+                }
                 switch request.action {
+                case "saveConnection":
+                    configurationSaved = engine.save(endpoint: request.endpoint, expectedSelfID: request.expectedSelfID)
                 case "addArtworkArtist":
                     guard let input = request.artistInput else { throw AppFailure.message("缺少画师主页或 ID") }
                     await engine.addArtworkArtist(input)
@@ -96,10 +129,10 @@ import BotCore
                     engine.saveArtwork(settings)
                 case "saveVisualTools":
                     guard let settings = request.visualTools else { throw AppFailure.message("缺少识图设置") }
-                    engine.saveVisualTools(settings, googleKey: request.googleVisionKey ?? "", persistCredentials: request.persistVisualCredentials ?? true)
+                    configurationSaved = engine.saveVisualTools(settings, googleKey: request.googleVisionKey ?? "", persistCredentials: request.persistVisualCredentials ?? true)
                 case "saveImageGeneration":
                     guard let settings = request.imageGeneration else { throw AppFailure.message("缺少生图设置") }
-                    engine.saveImageGeneration(settings, zhipuKey: request.zhipuKey ?? "", cloudflareToken: request.cloudflareToken ?? "", persistCredentials: request.persistImageCredentials ?? true)
+                    configurationSaved = engine.saveImageGeneration(settings, zhipuKey: request.zhipuKey ?? "", cloudflareToken: request.cloudflareToken ?? "", persistCredentials: request.persistImageCredentials ?? true)
                 case "pause": engine.pause()
                 case "disconnect": engine.disconnect()
                 case "clear": engine.clearTemporaryCredentials()
@@ -111,9 +144,14 @@ import BotCore
                     engine.clearMemory(target.id)
                 case "connect":
                     guard !engine.connected, !engine.busy, !engine.runtimeBusy else { throw AppFailure.message("请先断开并等待当前操作完成") }
-                    if let expected = request.expectedSelfID { engine.config.expectedSelfID = expected }
-                    if let key = request.key, !key.isEmpty {
-                        guard engine.useTemporaryCredentials(token: request.token ?? "", key: key) else { throw AppFailure.message(engine.error ?? "临时凭证无效") }
+                    guard request.expectedSelfID == nil || request.expectedSelfID == engine.config.expectedSelfID,
+                          request.endpoint == nil || request.endpoint == engine.config.endpoint else {
+                        throw AppFailure.message("连接只使用已保存地址与账号，请先保存连接配置")
+                    }
+                    let token = (request.token ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    let key = (request.key ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !token.isEmpty || !key.isEmpty {
+                        guard engine.useTemporaryCredentials(token: token, key: key) else { throw AppFailure.message(engine.error ?? "临时凭证无效") }
                     }
                     await engine.connect()
                 case "add":
@@ -136,24 +174,16 @@ import BotCore
                     if let options = request.memoryOptions { updated.memoryOptions = options }
                     if let value = request.groupParticipationEnabled { updated.groupParticipationEnabled = value }
                     if let value = request.groupParticipationEvery { updated.groupParticipationEvery = value }
-                    try updated.validate(); engine.saveReplySettings(ai: updated.ai, persona: updated.effectivePersona, onlineEnabled: updated.effectiveOnlineEnabled, visionEnabled: updated.effectiveVisionEnabled, memoryEnabled: updated.effectiveMemoryEnabled, groupParticipationEnabled: updated.effectiveGroupParticipationEnabled, groupParticipationEvery: updated.effectiveGroupParticipationEvery, memoryOptions: updated.effectiveMemoryOptions)
+                    try updated.validate(); engine.saveReplySettings(ai: updated.ai, persona: updated.effectivePersona, onlineEnabled: updated.effectiveOnlineEnabled, visionEnabled: updated.effectiveVisionEnabled, memoryEnabled: updated.effectiveMemoryEnabled, groupParticipationEnabled: updated.effectiveGroupParticipationEnabled, groupParticipationEvery: updated.effectiveGroupParticipationEvery, memoryOptions: updated.effectiveMemoryOptions, enabledTargets: request.enabled.map { Set($0) })
                 case "start":
                     guard engine.connected, !engine.running, !engine.busy, !engine.runtimeBusy else { throw AppFailure.message("请先连接或暂停") }
                     let duration = request.singleReply == true ? 15 : (request.durationMinutes ?? 120)
                     guard (0...4320).contains(duration) else { throw AppFailure.message("运行时长必须为 0 至 4320 分钟") }
-                    let enabled = Set(request.enabled ?? [])
-                    guard enabled.isSubset(of: Set(engine.config.targets.map(\.key))) else { throw AppFailure.message("范围包含未知会话") }
-                    var updated = engine.config
-                    if let ai = request.ai { updated.ai = ai }
-                    if let persona = request.persona { updated.persona = persona }
-                    if let onlineEnabled = request.onlineEnabled { updated.onlineEnabled = onlineEnabled }
-                    if let visionEnabled = request.visionEnabled { updated.visionEnabled = visionEnabled }
-                    if let memoryEnabled = request.memoryEnabled { updated.memoryEnabled = memoryEnabled }
-                    if let options = request.memoryOptions { updated.memoryOptions = options }
-                    if let value = request.groupParticipationEnabled { updated.groupParticipationEnabled = value }
-                    if let value = request.groupParticipationEvery { updated.groupParticipationEvery = value }
-                    try updated.validate(); engine.config = updated
-                    for index in engine.config.targets.indices { engine.config.targets[index].enabled = enabled.contains(engine.config.targets[index].key) }
+                    guard request.ai == nil, request.persona == nil, request.enabled == nil,
+                          request.onlineEnabled == nil, request.visionEnabled == nil, request.memoryEnabled == nil,
+                          request.memoryOptions == nil, request.groupParticipationEnabled == nil, request.groupParticipationEvery == nil else {
+                        throw AppFailure.message("开始回复只使用已保存配置，请先单独保存范围与回复设置")
+                    }
                     engine.start(singleReply: request.singleReply ?? false, duration: duration == 0 ? nil : Double(duration * 60))
                 default: throw AppFailure.message("不支持的操作")
                 }
@@ -161,10 +191,12 @@ import BotCore
         } else if !(method == "GET" && path == "/api/status") { reply(connection, id: id, code: 404); return }
         do {
             let config = try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.config))
-            let object: [String: Any] = ["config": config, "connected": engine.connected, "running": engine.running,
+            let object: [String: Any] = ["config": config, "configurationSaved": configurationSaved, "configurationRevision": currentConfigurationRevision(), "connected": engine.connected, "running": engine.running,
                 "busy": engine.busy || engine.runtimeBusy, "status": engine.status, "error": engine.error ?? "",
                 "temporaryCredentials": engine.usesTemporaryCredentials,
                 "supportsKeychain": RuntimeResources.supportsKeychain,
+                "configurationHints": engine.configurationHints,
+                "runtimeRecords": try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.runtimeRecords)),
                 "imageGeneration": try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.config.effectiveImageGeneration)),
                 "imageCredentials": ["zhipu": engine.hasZhipuImageKey, "cloudflare": engine.hasCloudflareImageToken],
                 "visualTools": try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.config.effectiveVisualTools)),
@@ -193,6 +225,8 @@ import BotCore
         } catch { reply(connection, id: id, code: 500) }
     }
     private struct Action: Decodable {
+        var configurationRevision: String?
+        var endpoint: String?
         var groupParticipationEnabled: Bool?
         var groupParticipationEvery: Int?
         var visualTools: QQVisualConfig?

@@ -9,9 +9,15 @@ private typealias ViewState<Value> = SwiftUI.State<Value>
 struct BotApp: App {
     @StateObject private var engine = BotEngine()
     @StateObject private var qq = QQEngine()
+    @ViewState private var qqWebPanel: QQControlServer?
     var body: some Scene {
-        WindowGroup("微信与 QQ AI 助手") { Dashboard(engine: engine, qq: qq).frame(minWidth: 980, minHeight: 700) }
+        WindowGroup("微信与 QQ AI 助手", content: {
+            Dashboard(engine: engine, qq: qq, openQQWebPanel: { openQQWebPanel() },
+                      closeQQWebPanel: { closeQQWebPanel() }, webPanelOpen: qqWebPanel != nil)
+                .frame(minWidth: 980, minHeight: 700)
+        })
             .defaultSize(width: 1120, height: 780)
+            .commands { PanelNavigationCommands() }
         MenuBarExtra("微信与 QQ AI 助手", systemImage: "bubble.left.and.text.bubble.right") {
             Text("微信：\(engine.status)")
             Text("QQ：\(qq.status)")
@@ -19,10 +25,24 @@ struct BotApp: App {
                 .disabled(!engine.isRunning && !engine.isBusy && engine.safetyReason != nil)
             Divider()
             Button("显示面板") { NSApp.activate(ignoringOtherApps: true); NSApp.windows.first(where: { $0.canBecomeMain })?.makeKeyAndOrderFront(nil) }
+            Button("在浏览器打开 QQ 面板") { openQQWebPanel() }
+            if qqWebPanel != nil { Button("关闭网页控制入口（不暂停 QQ）") { closeQQWebPanel() } }
             Button("暂停微信与 QQ") { engine.stop(); qq.pause() }
             Button("退出") { engine.stop(); qq.disconnect(); NSApp.terminate(nil) }
         }
     }
+    @MainActor private func openQQWebPanel() {
+        do {
+            let server: QQControlServer
+            if let existing = qqWebPanel { server = existing }
+            else {
+                server = try QQControlServer(engine: qq)
+                server.start(announce: false); qqWebPanel = server
+            }
+            if !NSWorkspace.shared.open(server.controlURL) { qq.error = "无法打开默认浏览器，请检查本机浏览器设置。网页控制入口仍可关闭后重试。" }
+        } catch { qq.error = error.localizedDescription }
+    }
+    @MainActor private func closeQQWebPanel() { qqWebPanel?.stop(); qqWebPanel = nil }
 }
 enum Page: String, CaseIterable, Identifiable {
     case overview = "总览", chats = "托管会话", ai = "AI 配置", rules = "回复规则", logs = "运行记录", qq = "QQ 接入"
@@ -30,19 +50,48 @@ enum Page: String, CaseIterable, Identifiable {
     var icon: String {
         switch self { case .overview: return "square.grid.2x2"; case .chats: return "bubble.left.and.bubble.right"; case .ai: return "sparkles"; case .rules: return "slider.horizontal.3"; case .logs: return "list.bullet.rectangle"; case .qq: return "bubble.left.fill" }
     }
+    var shortcut: KeyEquivalent {
+        switch self { case .overview: return "1"; case .chats: return "2"; case .ai: return "3"; case .rules: return "4"; case .logs: return "5"; case .qq: return "6" }
+    }
+}
+private struct PanelPageKey: FocusedValueKey { typealias Value = Binding<Page> }
+private extension FocusedValues {
+    var panelPage: Binding<Page>? {
+        get { self[PanelPageKey.self] }
+        set { self[PanelPageKey.self] = newValue }
+    }
+}
+private struct PanelNavigationCommands: Commands {
+    @FocusedBinding(\.panelPage) private var page: Page?
+    var body: some Commands {
+        CommandMenu("面板导航") {
+            ForEach(Page.allCases) { item in
+                Button(item.rawValue) { page = item }
+                    .keyboardShortcut(item.shortcut, modifiers: .command)
+                    .disabled(page == nil)
+            }
+        }
+    }
 }
 struct Dashboard: View {
     @ObservedObject var engine: BotEngine
     @ObservedObject var qq: QQEngine
     @ViewState private var page: Page = .overview
+    @ViewState private var qqEditor = QQPanelState()
     @ViewState private var key = ""
     @ViewState private var name = ""
     @ViewState private var kind: ChatKind = .direct
     @ViewState private var importing = false
     @ViewState private var confirmingUnlock = false
+    private let openQQWebPanel: (() -> Void)?
+    private let closeQQWebPanel: (() -> Void)?
+    private let webPanelOpen: Bool
     private let accent = Color(red: 0.10, green: 0.47, blue: 0.39)
-    init(engine: BotEngine, qq: QQEngine? = nil, initialPage: Page = .overview) {
+    init(engine: BotEngine, qq: QQEngine? = nil, initialPage: Page = .overview,
+         openQQWebPanel: (() -> Void)? = nil, closeQQWebPanel: (() -> Void)? = nil, webPanelOpen: Bool = false) {
         self.engine = engine; self.qq = qq ?? QQEngine(preview: true)
+        self.openQQWebPanel = openQQWebPanel; self.closeQQWebPanel = closeQQWebPanel
+        self.webPanelOpen = webPanelOpen
         _page = ViewState(initialValue: initialPage)
     }
     var body: some View {
@@ -94,12 +143,24 @@ struct Dashboard: View {
                         case .ai: ai
                         case .rules: rules
                         case .logs: logs
-                        case .qq: QQView(engine: qq, wechat: engine)
+                        case .qq:
+                            if let openQQWebPanel {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Button("在浏览器打开 QQ 面板", action: openQQWebPanel)
+                                        if webPanelOpen, let closeQQWebPanel { Button("关闭网页控制入口", action: closeQQWebPanel) }
+                                    }
+                                    Text("网页与本窗口共用同一 QQ 引擎。关闭网页入口不会暂停回复；需要停止时请使用暂停按钮。")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            QQView(engine: qq, wechat: engine, editor: $qqEditor)
                         }
                     }.padding(28)
                 }
             }.background(Color(nsColor: .windowBackgroundColor))
         }.tint(accent)
+            .focusedSceneValue(\.panelPage, $page)
             .confirmationDialog("确认已在微信中核对账号状态并决定恢复接入？", isPresented: $confirmingUnlock) {
                 Button("解除停机锁，不启动托管", role: .destructive) { engine.clearSafetyStop() }
                 Button("保持停机", role: .cancel) { }
