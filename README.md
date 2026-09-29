@@ -111,6 +111,8 @@ QQ 可用 · 微信测试中 · macOS 原生 / Windows WSL2 本机 Web 面板 ·
 
 有 Bug、使用问题或建议，可联系作者 **QQ：2807307652**，请备注“大肥鱼 / GitHub”。该号码仅为作者公开联系方式，不是默认机器人账号，也不会被加入运行白名单。安全问题请先私下联系，见 [SECURITY.md](SECURITY.md)。
 
+**禁止恶意转载与滥用。** 转载或再分发请保留版权与许可声明，注明原仓库和修改内容；不得冒充作者/官方、夹带恶意代码、盗取密钥或泄露聊天及个人资料。本声明表达反滥用立场，不额外撤销 MIT 授予的合法转载、修改或商用权利。
+
 代码使用 [MIT License](LICENSE)；原创示例图采用 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)，第三方平台与工具遵循各自条款。见 [贡献指南](CONTRIBUTING.md)。
 
 ## 关键词 / Topics
