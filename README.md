@@ -8,7 +8,7 @@
 
 QQ 可用 · 微信测试中 · macOS 原生 / Windows WSL2 本机 Web 面板 · 持续更新、完善与迭代中
 
-[Mac 快速开始](docs/QUICKSTART.md) · [Windows 安装](docs/WINDOWS.md) · [操作指南](docs/USER_GUIDE.md) · [全部命令](docs/COMMANDS.md) · [架构与开发](docs/ARCHITECTURE.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
+[Mac 快速开始](docs/QUICKSTART.md) · [Windows 安装](docs/WINDOWS.md) · [真实案例](docs/CASES.md) · [操作指南](docs/USER_GUIDE.md) · [全部命令](docs/COMMANDS.md) · [架构与开发](docs/ARCHITECTURE.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
 
 </div>
 
@@ -31,7 +31,11 @@ QQ 可用 · 微信测试中 · macOS 原生 / Windows WSL2 本机 Web 面板 ·
 
 大肥鱼的短句不是“每秒生成一句”：默认正文上限 60 字，回复通常包含草稿和语义校对两次模型调用。思考、识图、记忆整理和联网都会影响延迟与费用，可按需要关闭。
 
-## 看一段真实对话
+## 看真实对话案例
+
+**[打开案例专页 → 6 组真实私聊 / 群聊长图](docs/CASES.md)**：连续接话、性格命令、群 @ 与引用 GIF、生图回复、不确定性表达，以及一次识图失败。共 29 条消息、14 条已核对发送记录的机器人回复。图片来自真实附件；昵称与头像匿名化，聊天界面为重新排版，**非原始 QQ 截图**。
+
+下面是早期电竞话题的简短片段；更多连续对话见案例专页。
 
 ![真实对话脱敏重排](docs/assets/chat-example.png)
 
@@ -60,7 +64,7 @@ QQ 可用 · 微信测试中 · macOS 原生 / Windows WSL2 本机 Web 面板 ·
 
 5. 填入你的机器人 QQ、OneBot Token、DeepSeek Key，连接后只启用明确允许的会话，先用“单次验收”。**连接成功不等于已经开始自动回复。**
 
-密钥在本机面板配置；可使用钥匙串或仅本次运行凭证。仓库不提供任何可直接使用的账号、API Key、Token、登录二维码或私聊记录。**浏览器关闭不会停止后台**，结束时先点击暂停，终端前台运行可按 Ctrl+C 退出。
+密钥在本机面板配置；可使用钥匙串或仅本次运行凭证。仓库不提供任何可直接使用的账号、API Key、Token、登录二维码或原始私聊记录；案例页仅展示经作者筛选、匿名化的片段。**浏览器关闭不会停止后台**，结束时先点击暂停，终端前台运行可按 Ctrl+C 退出。
 
 ## 常用命令
 
