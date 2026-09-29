@@ -105,7 +105,7 @@ struct QQArtworkForm: Equatable {
         updated.networkDailyLimit = try panelInteger(networkDailyLimit, label: "每日来源请求数")
         updated.minLongEdge = try panelInteger(minLongEdge, label: "最小长边像素")
         updated.minShortEdge = try panelInteger(minShortEdge, label: "最小短边像素")
-        updated.effectiveSearchMinBookmarks = try panelInteger(searchMinBookmarks, label: "/search 最低收藏数")
+        updated.effectiveSearchMinBookmarks = try panelInteger(searchMinBookmarks, label: "/search 优先收藏数")
         updated.pixivArtistIDs = artists.components(separatedBy: CharacterSet(charactersIn: ",， \n")).filter { !$0.isEmpty }
         updated.artistNames = updated.artistNames?.filter { updated.pixivArtistIDs.contains($0.key) }
         updated.imagePermissions = updated.imagePermissions.filter { updated.pixivArtistIDs.contains($0.key) }

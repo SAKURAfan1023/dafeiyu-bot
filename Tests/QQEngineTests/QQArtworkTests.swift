@@ -59,7 +59,10 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
             let body = try! JSONSerialization.jsonObject(with: bytes) as! [String: Any]
             if let definitions = body["tools"] as? [[String: Any]] {
                 #expect(definitions.contains { ($0["function"] as? [String: Any])?["name"] as? String == "find_artwork" })
-                object = ["choices": [["message": ["content": NSNull(), "tool_calls": [["id": "art-test", "type": "function", "function": ["name": "find_artwork", "arguments": "{\"mode\":\"featured\",\"query\":\"初音未来\"}"]]]], "finish_reason": "tool_calls"]]]
+                let messages = body["messages"] as? [[String: Any]] ?? []
+                let prompt = messages.compactMap { $0["content"] as? String }.joined(separator: "\n")
+                #expect(!prompt.contains("featured 模式") && !prompt.contains("artist 模式"))
+                object = ["choices": [["message": ["content": NSNull(), "tool_calls": [["id": "art-test", "type": "function", "function": ["name": "find_artwork", "arguments": "{\"mode\":\"search\",\"query\":\"初音未来\"}"]]]], "finish_reason": "tool_calls"]]]
             } else {
                 object = ["choices": [["message": ["content": "{\"text\":\"给你看看这张。\",\"emotion\":\"joy\",\"intensity\":1}"], "finish_reason": "stop"]]]
             }
@@ -120,6 +123,8 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
                 body["bookmarkCount"] = count; body["likeCount"] = 800; body["viewCount"] = 10000
                 object["body"] = body
             }
+            if id == "404" { object = ["error": true, "body": [:]] }
+            if id == "666" { var body = object["body"] as! [String: Any]; body["xRestrict"] = 1; object["body"] = body }
             if longPortfolio, let number = Int(id), number > 200 {
                 var body = object["body"] as! [String: Any]; body["xRestrict"] = 1; object["body"] = body
             }
@@ -130,6 +135,10 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
             #expect(request.value(forHTTPHeaderField: "Referer") == "https://www.pixiv.net/")
             #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
             let original = u.path.hasPrefix("/img-original/")
+            if originalStatus == -6 || original && [-3, -4, -5].contains(originalStatus) {
+                client?.urlProtocol(self, didFailWithError: URLError([-3, -6].contains(originalStatus) ? .networkConnectionLost : originalStatus == -4 ? .timedOut : .cancelled))
+                return
+            }
             code = original && originalStatus > 0 ? originalStatus : 200
             data = original && originalStatus == -2 ? Data(repeating: 0, count: 20_000_001) : bad || (original && originalStatus == -1) ? Data("not an image".utf8) : Self.photo()
         }
@@ -176,7 +185,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         #expect(other.id == "pixiv:304")
         config.effectiveSearchMinBookmarks = 5000
         let empty = try await library.prepare(result.request, config: config, scope: "A", ledger: ledger, beforeFetch: {})
-        #expect(empty.image == nil); #expect(empty.caption.contains("收藏 ≥ 5000"))
+        #expect(empty.id == "pixiv:301" && empty.image != nil); #expect(empty.caption.contains("保底结果")); #expect(empty.caption.contains("收藏 ≥ 5000"))
         config.effectiveSearchMinBookmarks = 3000
         let lower = try await library.prepare(result.request, config: config, scope: "A", ledger: ledger, beforeFetch: {})
         #expect(lower.id == "pixiv:301") // Threshold changes must invalidate rejection decisions.
@@ -188,14 +197,52 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         var config = QQArtworkConfig(); config.enabled = true; config.effectiveSearchMinBookmarks = 4000
         var ledger = QQArtworkLedger()
         let first = try await library.prepare(.init(mode: "search", query: "原神"), config: config, scope: "A", ledger: ledger, beforeFetch: {})
-        #expect(first.image == nil); #expect(first.caption.contains("12 个候选")); #expect(first.caption.contains("4000"))
+        #expect(first.id == "pixiv:301" && first.image != nil); #expect(first.caption.contains("保底结果")); #expect(first.caption.contains("4000"))
         #expect(ArtworkFixtureProtocol.calls.filter { $0.contains("/ajax/illust/") }.count == 12)
-        #expect(!ArtworkFixtureProtocol.calls.contains { $0.contains("pximg.net") })
+        #expect(ArtworkFixtureProtocol.calls.filter { $0.contains("pximg.net") }.count == 1)
+        // Once this bounded candidate window has been delivered, /next reaches later results.
+        for id in 300...311 { ledger.reserve(ticket: UUID(), scope: "A", id: "pixiv:\(id)", hash: nil, request: first.request) }
         ledger.continuation["A"] = first.request
         let next = try await library.prepare(.init(mode: "next"), config: config, scope: "A", ledger: ledger, beforeFetch: {})
         #expect(next.id == "pixiv:319")
         let details = ArtworkFixtureProtocol.calls.filter { $0.contains("/ajax/illust/") }
         #expect(details.count == 20); #expect(Set(details).count == 20)
+    }
+    @Test func idLookupAndContinuationDoNotSearchOrChangeTheRequestedWork() async throws {
+        let (library, session) = client(); defer { session.invalidateAndCancel() }
+        var config = QQArtworkConfig(); config.enabled = true; config.effectiveSearchMinBookmarks = 1_000_000
+        var ledger = QQArtworkLedger()
+        let result = try await library.prepare(.init(mode: "id", query: "300"), config: config, scope: "A", ledger: ledger, beforeFetch: {})
+        #expect(result.id == "pixiv:300" && result.image != nil)
+        #expect(ArtworkFixtureProtocol.calls.count == 2)
+        for id in ["404", "666", "101"] {
+            let unavailable = try await library.prepare(.init(mode: "id", query: id), config: config, scope: "A", ledger: ledger, beforeFetch: {})
+            #expect(unavailable.image == nil && unavailable.request.query == id)
+        }
+        #expect(ArtworkFixtureProtocol.calls.filter { $0.contains("pximg.net") }.count == 1)
+        ledger.reserve(ticket: UUID(), scope: "A", id: result.id!, hash: nil, request: result.request)
+        let repeated = try await library.prepare(result.request, config: config, scope: "A", ledger: ledger, beforeFetch: { Issue.record("Duplicate ID must not fetch") })
+        #expect(repeated.image == nil && repeated.caption.contains("去重"))
+        let next = try await library.prepare(.init(mode: "next"), config: config, scope: "A", ledger: ledger, beforeFetch: { Issue.record("ID continuation is a local hint") })
+        #expect(next.image == nil && next.caption.contains("没有可续看的列表"))
+        let changed = try await library.prepare(.init(mode: "next", query: "原神"), config: config, scope: "A", ledger: ledger, beforeFetch: {})
+        #expect(changed.request == .init(mode: "search", query: "原神")); #expect(changed.id == "pixiv:301")
+        let other = try await library.prepare(result.request, config: config, scope: "B", ledger: ledger, beforeFetch: {})
+        #expect(other.id == "pixiv:300" && other.image != nil)
+        #expect(QQArtworkLibrary.toolRequest(#"{"mode":"id","query":"https://www.pixiv.net/artworks/300"}"#) == result.request)
+        #expect(QQArtworkLibrary.toolRequest(#"{"mode":"artist","query":"LAM"}"#) == nil)
+    }
+    @Test func fallbackKeepsUnknownMetricsHonestAndDoesNotRelaxImageRequirements() async throws {
+        let (library, session) = client(); defer { session.invalidateAndCancel() }
+        var config = QQArtworkConfig(); config.enabled = true
+        let unknown = try await library.prepare(.init(mode: "search", query: "初音未来"), config: config, scope: "A", ledger: .init(), beforeFetch: {})
+        #expect(unknown.image != nil && unknown.caption.contains("来源未提供收藏数"))
+        config.minLongEdge = 2000
+        let tooSmall = try await library.prepare(.init(mode: "search", query: "原神"), config: config, scope: "B", ledger: .init(), beforeFetch: {})
+        #expect(tooSmall.image == nil)
+        let none = try await library.prepare(.init(mode: "search", query: "不存在的角色"), config: config, scope: "C", ledger: .init(), beforeFetch: {})
+        #expect(none.image == nil && none.request.query == "不存在的角色")
+        #expect(!ArtworkFixtureProtocol.calls.contains { $0.contains("/ajax/user/") || $0.contains("ranking.php") || $0.contains("deepseek") })
     }
     @Test func liveQualitySearchWhenExplicitlyRequested() async throws {
         guard ProcessInfo.processInfo.environment["QQ_QUALITY_SEARCH_PROBE"] == "1" else { return }
@@ -203,10 +250,17 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         var calls = 0
         let start = Date()
         let result = try await QQArtworkLibrary().prepare(.init(mode: "search", query: "原神"), config: config, scope: "probe", ledger: .init(), beforeFetch: {
-            calls += 1; if calls > 15 { throw AppFailure.message("Live probe budget exhausted") }
+            calls += 1; if calls > 18 { throw AppFailure.message("Live probe budget exhausted") }
         })
         try #require(result.image != nil)
-        #expect(result.caption.contains("收藏 ≥ 1000")); #expect(result.caption.contains("点赞"))
+        #expect(result.caption.contains("收藏 ≥ 1000"))
+        let id = try #require(result.id).replacingOccurrences(of: "pixiv:", with: "")
+        let beforeID = calls
+        let direct = try await QQArtworkLibrary().prepare(.init(mode: "id", query: id), config: config, scope: "id-probe", ledger: .init(), beforeFetch: {
+            calls += 1; if calls > 18 { throw AppFailure.message("Live probe budget exhausted") }
+        })
+        #expect(direct.id == result.id && direct.image != nil)
+        print("DIRECT_ID_PROBE sourceRequests=\(calls - beforeID) imageBytes=\(direct.image?.count ?? 0) noQQ=true noModel=true")
         print("QUALITY_SEARCH_PROBE sourceRequests=\(calls) seconds=\(String(format: "%.2f", Date().timeIntervalSince(start))) imageBytes=\(result.image!.count) threshold=1000 noQQ=true noModel=true")
     }
     @Test func liveFastSearchAndFirstRankWhenExplicitlyRequested() async throws {
@@ -257,7 +311,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         // Ranking artist 999888 is not configured; it must still be available at rank 51.
         let ranked = try await library.prepare(.init(mode: "next"), config: config, scope: "B", ledger: ledger, beforeFetch: {})
         #expect(ranked.id == "pixiv:108"); #expect(ranked.image != nil); #expect(ranked.request.mode == "hot")
-        #expect(ranked.caption.contains("第 51 名")); #expect(ranked.caption.contains("/artist 999888"))
+        #expect(ranked.caption.contains("第 51 名")); #expect(ranked.caption.contains("作品 ID：108"))
         #expect(ArtworkFixtureProtocol.calls.contains { $0.contains("p=2&date=20260927") })
         #expect(!ArtworkFixtureProtocol.calls.contains { $0.contains("deepseek") })
     }
@@ -300,18 +354,18 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         #expect(first.caption.contains("Pixiv 日榜")); #expect(second.caption.contains("Pixiv 日榜"))
         print("LIVE_HOT_NEXT distinctImages=2 configuredArtists=0 requests=\(calls) noQQ=true noModel=true")
     }
-    @Test(arguments: [200, 404, 410, -1, -2, 401, 403, 429, 500])
+    @Test(arguments: [200, 404, 410, -1, -2, -3, -4, -5, -6, 401, 403, 429, 500])
     func publicAssetVariantsAreBoundedAndRespectAccessFailures(_ status: Int) async throws {
         let (library, session) = client(); defer { session.invalidateAndCancel() }
         ArtworkFixtureProtocol.setOriginalStatus(status)
         var config = QQArtworkConfig(); config.enabled = true; config.imagePermissions = [:]
-        if [-2, 401, 403, 429, 500].contains(status) {
+        if [-2, -5, -6, 401, 403, 429, 500].contains(status) {
             do {
                 _ = try await library.prepare(.init(mode: "artist", query: "LAM"), config: config, scope: "A", ledger: .init(), beforeFetch: {})
                 Issue.record("Unavailable source must not return a link-only work")
             } catch { #expect(!(error is CancellationError)) }
-            #expect(!ArtworkFixtureProtocol.calls.contains { $0.contains("/img-master/") })
-            #expect(ArtworkFixtureProtocol.calls.filter { $0.contains("pximg.net") }.count == 1)
+            #expect(ArtworkFixtureProtocol.calls.contains { $0.contains("/img-master/") } == (status == -6))
+            #expect(ArtworkFixtureProtocol.calls.filter { $0.contains("pximg.net") }.count == (status == -6 ? 2 : 1))
         } else {
             let result = try await library.prepare(.init(mode: "artist", query: "LAM"), config: config, scope: "A", ledger: .init(), beforeFetch: {})
             #expect(result.image != nil); #expect(result.id == "pixiv:102")
@@ -328,7 +382,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         var calls = 0
         let result = try await QQArtworkLibrary().prepare(.init(mode: "artist", query: "Anmi"), config: config, scope: "probe", ledger: .init(), beforeFetch: { calls += 1 })
         try #require(result.image != nil)
-        #expect(result.caption.contains("/next")); #expect(result.caption.contains("/artist 212801"))
+        #expect(result.caption.contains("/next")); #expect(result.caption.contains("作品 ID："))
         print("PUBLIC_ARTIST_PROBE imageBytes=\(result.image!.count) sourceRequests=\(calls) noLicenseRegistry=true noQQ=true noModel=true")
     }
     @Test func artistManagementPersistsListsAndResolvesNamesWithoutModelCalls() async throws {
@@ -356,7 +410,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         #expect(unlicensed.id == "pixiv:103"); #expect(unlicensed.image != nil)
         #expect(settings.imagePermissions["999111"] == nil)
         let roster = try await library.prepare(.init(mode: "artists"), config: settings, scope: "A", ledger: .init(), beforeFetch: { Issue.record("Roster must be local") })
-        #expect(roster.caption.contains("新增画师")); #expect(roster.caption.contains("/artist 999111"))
+        #expect(roster.caption.contains("已退役")); #expect(roster.caption.contains("/search"))
         let artwork = try await library.prepare(.init(mode: "artist", query: "新增画师"), config: settings, scope: "A", ledger: .init(), beforeFetch: {})
         #expect(artwork.id == "pixiv:103"); #expect(artwork.image != nil)
         var ambiguous = settings; ambiguous.artistNames?["17429"] = "新增画师"
@@ -417,7 +471,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         #expect(!QQArtworkLibrary.animeGirl(tags: ["男性", "原神"], artist: "17429", id: "999"))
         #expect(throws: (any Error).self) { try QQArtworkLibrary.normalized(Data("bad image".utf8), config: settings) }
     }
-    @Test(arguments: ["command", "qualitySearch", "compactHot", "hotPrompt", "artistPrompt", "nextHot", "nextFeatured", "nextPrompt", "noResultPrompt", "private", "owner", "foreign", "unknownSend", "agent", "agentWithoutLicense", "agentBadImage", "commandBadImage", "commandWithoutLicense", "artistWithoutLicense", "hotWithoutLicense", "schedule", "hourlySchedule", "scheduleNoImage", "scheduleFallback", "scheduleQueued", "paused", "quota", "downloadPause"])
+    @Test(arguments: ["command", "qualitySearch", "fallbackSearch", "idSearch", "idURL", "compactHot", "hotPrompt", "artistPrompt", "nextHot", "nextFeatured", "nextPrompt", "noResultPrompt", "private", "owner", "foreign", "unknownSend", "agent", "agentWithoutLicense", "agentBadImage", "commandBadImage", "commandWithoutLicense", "artistWithoutLicense", "hotWithoutLicense", "schedule", "hourlySchedule", "scheduleNoImage", "scheduleFallback", "scheduleQueued", "paused", "quota", "downloadPause"])
     func engineRoutingAndSendGuards(_ mode: String) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -459,6 +513,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         engine.add(try #require(engine.contacts.first { $0.number == (privateChat ? "54321" : "99999") }))
         engine.config.targets[0].enabled = true
         if mode == "quota" { engine.config.effectiveArtwork.dailyPerChat = 1 }
+        if mode == "fallbackSearch" { engine.config.effectiveArtwork.effectiveSearchMinBookmarks = 5000 }
         engine.start()
         if mode == "command" {
             let previous = engine.config.effectiveArtwork
@@ -478,7 +533,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
             if mode == "scheduleFallback" { engine.config.effectiveArtwork.scheduleMode = "hot" }
             engine.scheduleArtworks(now: future); engine.scheduleArtworks(now: future)
         } else {
-            let commands = ["qualitySearch": "/search 原神", "compactHot": "/hot原神", "hotPrompt": "/hot 原神 白发 猫耳 -黑丝", "artistPrompt": "/artist LAM オリジナル", "nextHot": "/next", "nextFeatured": "/next", "nextPrompt": "/next 原神 白发", "noResultPrompt": "/art 不存在的角色"]
+            let commands = ["qualitySearch": "/search 原神", "fallbackSearch": "/search 原神", "idSearch": "/id 300", "idURL": "/search https://www.pixiv.net/artworks/300", "compactHot": "/hot原神", "hotPrompt": "/hot 原神 白发 猫耳 -黑丝", "artistPrompt": "/artist LAM オリジナル", "nextHot": "/next", "nextFeatured": "/next", "nextPrompt": "/next 原神 白发", "noResultPrompt": "/art 不存在的角色"]
             let text = commands[mode] ?? (["agent", "agentWithoutLicense", "agentBadImage"].contains(mode) ? "想看看精选插画" : mode == "hotWithoutLicense" ? "/hot" : mode == "artistWithoutLicense" ? "/artist LAM" : "/art 初音未来")
             var segments: [[String: Any]] = [["type": "text", "data": ["text": text]]]
             if ["agent", "agentWithoutLicense", "agentBadImage"].contains(mode) { segments.insert(["type": "at", "data": ["qq": "12345"]], at: 0) }
@@ -517,6 +572,14 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
             let payload = try String(contentsOf: directory.appendingPathComponent("payload"), encoding: .utf8)
             #expect(!payload.contains("https:")); #expect(!payload.contains("base64:"))
             #expect(!payload.contains("给你看看这张")); #expect(!payload.contains("pixiv.net"))
+        } else if ["artistPrompt", "artistWithoutLicense"].contains(mode) {
+            #expect(engine.sends.confirmed == 1); #expect(engine.artworkLedger.deliveries.isEmpty)
+            #expect(ArtworkFixtureProtocol.calls.isEmpty)
+            let payload = try String(contentsOf: directory.appendingPathComponent("payload"), encoding: .utf8)
+            let decoded = try JSONSerialization.jsonObject(with: Data(payload.utf8)) as! [String: Any]
+            let messages = decoded["message"] as! [[String: Any]]
+            #expect(messages.contains { (($0["data"] as? [String: String])?["text"] ?? "").contains("已退役") })
+            #expect(!payload.contains("base64:"))
         } else if mode == "unknownSend" {
             #expect(engine.sends.uncertain == 1); #expect(!engine.running)
             #expect(engine.artworkLedger.deliveries.first?.state == "unknown")
@@ -531,10 +594,18 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
                 #expect(segments.contains { (($0["data"] as? [String: String])?["text"] ?? "").contains("收藏 2500") })
                 #expect(engine.artworkLedger.continuation["12345:group:99999"]?.mode == "search")
             }
+            if mode == "fallbackSearch" {
+                #expect(segments.contains { (($0["data"] as? [String: String])?["text"] ?? "").contains("保底结果") })
+                #expect(engine.artworkLedger.continuation["12345:group:99999"]?.mode == "search")
+            }
+            if ["idSearch", "idURL"].contains(mode) {
+                #expect(engine.artworkLedger.continuation["12345:group:99999"] == .init(mode: "id", query: "300"))
+                #expect(!ArtworkFixtureProtocol.calls.contains { $0.contains("/search/") || $0.contains("/ajax/user/") || $0.contains("ranking.php") })
+            }
             if scheduled {
                 #expect(engine.artworkLedger.schedules.count == 1)
                 #expect(segments.filter { $0["type"] as? String == "image" }.count == 1)
-                #expect(segments.contains { (($0["data"] as? [String: String])?["text"] ?? "").contains("/artists") })
+                #expect(segments.contains { (($0["data"] as? [String: String])?["text"] ?? "").contains("/search") })
                 engine.scheduleArtworks(now: Date().addingTimeInterval(65))
                 #expect(engine.queuedCount == 0)
             }
@@ -577,7 +648,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         var calls = 0
         let result = try await QQArtworkLibrary().prepare(.init(mode: "featured"), config: config, scope: "probe", ledger: .init(), randomArtist: true, beforeFetch: { calls += 1 })
         try #require(result.image != nil)
-        #expect(result.caption.contains("/next")); #expect(result.caption.contains("/artists")); #expect(result.caption.contains("/artist "))
+        #expect(result.caption.contains("/next")); #expect(result.caption.contains("/search")); #expect(!result.caption.contains("/artist "))
         print("HOURLY_PICTURE_PROBE imageBytes=\(result.image!.count) sourceRequests=\(calls) noQQ=true noModel=true")
     }
     @Test func liveArtistLookupWhenExplicitlyRequested() async throws {

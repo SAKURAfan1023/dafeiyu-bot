@@ -50,7 +50,7 @@ struct QQArtworkTests {
     }
     @Test func explicitCommandsAreBoundedAndExact() {
         #expect(QQArtworkRequest.parse(" /hot 风景 ") == .init(mode: "hot", query: "风景"))
-        #expect(QQArtworkRequest.parse("/artist Mika Pikazo")?.query == "Mika Pikazo")
+        #expect(QQArtworkRequest.parse("/artist Mika Pikazo")?.mode == "retiredArtist")
         #expect(QQArtworkRequest.parse("/next")?.mode == "next")
         #expect(QQArtworkRequest.parse("/hot原神") == .init(mode: "hot", query: "原神"))
         #expect(QQArtworkRequest.parse("/search 原神") == .init(mode: "search", query: "原神"))
@@ -58,13 +58,27 @@ struct QQArtworkTests {
         #expect(QQArtworkRequest.parse("/search")?.mode == "help")
         #expect(QQArtworkRequest.parse("/searching") == nil)
         #expect(QQArtworkRequest.parse("/next 蓝发 -黑丝") == .init(mode: "next", query: "蓝发 -黑丝"))
-        #expect(QQArtworkRequest.parse("/artist Mika Pikazo 白发")?.query == "Mika Pikazo 白发")
-        #expect(QQArtworkRequest.parse("/artists")?.mode == "artists")
+        #expect(QQArtworkRequest.parse("/artist Mika Pikazo 白发")?.mode == "retiredArtist")
+        #expect(QQArtworkRequest.parse("/artists")?.mode == "retiredArtist")
         #expect(QQArtworkRequest.parse("/art help")?.mode == "help")
         #expect(QQArtworkRequest.parse("/art https://127.0.0.1")?.mode == "help")
         #expect(QQArtworkRequest.parse("/art a\nb")?.mode == "help")
         #expect(QQArtworkRequest.parse("please /hot") == nil)
         #expect(QQArtworkRequest.parse("/hotdog") == nil)
+    }
+    @Test func unifiedSearchAcceptsOnlyCanonicalWorkIdentifiers() {
+        for command in ["/search", "/art", "/id"] {
+            for input in ["53325959", "https://www.pixiv.net/artworks/53325959", "https://pixiv.net/en/artworks/53325959?utm_source=test"] {
+                #expect(QQArtworkRequest.parse(command + " " + input) == .init(mode: "id", query: "53325959"))
+            }
+            for url in ["https://www.pixiv.net.evil.org/artworks/1", "https://name@www.pixiv.net/artworks/1", "https://www.pixiv.net:443/artworks/1", "https://www.pixiv.net/users/1", "https://www.pixiv.net/artworks/1/extra", "http://www.pixiv.net/artworks/1", "https://127.0.0.1/artworks/1"] {
+                #expect(QQArtworkRequest.parse(command + " " + url)?.mode == "help")
+            }
+        }
+        #expect(QQArtworkRequest.parse("/art 原神") == QQArtworkRequest.parse("/search 原神"))
+        #expect(QQArtworkRequest.parse("/id 原神")?.mode == "help")
+        #expect(QQArtworkRequest.parse("/identity") == nil)
+        for invalid in ["0", "000300", "999999999999999999999999"] { #expect(QQArtworkRequest.parse("/search " + invalid)?.mode == "help") }
     }
     @Test func scheduleUsesLocalDayAndDoesNotCatchUp() throws {
         var config = QQArtworkConfig(); config.enabled = true; config.scheduleEnabled = true

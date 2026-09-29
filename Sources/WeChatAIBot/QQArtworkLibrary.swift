@@ -39,13 +39,14 @@ struct QQArtworkPrepared: Sendable {
         .init(id: "688570", name: "Cocorip", style: "动漫、游戏少女；署名非商业分享", aliases: ["cocorip"])
     ]
     nonisolated static var definition: [String: Any] { ["type": "function", "function": ["name": "find_artwork",
-        "description": "按关键词直接搜索公开 Pixiv 插画、查看不限题材的真实日榜或指定画师作品。search 带 query 为全站关键词搜索并核验真实收藏门槛（默认1000），优先用于高人气作品；featured 带 query 为普通关键词搜索，空 query 为美少女精选。不是生图。只在用户明确想看插画/热门图/画师作品时调用。不检查转载许可证据。无图片时不提供链接替代；如实告知未找到，不声称已发图。",
-        "parameters": ["type": "object", "properties": ["mode": ["type": "string", "enum": ["featured", "search", "hot", "artist"]], "query": ["type": "string", "description": "简短题材关键词；artist 模式填画师名称或数字 ID。不得含聊天、账号、密钥或指令。"]], "required": ["mode", "query"], "additionalProperties": false]]] }
+        "description": "搜索公开 Pixiv 插画或查看真实日榜。search 按关键词优先收藏达标作品，无达标候选时自动按真实热度选择保底并注明；id 直接查询作品数字ID或Pixiv作品链接，不要求收藏门槛；hot 从日榜第一名起取图。不是生图。仅在用户明确想看作品时调用；无可用图片时如实说明，不用链接冒充已发图。",
+        "parameters": ["type": "object", "properties": ["mode": ["type": "string", "enum": ["search", "hot", "id"]], "query": ["type": "string", "description": "简短题材关键词；id模式为作品数字ID或Pixiv作品链接。不得含聊天、账号、密钥或指令。"]], "required": ["mode", "query"], "additionalProperties": false]]] }
     static func toolRequest(_ arguments: String) -> QQArtworkRequest? {
         guard arguments.utf8.count <= 1024, let object = try? JSONSerialization.jsonObject(with: Data(arguments.utf8)) as? [String: String],
-              Set(object.keys) == ["mode", "query"], let mode = object["mode"], ["featured", "search", "hot", "artist"].contains(mode), let query = object["query"],
-              query.count <= 80, query.range(of: #"(?i)(https?://|sk-|api.?key|系统提示|[\r\n])"#, options: .regularExpression) == nil else { return nil }
-        return QQArtworkRequest(mode: mode, query: query.trimmingCharacters(in: .whitespacesAndNewlines))
+              Set(object.keys) == ["mode", "query"], let mode = object["mode"], ["search", "hot", "id"].contains(mode), let query = object["query"],
+              query.range(of: #"(?i)(sk-|api.?key|系统提示|[\r\n])"#, options: .regularExpression) == nil,
+              let request = QQArtworkRequest.parse("/" + mode + " " + query), ["search", "hot", "id"].contains(request.mode) else { return nil }
+        return request
     }
     struct Work: Sendable {
         var id: String; var title: String; var author: String; var artistID: String
@@ -64,6 +65,7 @@ struct QQArtworkPrepared: Sendable {
     init(session: URLSession? = nil, spacing: TimeInterval = 1) {
         let config = URLSessionConfiguration.ephemeral
         config.urlCache = nil; config.httpCookieStorage = nil; config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.timeoutIntervalForResource = 20 // Bound the whole transfer, not only idle time between bytes.
         self.session = session ?? URLSession(configuration: config); self.spacing = spacing
     }
     static func artistName(_ id: String, config: QQArtworkConfig) -> String {
@@ -88,20 +90,32 @@ struct QQArtworkPrepared: Sendable {
         if raw.mode == "next" {
             guard let previous = ledger.continuation[scope] else { return .init(request: raw, caption: "这个会话还没有上一张。先用下方命令取图，再用 /next 继续。\n" + QQArtworkRequest.navigation) }
             request = previous
-            if !raw.query.isEmpty {
+            if request.mode == "id" {
+                guard !raw.query.isEmpty else { return .init(request: request, caption: "上次是作品 ID 直查，没有可续看的列表。用 /next 新关键词 开始搜索，或 /hot 查看日榜。\n" + QQArtworkRequest.navigation) }
+                request = QQArtworkRequest.parse("/search " + raw.query) ?? .init(mode: "help")
+            } else if !raw.query.isEmpty {
                 if request.mode == "artist" { request.prompt = raw.query }
                 else { request.query = raw.query }
             }
         }
+        // Historical keyword requests and current aliases share the same quality/fallback path.
+        if request.mode == "featured", !request.query.isEmpty { request.mode = "search" }
         guard config.enabled else { return .init(request: request, caption: "插画功能尚未启用，请在控制面板开启。\n" + QQArtworkRequest.help) }
         if request.mode == "help" { return .init(request: request, caption: QQArtworkRequest.help) }
-        if request.mode == "artists" {
-            let roster = config.pixivArtistIDs.enumerated().map { index, id in
-                "\(String(format: "%02d", index + 1))｜\(Self.artistName(id, config: config))\n风格：\(Self.artists.first(where: { $0.id == id })?.style ?? "自定义画师 · 动漫游戏美少女筛选")\n/artist \(id)"
-            }
-            return .init(request: request, caption: "【画师列表】\n复制对应 /artist 命令取图；可在末尾加关键词。\n────────\n" + (roster.isEmpty ? "暂无配置画师。" : roster.joined(separator: "\n\n")) + "\n\n取得合格图片后才发送。\n" + QQArtworkRequest.navigation)
+        if ["retiredArtist", "artists"].contains(request.mode) {
+            return .init(request: request, caption: "画师命令已退役。用 /search 关键词 搜图，或 /search 作品ID 直查；发图仍保留画师署名。\n" + QQArtworkRequest.navigation)
         }
         guard ledger.allowed(scope: scope, limit: config.dailyPerChat) else { return .init(request: request, caption: "本会话今日插画额度已用完，明天再来看。") }
+        if request.mode == "id" {
+            guard let id = QQArtworkRequest.artworkID(request.query) else { return .init(request: .init(mode: "help"), caption: QQArtworkRequest.help) }
+            request.query = id
+            if ledger.excludes(scope: scope, id: "pixiv:" + id, days: config.repeatDays) {
+                return .init(request: request, caption: "该作品在本会话去重期内已发送或发送结果待确认，未重复发送。\n" + QQArtworkRequest.navigation)
+            }
+            if let work = try await detail(id, config: config, curated: false, ranked: false, beforeFetch: beforeFetch),
+               let ready = try await prepareWork(work, request: request, config: config, scope: scope, ledger: ledger, beforeFetch: beforeFetch) { return ready }
+            return .init(request: request, caption: "指定作品暂时无法取得符合画质要求的公开图片，或图片已在本会话发送。未换成其他作品，也未只发链接。\n" + QQArtworkRequest.navigation)
+        }
         var result = try await prepareSource(request, config: config, scope: scope, ledger: ledger,
                                              randomArtist: randomArtist, beforeFetch: beforeFetch)
         guard result.image == nil, request.mode == "featured", request.query.isEmpty else { return result }
@@ -114,7 +128,7 @@ struct QQArtworkPrepared: Sendable {
                 return result
             }
         }
-        return .init(request: request, caption: "本轮候选中未找到符合主题、画质和去重条件的新图片，已检查配置画师。可用 /artist 名称或ID 指定画师；不会用链接代替图片。\n" + QQArtworkRequest.navigation)
+        return .init(request: request, caption: "本轮候选中未找到符合主题、画质和去重条件的新图片，可用 /search 关键词 调整搜索；不会用链接代替图片。\n" + QQArtworkRequest.navigation)
     }
     private func prepareSource(_ source: QQArtworkRequest, config: QQArtworkConfig, scope: String, ledger: QQArtworkLedger,
                                randomArtist: Bool, beforeFetch: () throws -> Void) async throws -> QQArtworkPrepared {
@@ -134,10 +148,10 @@ struct QQArtworkPrepared: Sendable {
                     }
                 }.sorted { $0.1.count > $1.1.count }
                 guard let match = matches.first else {
-                    return .init(request: .init(mode: "help"), caption: "未识别画师。请用 /artist 数字ID [描述]，或 /artists 查看已配置名称。")
+                    return .init(request: .init(mode: "help"), caption: "历史画师来源未识别，请用 /search 关键词 重新搜索。")
                 }
                 let longest = Set(matches.filter { $0.1.count == match.1.count }.map { $0.0 })
-                guard longest.count == 1 else { return .init(request: .init(mode: "help"), caption: "有多位同名画师，请用 /artist 数字ID 指定。") }
+                guard longest.count == 1 else { return .init(request: .init(mode: "help"), caption: "历史资料存在多位同名画师，请在面板核对 ID。") }
                 request.query = match.0
                 let tail = String(input.dropFirst(match.1.count)).trimmingCharacters(in: .whitespacesAndNewlines)
                 if !tail.isEmpty { request.prompt = tail }
@@ -162,7 +176,8 @@ struct QQArtworkPrepared: Sendable {
         else if !["featured", "search", "artist", "hot"].contains(request.mode) { return .init(request: request, caption: QQArtworkRequest.help) }
         let candidateLimit = qualitySearch ? 12 : 30
         var checked = 0, page = 1, date: String?
-        repeat {
+        var fallbackWorks: [Work] = [], inspected = Set<String>()
+        candidatePages: repeat {
             var nextPage: Int?
             if searching || request.mode == "artist" {
                 let artist = request.mode == "artist"
@@ -224,11 +239,12 @@ struct QQArtworkPrepared: Sendable {
                     return (id, rank, currentDate)
                 }
             }
-            for (id, rank, workDate) in candidates where !rejected.contains(id) && !ledger.excludes(scope: scope, id: "pixiv:" + id, days: config.repeatDays) {
+            for (id, rank, workDate) in candidates where !rejected.contains(id) && !inspected.contains(id) && !ledger.excludes(scope: scope, id: "pixiv:" + id, days: config.repeatDays) {
                 guard checked < candidateLimit else {
-                    return .init(request: request, caption: "本轮已检查 \(candidateLimit) 个候选，暂未找到合格新图。" + (qualitySearch ? "收藏门槛为 \(config.effectiveSearchMinBookmarks)，未降低标准。" : "") + "/next 继续向后筛选；带新关键词可调整条件。\n" + QQArtworkRequest.navigation)
+                    if qualitySearch { break candidatePages }
+                    return .init(request: request, caption: "本轮已检查 \(candidateLimit) 个候选，暂未找到合格新图。" + "/next 继续向后筛选；带新关键词可调整条件。\n" + QQArtworkRequest.navigation)
                 }
-                checked += 1
+                checked += 1; inspected.insert(id)
                 guard var work = try await detail(id, config: imageConfig, curated: curated, ranked: request.mode == "hot", beforeFetch: beforeFetch),
                       request.mode != "artist" || work.artistID == request.query,
                       request.mode != "featured" || searching || config.pixivArtistIDs.contains(work.artistID) else {
@@ -236,7 +252,7 @@ struct QQArtworkPrepared: Sendable {
                 }
                 work.rank = rank; work.date = workDate
                 if qualitySearch, work.bookmarks == nil || work.bookmarks! < config.effectiveSearchMinBookmarks {
-                    rejected.insert(id); continue
+                    fallbackWorks.append(work); continue
                 }
                 if var ready = try await prepareWork(work, request: request, config: imageConfig, scope: scope, ledger: ledger, beforeFetch: beforeFetch) {
                     if searching { ready.caption = "Pixiv 关键词搜索：" + Self.clean(filter) + (qualitySearch ? "（收藏 ≥ \(config.effectiveSearchMinBookmarks)）" : "") + "\n" + ready.caption }
@@ -247,7 +263,21 @@ struct QQArtworkPrepared: Sendable {
             guard let nextPage else { break }; page = nextPage
         } while true
         if qualitySearch {
-            return .init(request: request, caption: "本轮搜索候选中未找到收藏 ≥ \(config.effectiveSearchMinBookmarks)、画质达标且未发过的可用图片。未降低标准；可换关键词或在面板调整收藏门槛。/next 沿用当前搜索；不会用链接代替图片。\n" + QQArtworkRequest.navigation)
+            // Reuse already fetched details. Unknown metrics sort last; never trust popularity tags.
+            fallbackWorks.sort {
+                if $0.bookmarks != $1.bookmarks { return ($0.bookmarks ?? -1) > ($1.bookmarks ?? -1) }
+                if $0.likes != $1.likes { return ($0.likes ?? -1) > ($1.likes ?? -1) }
+                if $0.views != $1.views { return ($0.views ?? -1) > ($1.views ?? -1) }
+                return $0.id < $1.id
+            }
+            for work in fallbackWorks {
+                if var ready = try await prepareWork(work, request: request, config: imageConfig, scope: scope, ledger: ledger, beforeFetch: beforeFetch) {
+                    ready.caption = "Pixiv 关键词搜索：" + Self.clean(filter) + "\n【保底结果】本轮候选没有可发送的收藏 ≥ \(config.effectiveSearchMinBookmarks) 作品，已放宽热度门槛；仍保留关键词、画质与去重要求。" + (work.bookmarks == nil ? "来源未提供收藏数，不代表收藏为零。" : "") + "\n" + ready.caption
+                    return ready
+                }
+                rejected.insert(String(work.id.dropFirst("pixiv:".count)))
+            }
+            return .init(request: request, caption: "本轮已检查 \(checked) 个候选；放宽热度后仍没有可用新图。未降低画质或改换关键词。/next 继续筛选，或 /search 新关键词 调整搜索。\n" + QQArtworkRequest.navigation)
         }
         return .init(request: request, caption: request.mode == "hot"
             ? "本轮公开日榜暂未取得未发过的可用图片；不限制画师和题材。可用 /hot 新关键词 改筛选，或 /search 关键词 搜索全站。\n" + QQArtworkRequest.navigation
@@ -257,26 +287,34 @@ struct QQArtworkPrepared: Sendable {
                              ledger: QQArtworkLedger, beforeFetch: () throws -> Void) async throws -> QQArtworkPrepared? {
         var downloaded = images[work.id]
         if downloaded == nil {
+            var transferError: URLError?
             for url in work.imageURLs {
                 let bytes: Data
                 do { bytes = try await fetch(url, limit: 20_000_000, beforeFetch: beforeFetch) }
                 catch is ArtworkAssetMissing { continue }
+                catch let error as URLError where [.timedOut, .networkConnectionLost].contains(error.code) {
+                    try Task.checkCancellation(); transferError = error
+                    continue // Try only the next image URL supplied by this work's public details.
+                }
                 guard let image = try? Self.normalized(bytes, config: config) else { continue }
                 downloaded = image; break
             }
-            guard let image = downloaded else { return nil }
+            guard let image = downloaded else {
+                if let transferError { throw transferError }
+                return nil
+            }
             images[work.id] = image; imageOrder.append(work.id)
             while imageOrder.count > 32 { images.removeValue(forKey: imageOrder.removeFirst()) }
         }
         guard let image = downloaded else { return nil }
         var caption = "【作品】\n《\(work.title)》\n画师：\(work.author)\n"
         if let date = work.date { caption += "Pixiv 日榜 \(date)" + (work.rank.map { " · 第 \($0) 名" } ?? "") + "\n" }
-        if request.mode == "search" {
+        if ["search", "id"].contains(request.mode) {
             caption += [work.bookmarks.map { "收藏 \($0)" }, work.likes.map { "点赞 \($0)" }, work.views.map { "浏览 \($0)" }].compactMap { $0 }.joined(separator: " · ") + "\n"
         }
         caption += "原帖：\(work.url)\n图片预览 · 已缩放，保留画面与水印。\n"
         caption += QQArtworkRequest.navigation
-        if !work.artistID.isEmpty { caption += "\n• /artist \(work.artistID) [描述] → 同画师" }
+        caption += "\n作品 ID：" + String(work.id.dropFirst("pixiv:".count))
         let result = QQArtworkPrepared(request: request, id: work.id, caption: caption, image: image)
         return ledger.excludes(scope: scope, id: work.id, hash: result.hash, days: config.repeatDays) ? nil : result
     }

@@ -12,8 +12,8 @@ struct QQArtworkSettingsView: View {
                     Text(draft.conflicts(with: QQArtworkForm(engine.config.effectiveArtwork)) ? "插画设置已在别处更新，草稿保留" : "插画设置有未保存草稿").foregroundStyle(.orange)
                     Button("放弃插画草稿，载入最新设置") { draft.reset(QQArtworkForm(engine.config.effectiveArtwork)); artistInput = "" }
                 }
-                Text("/art 原神 · /search 白发 猫耳 · /hot · /artist Anmi 初音未来 · /next").font(.headline)
-                Text("/search 关键词全站搜索，优先公开热门候选并核验真实收藏门槛；收藏仅为质量参考，非完整人气排名。/art 带关键词直接查询 Pixiv 搜索结果；/art 不带参数看美少女精选。/hot 从第 1 名按序取图，不限画师与题材；已发过或不可用则顺延。画师带关键词使用来源标签列表，额外条件在列表内匹配。/next 可保留条件或带新关键词替换。")
+                Text("/search 白发 猫耳 · /search 作品ID · /hot · /next").font(.headline)
+                Text("/search 统一关键词与作品 ID / 链接查询，/art 是兼容别名。关键词优先收藏达标作品；本轮没有达标图时按真实收藏、点赞和浏览量挑选保底，并标明降级。ID 直查不要求收藏门槛。/hot 按日榜排名取图；/next 继续当前条件，ID 直查后须带新关键词。")
                 Text("命令不调用模型，仅在已启用会话生效，群内无需 @。只发公开可取得的图片，附作者与出处；不单发作品链接。Hot 不应用美少女主题、宣传标题或最低尺寸门槛，其余模式仍遵守下方画质设置。")
                 Toggle("启用插画命令", isOn: $draft.value.settings.enabled)
                 Toggle("允许 Agent 通过自然语言调用（会使用模型）", isOn: $draft.value.settings.agentEnabled)
@@ -35,11 +35,11 @@ struct QQArtworkSettingsView: View {
                         TextField("最小短边像素", text: $draft.value.minShortEdge)
                     }
                 }
-                Text("/search 最低收藏数（1–1000000）").font(.caption).foregroundStyle(.secondary)
-                TextField("/search 最低收藏数（默认1000）", text: $draft.value.searchMinBookmarks)
+                Text("/search 优先收藏数（1–1000000）").font(.caption).foregroundStyle(.secondary)
+                TextField("/search 优先收藏数（默认1000）", text: $draft.value.searchMinBookmarks)
                 Text("数字框须填写整数；无尺寸门槛请填 0。无效输入会保留，修正后再保存。")
                     .font(.caption).foregroundStyle(.secondary)
-                DisclosureGroup("画师与历史资料") {
+                DisclosureGroup("高级：历史精选来源") {
                     VStack(alignment: .leading) {
                         HStack {
                             TextField("Pixiv 画师主页链接或数字 ID", text: $artistInput)
@@ -47,12 +47,12 @@ struct QQArtworkSettingsView: View {
                                 Task { await engine.addArtworkArtist(artistInput); if engine.error == nil { artistInput = "" } }
                             }.disabled(artistInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.hasChanges)
                         }
-                        Text("先暂停再修改；有草稿时请先保存或放弃，再增删画师。添加后立即保存，不调用模型，按公开图片可用性筛选。最多 20 位。")
+                        Text("仅用于历史美少女精选定时来源，不限制 /search、ID 直查或 /hot。先暂停再修改；有草稿时请先保存或放弃，再增删画师。添加后立即保存，不调用模型，按公开图片可用性筛选。最多 20 位。")
                             .font(.caption).foregroundStyle(.secondary)
                         ForEach(engine.config.effectiveArtwork.pixivArtistIDs, id: \.self) { id in
                             HStack {
                                 Link(QQArtworkLibrary.artistName(id, config: engine.config.effectiveArtwork), destination: URL(string: "https://www.pixiv.net/users/\(id)")!)
-                                Text("/artist \(id)").textSelection(.enabled)
+                                Text("画师 ID：\(id)").textSelection(.enabled)
                                 Text("公开取图，逐作检查可用性").font(.caption).foregroundStyle(.secondary)
                                 Button("移除") {
                                     var updated = engine.config.effectiveArtwork
