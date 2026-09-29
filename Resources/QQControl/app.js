@@ -341,7 +341,7 @@ function renderArtwork(first) {
     for(const artist of roster) {
       const row=document.createElement('p'),link=document.createElement('a'),remove=button('移除',{action:'removeArtworkArtist',artistInput:artist.id},`移除画师：${artist.name}（${artist.id}）`);
       link.href=`https://www.pixiv.net/users/${artist.id}`;link.target='_blank';link.rel='noreferrer';link.textContent=`${artist.name}（${artist.id}）`;
-      row.append(link,document.createTextNode(` · ${artist.deliveryStatus||'逐作检查公开图片可用性'} · /artist ${artist.id} `),remove);$('artArtistList').append(row);
+      row.append(link,document.createTextNode(` · ${artist.deliveryStatus||'逐作检查公开图片可用性'} · 历史精选来源 `),remove);$('artArtistList').append(row);
     }
   }
   if(first) {

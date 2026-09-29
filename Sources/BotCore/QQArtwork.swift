@@ -90,56 +90,66 @@ public struct QQArtworkRequest: Codable, Equatable, Sendable {
     public var query: String
     public var prompt: String?
     public init(mode: String, query: String = "", prompt: String? = nil) { self.mode = mode; self.query = query; self.prompt = prompt }
-    public static let navigation = "────────\n【继续操作】\n• /next [新关键词] → 下一张\n• /search 关键词 → 全站·收藏筛选\n• /hot [关键词] → 日榜\n• /art [关键词] → 精选或直接搜索\n• /artists → 画师列表\n• /persona → 会话性格\n• /art help → 完整用法"
+    public static let navigation = "────────\n【继续操作】\n• /next [新关键词] → 下一张\n• /search 关键词或作品ID → 搜图\n• /hot [关键词] → 日榜\n• /persona → 会话性格\n• /search help → 完整用法"
     public static let help = """
     【插画命令】
     不调用大模型 · 仅已启用会话可用
     ────────
-    01｜全站搜图
+    01｜统一搜图
     /search 关键词
-    优先热门候选；核验收藏门槛（默认1000，面板可调）。
+    优先收藏达标作品；本轮无达标图时按真实热度选保底图，并注明降级。
 
-    02｜精选与直接搜索
-    /art [关键词]
-    不填看精选；填写后直接搜索 Pixiv。
+    02｜作品直查
+    /search 作品ID或Pixiv作品链接
+    /id 作品ID
+    直接查询指定作品，不要求收藏门槛；仍检查图片可用性、画质与去重。
 
     03｜每日榜单
     /hot [关键词]
     从第1名按序取图，不限画师与题材；填写关键词则在榜内筛选。
 
-    04｜按画师找图
-    /artists → 查看配置画师
-    /artist 名称或ID [关键词]
-
-    05｜继续看图
+    04｜继续看图
     /next [新关键词]
-    沿用上次来源；填写新关键词则替换筛选条件。
+    沿用上次搜索或榜单；填写新关键词则替换条件。
+    ID查询没有下一张，可用 /next 新关键词 开始搜索。
     ────────
     【输入示例】
     • /search 白发 猫耳 -黑丝
-    • /artist Anmi 初音未来
+    • /search https://www.pixiv.net/artworks/53325959
 
     【小提示】
-    • 方括号内容可省略，输入时不带括号。
+    • /art 是 /search 的兼容别名，无需选择两个入口。
+    • /artist 与 /artists 已退役；发图仍附画师署名。
     • 支持常见标签译名、多关键词和 -词 排除。
-    • 收藏是热度参考，不代表完整人气排名。
-    • /persona → 会话性格
-    • /art help → 再看帮助
+    • 收藏是热度参考；保底只放宽热度，不保证总有结果。
+    • /search help → 再看帮助
     """
+    /// Parse an identifier into a canonical Pixiv work ID; never fetch user-supplied URLs.
+    public static func artworkID(_ input: String) -> String? {
+        if QQConfig.validID(input) { return input }
+        guard input.count <= 500, let url = URL(string: input), url.scheme == "https",
+              ["www.pixiv.net", "pixiv.net"].contains(url.host ?? ""),
+              url.user == nil, url.password == nil, url.port == nil else { return nil }
+        var parts = url.path.split(separator: "/").map(String.init)
+        if parts.count == 3, ["en", "zh", "zh-tw", "ja", "ko"].contains(parts[0]) { parts.removeFirst() }
+        guard parts.count == 2, parts[0] == "artworks", QQConfig.validID(parts[1]) else { return nil }
+        return parts[1]
+    }
     public static func parse(_ text: String) -> Self? {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let range = value.range(of: #"^/(artists|artist|search|next|hot|art)(?=$|\s|[\x{3400}-\x{9fff}])"#, options: [.regularExpression, .caseInsensitive]) else { return nil }
+        guard let range = value.range(of: #"^/(artists|artist|search|next|hot|art|id)(?=$|\s|[\x{3400}-\x{9fff}])"#, options: [.regularExpression, .caseInsensitive]) else { return nil }
         let verb = String(value[range]).lowercased()
         let query = String(value[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.count <= 80, !query.contains("\n"), !query.contains("\r"), !query.contains("://"), !query.contains("[CQ:") else { return Self(mode: "help") }
-        switch verb {
-        case "/art": return Self(mode: ["help", "帮助", "?"].contains(query.lowercased()) ? "help" : "featured", query: query)
-        case "/search": return Self(mode: query.isEmpty ? "help" : "search", query: query)
-        case "/hot": return Self(mode: "hot", query: query)
-        case "/artist": return Self(mode: query.isEmpty ? "artists" : "artist", query: query)
-        case "/artists": return Self(mode: query.isEmpty ? "artists" : "help")
-        default: return Self(mode: "next", query: query)
+        guard query.count <= 500, !query.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }), !query.contains("[CQ:") else { return Self(mode: "help") }
+        if ["/artist", "/artists"].contains(verb) { return Self(mode: "retiredArtist") }
+        if ["help", "帮助", "?"].contains(query.lowercased()) { return Self(mode: "help") }
+        if ["/search", "/art", "/id"].contains(verb) {
+            if let id = artworkID(query) { return Self(mode: "id", query: id) }
+            guard verb != "/id", !query.isEmpty, !query.allSatisfy(\.isNumber), !query.contains("://"), query.count <= 80 else { return Self(mode: "help") }
+            return Self(mode: "search", query: query)
         }
+        guard query.count <= 80, !query.contains("://") else { return Self(mode: "help") }
+        return Self(mode: verb == "/hot" ? "hot" : "next", query: query)
     }
 }
 
