@@ -401,7 +401,7 @@ struct QQRuntimeCredentials: Decodable {
         defer { if session == current { busy = false } }
         do {
             guard let file else { throw AppFailure.message("QQ 状态目录不可用") }
-            let lock = open(file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock").path, O_CREAT | O_RDWR, 0o600)
+            let lock = open(file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
             guard lock >= 0 else { throw AppFailure.message("无法创建 QQ 运行锁") }
             guard flock(lock, LOCK_EX | LOCK_NB) == 0 else {
                 close(lock); throw AppFailure.message("另一个 QQ 回复引擎正在运行，请先停止它")
@@ -505,7 +505,8 @@ struct QQRuntimeCredentials: Decodable {
         loginCode = nil
         #endif
         watchdog?.cancel(); watchdog = nil; connection.close(); status = reason
-        if runtimeLock >= 0 { close(runtimeLock); runtimeLock = -1 }
+        // Release ownership even if a spawned process still holds a descriptor copy.
+        if runtimeLock >= 0 { _ = flock(runtimeLock, LOCK_UN); close(runtimeLock); runtimeLock = -1 }
     }
     func takeOver(_ id: UUID) {
         // Cancel the active generation as well, preventing a response from escaping a removed scope.
@@ -1238,13 +1239,13 @@ struct QQRuntimeCredentials: Decodable {
         // A disconnected native panel must not overwrite a running control page's state.
         var writeLock: Int32 = -1
         if runtimeLock < 0 {
-            writeLock = open(file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock").path, O_CREAT | O_RDWR, 0o600)
+            writeLock = open(file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
             guard writeLock >= 0 else { throw AppFailure.message("无法创建 QQ 配置写入锁") }
             guard flock(writeLock, LOCK_EX | LOCK_NB) == 0 else {
                 close(writeLock); throw AppFailure.message("另一处 QQ 引擎正在运行，不能覆盖其配置")
             }
         }
-        defer { if writeLock >= 0 { close(writeLock) } }
+        defer { if writeLock >= 0 { _ = flock(writeLock, LOCK_UN); close(writeLock) } }
         let current = FileManager.default.fileExists(atPath: file.path) ? try Data(contentsOf: file) : nil
         guard current == persistedData else { throw AppFailure.message("QQ 配置已由另一实例更新，请重新打开面板再操作") }
         seen = seen.filter { Date().timeIntervalSince1970 - $0.value < 86400 }

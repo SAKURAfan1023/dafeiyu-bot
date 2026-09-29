@@ -5,6 +5,11 @@ import FoundationNetworking
 import Testing
 import BotCore
 @testable import WeChatAIBot
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
 
 // A private URLSession intercepts every model request; no real API or credentials are used.
 private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
@@ -87,6 +92,49 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
 }
 
 @Suite(.serialized) @MainActor struct QQEngineTests {
+    @Test func disconnectReleasesRuntimeLockEvenWhenDescriptorWasDuplicated() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let server = Process(), output = Pipe()
+        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
+        server.standardOutput = output; try server.run()
+        defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
+        let port = try #require(Int(String(decoding: output.fileHandleForReading.availableData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)))
+        let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        defer { engine.disconnect() }
+        engine.save(endpoint: "ws://127.0.0.1:\(port)", expectedSelfID: "12345")
+        try #require(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
+        let other = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        other.save(endpoint: "ws://127.0.0.1:3102")
+        #expect(other.error != nil) // An active owner must still exclude other writers.
+
+        let attributes = try FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent("qq-engine.lock").path)
+        let inode = try #require(attributes[.systemFileNumber] as? NSNumber)
+        let device = try #require(attributes[.systemNumber] as? NSNumber)
+        var lockDescriptor: Int32?
+        for descriptor in try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").compactMap(Int32.init) {
+            var info = stat()
+            if fstat(descriptor, &info) == 0 && UInt64(info.st_ino) == inode.uint64Value && UInt64(info.st_dev) == device.uint64Value {
+                lockDescriptor = descriptor; break
+            }
+        }
+        let descriptor = try #require(lockDescriptor)
+        #expect(fcntl(descriptor, F_GETFD) & FD_CLOEXEC != 0)
+        // dup models the shared open-file description inherited during fork,
+        // without forking a multithreaded Swift test process.
+        let inherited = dup(descriptor); try #require(inherited >= 0)
+        defer { close(inherited) }
+        engine.disconnect()
+        let reopened = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        reopened.save(endpoint: "ws://127.0.0.1:3102")
+        #expect(reopened.error == nil)
+        #expect(QQEngine(allowAuthenticationUI: false, storageDirectory: directory).config.endpoint == "ws://127.0.0.1:3102")
+        #expect(!engine.running && engine.usage.calls == 0 && engine.sends.attempts == 0)
+    }
+
     @Test func savedReplyScopeAndWorkHoursSurviveReopeningWithoutStarting() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
