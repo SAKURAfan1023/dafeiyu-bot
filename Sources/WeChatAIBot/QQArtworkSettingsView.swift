@@ -22,11 +22,23 @@ struct QQArtworkSettingsView: View {
                     Stepper("去重 \(draft.value.settings.repeatDays) 天", value: $draft.value.settings.repeatDays, in: 1...90)
                 }
                 HStack {
-                    TextField("每日来源请求数", value: $draft.value.settings.networkDailyLimit, format: .number)
-                    TextField("最小长边像素", value: $draft.value.settings.minLongEdge, format: .number)
-                    TextField("最小短边像素", value: $draft.value.settings.minShortEdge, format: .number)
+                    VStack(alignment: .leading) {
+                        Text("每日来源请求数（10–2000）").font(.caption).foregroundStyle(.secondary)
+                        TextField("每日来源请求数", text: $draft.value.networkDailyLimit)
+                    }
+                    VStack(alignment: .leading) {
+                        Text("最小长边像素（0–4096）").font(.caption).foregroundStyle(.secondary)
+                        TextField("最小长边像素", text: $draft.value.minLongEdge)
+                    }
+                    VStack(alignment: .leading) {
+                        Text("最小短边像素（0–4096）").font(.caption).foregroundStyle(.secondary)
+                        TextField("最小短边像素", text: $draft.value.minShortEdge)
+                    }
                 }
-                TextField("/search 最低收藏数（默认1000）", value: $draft.value.settings.effectiveSearchMinBookmarks, format: .number)
+                Text("/search 最低收藏数（1–1000000）").font(.caption).foregroundStyle(.secondary)
+                TextField("/search 最低收藏数（默认1000）", text: $draft.value.searchMinBookmarks)
+                Text("数字框须填写整数；无尺寸门槛请填 0。无效输入会保留，修正后再保存。")
+                    .font(.caption).foregroundStyle(.secondary)
                 DisclosureGroup("画师与历史资料") {
                     VStack(alignment: .leading) {
                         HStack {
@@ -77,12 +89,10 @@ struct QQArtworkSettingsView: View {
                     guard !draft.conflicts(with: QQArtworkForm(engine.config.effectiveArtwork)) else {
                         engine.error = "插画配置已在别处更新，请先载入最新设置"; return
                     }
-                    var updated = draft.value.settings
-                    updated.pixivArtistIDs = draft.value.artists.components(separatedBy: CharacterSet(charactersIn: ",， \n")).filter { !$0.isEmpty }
-                    updated.artistNames = updated.artistNames?.filter { updated.pixivArtistIDs.contains($0.key) }
-                    updated.imagePermissions = updated.imagePermissions.filter { updated.pixivArtistIDs.contains($0.key) }
-                    engine.saveArtwork(updated)
-                    if engine.error == nil { draft.reset(QQArtworkForm(engine.config.effectiveArtwork)) }
+                    do {
+                        engine.saveArtwork(try draft.value.validatedSettings())
+                        if engine.error == nil { draft.reset(QQArtworkForm(engine.config.effectiveArtwork)) }
+                    } catch { engine.error = error.localizedDescription }
                 }
                 Text(engine.artworkStatus).font(.caption)
             }.disabled(engine.running || engine.busy || engine.runtimeBusy)

@@ -10,7 +10,10 @@ import BotCore
     private func request(_ server: QQControlServer, action: [String: Any]? = nil, token: String? = nil) async throws -> (Int, [String: Any]) {
         let url = server.controlURL
         var request = URLRequest(url: URL(string: "http://127.0.0.1:\(url.port!)/api/\(action == nil ? "status" : "action")")!)
-        request.timeoutInterval = 2
+        // Other integration suites start Python fixtures on MainActor in parallel.
+        // This is a functional check, not a two-second latency budget. Allow the
+        // server's existing request window; closed-port checks below stay strict.
+        request.timeoutInterval = 15
         request.setValue(token ?? url.fragment!, forHTTPHeaderField: "X-QQ-Control")
         request.setValue("http://127.0.0.1:\(url.port!)", forHTTPHeaderField: "Origin")
         if let action {

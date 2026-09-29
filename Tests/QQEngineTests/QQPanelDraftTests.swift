@@ -4,6 +4,48 @@ import BotCore
 @testable import WeChatAIBot
 
 @Suite @MainActor struct QQPanelDraftTests {
+    @Test func artworkTextDraftValidatesBeforePersistingAndSurvivesRefresh() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        engine.save(expectedSelfID: "12345")
+        let before = engine.config
+        var draft = QQPanelDraft(value: QQArtworkForm(before.effectiveArtwork))
+        draft.value.networkDailyLimit = ""
+        draft.value.searchMinBookmarks = "1200.5"
+        draft.refresh(QQArtworkForm(before.effectiveArtwork))
+        #expect(draft.value.networkDailyLimit.isEmpty && draft.value.searchMinBookmarks == "1200.5")
+        #expect(draft.hasChanges)
+        #expect(throws: (any Error).self) { try engine.saveArtwork(draft.value.validatedSettings()) }
+        #expect(engine.config == before)
+        #expect(QQEngine(allowAuthenticationUI: false, storageDirectory: directory).config == before)
+        draft.value.networkDailyLimit = " 450 "
+        #expect(throws: (any Error).self) { try draft.value.validatedSettings() }
+        draft.value.searchMinBookmarks = "1200"
+        draft.value.minLongEdge = "0"; draft.value.minShortEdge = "0"
+        engine.saveArtwork(try draft.value.validatedSettings())
+        try #require(engine.error == nil)
+        draft.reset(QQArtworkForm(engine.config.effectiveArtwork))
+        #expect(!draft.hasChanges && draft.value.networkDailyLimit == "450")
+        let saved = QQEngine(allowAuthenticationUI: false, storageDirectory: directory).config.effectiveArtwork
+        #expect(saved.networkDailyLimit == 450 && saved.effectiveSearchMinBookmarks == 1200)
+        #expect(saved.minLongEdge == 0 && saved.minShortEdge == 0)
+        #expect(!engine.running && engine.usage.calls == 0 && engine.sends.attempts == 0)
+    }
+
+    @Test func artworkTextDraftRejectsMalformedAndOutOfRangeNumbers() {
+        var form = QQArtworkForm(QQArtworkConfig())
+        form.minLongEdge = "1e3"
+        #expect(throws: (any Error).self) { try form.validatedSettings() }
+        form.minLongEdge = "1400"; form.minShortEdge = "-1"
+        #expect(throws: (any Error).self) { try form.validatedSettings() }
+        form.minShortEdge = "720"; form.networkDailyLimit = "2001"
+        #expect(throws: (any Error).self) { try form.validatedSettings() }
+        form.networkDailyLimit = "300"; form.searchMinBookmarks = String(repeating: "9", count: 50)
+        #expect(throws: (any Error).self) { try form.validatedSettings() }
+    }
+
     @Test func editingDoesNotMutateRuntimeAndUnrelatedSettingsDoNotConflict() throws {
         let engine = QQEngine(preview: true, allowAuthenticationUI: false)
         let original = engine.config

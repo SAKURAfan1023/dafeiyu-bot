@@ -20,19 +20,24 @@ import BotCore
         defer { try? FileManager.default.removeItem(at: directory) }
         let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
         engine.save(expectedSelfID: "12345")
+        try #require(engine.error == nil, "\(engine.error ?? "")")
         var visual = QQVisualConfig(); visual.provider = .zhipu; visual.googleWebEnabled = true
         engine.saveVisualTools(visual, googleKey: "synthetic-google", persistCredentials: false)
+        try #require(engine.error == nil, "\(engine.error ?? "")")
         engine.config.effectiveVisionEnabled = true; engine.config.effectiveOnlineEnabled = true
         var image = QQImageGenerationConfig(); image.enabled = true; image.fallbackEnabled = false
         engine.saveImageGeneration(image, zhipuKey: "synthetic-zhipu", cloudflareToken: "", persistCredentials: false)
-        #expect(engine.error == nil && engine.configurationHints.isEmpty)
+        try #require(engine.error == nil, "\(engine.error ?? "")")
+        #expect(engine.configurationHints.isEmpty)
         image.fallbackEnabled = true
         engine.saveImageGeneration(image, zhipuKey: "", cloudflareToken: "", persistCredentials: false)
+        try #require(engine.error == nil, "\(engine.error ?? "")")
         #expect(engine.configurationHints.contains { $0.contains("Account ID") })
         #expect(engine.configurationHints.contains { $0.contains("Cloudflare 生图凭证当前未载入") })
         image.cloudflareAccountID = String(repeating: "a", count: 32)
         engine.saveImageGeneration(image, zhipuKey: "", cloudflareToken: "synthetic-cloudflare", persistCredentials: false)
-        #expect(engine.error == nil && engine.configurationHints.isEmpty)
+        try #require(engine.error == nil, "\(engine.error ?? "")")
+        #expect(engine.configurationHints.isEmpty)
         #expect(!engine.running && engine.sends.attempts == 0)
     }
 

@@ -49,6 +49,7 @@ function syncForms() {
     targetDraft.clear(); targetSignature='';
   }
   renderArtwork(shouldSync('artwork'));
+  for(const id of ['workStart','workEnd']) $(id).disabled=state.running||state.busy||pending||!$('workHoursEnabled').checked;
   const conflicts=[...dirtyForms].filter(([group,draft])=>draft.base!==formSnapshot(group)).map(([group])=>formNames[group]);
   text('draftStatus', conflicts.length ? `配置冲突：${conflicts.join('、')}已在别处修改。你的草稿仍保留，但不会覆盖新设置。请记录需要保留的修改，再放弃草稿并载入最新配置。` : dirtyForms.size ? `未提交：${[...dirtyForms.keys()].map(k=>formNames[k]).join('、')}。请使用对应区域的保存按钮；开始回复使用已保存配置。` : '所有显示设置均已同步；保存配置不会自动启动。');
   $('discardDrafts').hidden=dirtyForms.size===0;
@@ -229,7 +230,8 @@ for(const action of ['start','save','once']) $(action).addEventListener('click',
   if(!validateNumericInputs(numeric)) return;
   const ai=structuredClone(state.config.ai);
   ai.model=$('model').value.trim();ai.prompt=$('prompt').value;
-  ai.workHoursEnabled=$('workHoursEnabled').checked;ai.workStart=Number($('workStart').value);ai.workEnd=Number($('workEnd').value);
+  ai.workHoursEnabled=$('workHoursEnabled').checked;
+  if(ai.workHoursEnabled) { ai.workStart=Number($('workStart').value);ai.workEnd=Number($('workEnd').value); }
   ai.dailyLimit=Number($('daily').value);ai.cooldownSeconds=Number($('cooldown').value);
   ai.sendLimits={...(ai.sendLimits ?? {globalIntervalSeconds:3}),globalIntervalSeconds:Number($('globalInterval').value),daily:Number($('sendDaily').value),perChatDaily:Number($('chatDaily').value)};
   const persona={style:$('personaStyle').value,maxCharacters:Number($('maxCharacters').value),banter:Number($('banter').value),stickersEnabled:$('stickersEnabled').checked,stickerIntervalSeconds:Number($('stickerIntervalSeconds').value),stickerEveryReplies:Number($('stickerEveryReplies').value)};
