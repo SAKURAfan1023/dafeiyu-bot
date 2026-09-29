@@ -11,6 +11,9 @@ final class LoopbackListener {
     private let descriptor: Int32
     let port: UInt16
     private let slots = DispatchSemaphore(value: 32)
+    private let lock = NSLock()
+    private var source: DispatchSourceRead?
+    private var stopped = false
     init() throws {
         #if os(Linux)
         let descriptor = socket(AF_INET, Int32(SOCK_STREAM.rawValue), 0)
@@ -32,19 +35,40 @@ final class LoopbackListener {
             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(descriptor, $0, &length) }
         }
         guard result == 0 else { close(descriptor); throw AppFailure.message("无法读取本机端口") }
+        guard fcntl(descriptor, F_SETFL, O_NONBLOCK) == 0 else {
+            close(descriptor); throw AppFailure.message("无法配置本机控制端口")
+        }
         self.descriptor = descriptor; port = UInt16(bigEndian: address.sin_port)
     }
     func start(accepted: @escaping (LoopbackConnection) -> Void) {
-        DispatchQueue(label: "dafeiyu.control.accept").async { [self] in
-            while true {
+        lock.lock(); defer { lock.unlock() }
+        guard source == nil, !stopped else { return }
+        let descriptor = self.descriptor
+        let source = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: DispatchQueue(label: "dafeiyu.control.accept"))
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            for _ in 0..<32 {
                 let socket = accept(descriptor, nil, nil)
-                if socket < 0 { if errno == EINTR { continue }; return }
-                guard slots.wait(timeout: .now()) == .success else { close(socket); continue }
-                accepted(LoopbackConnection(descriptor: socket, release: { [slots] in slots.signal() }))
+                if socket < 0 { return }
+                // Accepted sockets use bounded blocking IO on their own queue.
+                // macOS may inherit the listener's nonblocking flag.
+                guard fcntl(socket, F_SETFL, 0) == 0 else { close(socket); continue }
+                guard self.slots.wait(timeout: .now()) == .success else { close(socket); continue }
+                accepted(LoopbackConnection(descriptor: socket, release: { [slots = self.slots] in slots.signal() }))
             }
         }
+        // Closing after the read handler drains avoids reusing a descriptor
+        // while an accept operation still references it.
+        source.setCancelHandler { close(descriptor) }
+        self.source = source; source.resume()
     }
-    deinit { close(descriptor) }
+    func stop() {
+        lock.lock(); defer { lock.unlock() }
+        guard !stopped else { return }; stopped = true
+        if let source { source.cancel(); self.source = nil }
+        else { close(descriptor) }
+    }
+    deinit { stop() }
 }
 
 final class LoopbackConnection {

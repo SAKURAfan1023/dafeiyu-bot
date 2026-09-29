@@ -5,6 +5,11 @@ import FoundationNetworking
 import Testing
 import BotCore
 @testable import WeChatAIBot
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
 
 // A private URLSession intercepts every model request; no real API or credentials are used.
 private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
@@ -87,6 +92,114 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
 }
 
 @Suite(.serialized) @MainActor struct QQEngineTests {
+    @Test func disconnectReleasesRuntimeLockEvenWhenDescriptorWasDuplicated() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let server = Process(), output = Pipe()
+        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
+        server.standardOutput = output; try server.run()
+        defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
+        let port = try #require(Int(String(decoding: output.fileHandleForReading.availableData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)))
+        let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        defer { engine.disconnect() }
+        engine.save(endpoint: "ws://127.0.0.1:\(port)", expectedSelfID: "12345")
+        try #require(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
+        await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
+        let other = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        other.save(endpoint: "ws://127.0.0.1:3102")
+        #expect(other.error != nil) // An active owner must still exclude other writers.
+
+        let attributes = try FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent("qq-engine.lock").path)
+        let inode = try #require(attributes[.systemFileNumber] as? NSNumber)
+        let device = try #require(attributes[.systemNumber] as? NSNumber)
+        var lockDescriptor: Int32?
+        for descriptor in try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").compactMap(Int32.init) {
+            var info = stat()
+            if fstat(descriptor, &info) == 0 && UInt64(info.st_ino) == inode.uint64Value && UInt64(info.st_dev) == device.uint64Value {
+                lockDescriptor = descriptor; break
+            }
+        }
+        let descriptor = try #require(lockDescriptor)
+        #expect(fcntl(descriptor, F_GETFD) & FD_CLOEXEC != 0)
+        // dup models the shared open-file description inherited during fork,
+        // without forking a multithreaded Swift test process.
+        let inherited = dup(descriptor); try #require(inherited >= 0)
+        defer { close(inherited) }
+        engine.disconnect()
+        let reopened = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        reopened.save(endpoint: "ws://127.0.0.1:3102")
+        #expect(reopened.error == nil)
+        #expect(QQEngine(allowAuthenticationUI: false, storageDirectory: directory).config.endpoint == "ws://127.0.0.1:3102")
+        #expect(!engine.running && engine.usage.calls == 0 && engine.sends.attempts == 0)
+    }
+
+    @Test func savedReplyScopeAndWorkHoursSurviveReopeningWithoutStarting() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        engine.config.expectedSelfID = "12345"
+        engine.config.targets = [QQTarget(number: "54321", name: "合成好友", group: false), QQTarget(number: "99999", name: "合成群", group: true)]
+        var ai = engine.config.ai
+        ai.workHoursEnabled = true; ai.workStart = 22; ai.workEnd = 7
+        engine.saveReplySettings(ai: ai, persona: engine.config.effectivePersona, enabledTargets: ["group:99999"])
+        try #require(engine.error == nil)
+        let reopened = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        #expect(reopened.config.targets.filter(\.enabled).map(\.key) == ["group:99999"])
+        #expect(reopened.config.ai.workHoursEnabled && reopened.config.ai.workStart == 22 && reopened.config.ai.workEnd == 7)
+        #expect(!engine.running && !reopened.running && engine.sends.attempts == 0)
+        let saved = engine.config
+        engine.saveReplySettings(ai: ai, persona: engine.config.effectivePersona, enabledTargets: ["group:11111"])
+        #expect(engine.error != nil); #expect(engine.config == saved)
+        engine.saveReplySettings(ai: ai, persona: engine.config.effectivePersona, enabledTargets: [])
+        #expect(engine.error == nil); #expect(engine.config.targets.allSatisfy { !$0.enabled })
+    }
+
+    @Test func rejectedConnectionAndStaleReplySaveRestoreInMemoryConfiguration() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        engine.save(endpoint: "ws://127.0.0.1:3101", expectedSelfID: "12345")
+        try #require(engine.error == nil)
+        let saved = engine.config
+        engine.save(endpoint: "ws://example.invalid:3101", expectedSelfID: "54321")
+        #expect(engine.error != nil); #expect(engine.config == saved)
+        let other = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        other.save(endpoint: "ws://127.0.0.1:3102")
+        try #require(other.error == nil)
+        var ai = saved.ai; ai.dailyLimit = 17
+        engine.saveReplySettings(ai: ai, persona: saved.effectivePersona)
+        #expect(engine.error != nil); #expect(engine.config == saved)
+        let reopened = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        #expect(reopened.config.endpoint == "ws://127.0.0.1:3102")
+        #expect(reopened.config.ai.dailyLimit == saved.ai.dailyLimit)
+    }
+
+    @Test(arguments: ["add", "remove"])
+    func staleRosterEditDoesNotChangeDisplayedOrSavedTargets(_ operation: String) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        engine.save(expectedSelfID: "12345")
+        engine.add(QQContact(number: "54321", name: "合成好友", group: false))
+        try #require(engine.error == nil)
+        let targets = engine.config.targets
+        let other = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        other.save(endpoint: "ws://127.0.0.1:3102")
+        try #require(other.error == nil)
+        if operation == "add" { engine.add(QQContact(number: "99999", name: "合成群", group: true)) }
+        else { engine.remove(targets[0].id) }
+        #expect(engine.error != nil)
+        #expect(engine.config.targets == targets)
+        let reopened = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        #expect(reopened.config.targets == targets)
+        #expect(reopened.config.endpoint == "ws://127.0.0.1:3102")
+    }
+
     @Test(arguments: ["draftSilent", "reviewSilent", "invalidDecision", "ownerToOther", "direct"])
     func participationMayStaySilentWithoutSendingOrConsumingSendQuota(_ mode: String) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -504,14 +617,17 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         }
         try Data().write(to: directory.appendingPathComponent("ready"))
 
-        // Wait for one in-flight HTTP request and both admitted messages in the dedup store.
+        // Wait for admitted messages and for every reserved call to reach URLSession.
+        // Memory can reserve a second call before URLProtocol.startLoading runs;
+        // comparing the counters during that scheduling gap is not a billing failure.
         let deadline = Date().addingTimeInterval(5)
         var admitted = 0
         while Date() < deadline {
             let data = try Data(contentsOf: directory.appendingPathComponent("qq-state.json"))
             let state = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
             admitted = (state["seen"] as? [String: Any])?.count ?? 0
-            if DelayedModelProtocol.counts.started >= 1 && admitted == expectedMessages { break }
+            let started = DelayedModelProtocol.counts.started
+            if started >= 1 && admitted == expectedMessages && engine.usage.calls == started { break }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         try #require(control == "memory" ? (1...2).contains(DelayedModelProtocol.counts.started) : DelayedModelProtocol.counts.started == 1)
