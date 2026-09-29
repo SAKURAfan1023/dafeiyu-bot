@@ -13,6 +13,7 @@ const actionForms = {saveConnection:'connection',connect:'connection',save:'repl
 const credentialFields = {connection:['token','key'],image:['imageGenZhipuKey','imageGenCloudflareToken'],visual:['googleVisionKey']};
 let requestSequence = 0, activeActions = 0, actionError = '';
 let runtimeSignature = '';
+let lastConfirmedAt = 0, syncError = '', statusRequestPending = false;
 // JSON object key order is not stable across server responses.
 function fingerprint(value) {
   if(Array.isArray(value)) return '['+value.map(fingerprint).join(',')+']';
@@ -68,19 +69,48 @@ function validateNumericInputs(ids) {
   return true;
 }
 function text(id, value) { const element=$(id), next=String(value??''); if(element.textContent!==next) element.textContent=next; }
+function renderFreshness() {
+  const stale=!lastConfirmedAt || !!syncError || Date.now()-lastConfirmedAt>15000;
+  const updated=lastConfirmedAt ? `上次确认：${new Date(lastConfirmedAt).toLocaleTimeString('zh-CN')}。` : '尚未取得后台状态。';
+  text('syncUpdated',updated);
+  text('syncMessage',stale ? `${syncError || (pending?'操作仍在等待回应。':'正在重新读取状态。')}下方数值仅供参考；当前连接与运行状态尚未确认，不能据此判断机器人已暂停。` : (pending?'操作正在提交，请等待结果。':'状态已同步。'));
+  $('syncStatus').dataset.stale=stale;
+  if(stale) {
+    text('status','后台当前状态待确认');
+    text('connectionState','连接待确认'); text('runState','运行待确认');
+    for(const id of ['connectionState','scopeState','runState']) $(id).dataset.ready=false;
+    if(!dirtyForms.size) text('draftStatus','当前显示上次读取的设置；等待后台恢复后同步。');
+  }
+}
 async function request(action) {
   const sequence=++requestSequence;
-  const response = await fetch(action ? '/api/action' : '/api/status', {
-    method: action ? 'POST' : 'GET', cache: 'no-store',
-    headers: {'X-QQ-Control': controlToken, ...(action ? {'Content-Type':'application/json'} : {})},
-    body: action ? JSON.stringify(action) : undefined
-  });
-  if (!response.ok) throw new Error(response.status === 403 ? '控制页授权已失效，请使用本次启动时显示的完整地址重新打开。' : '本机服务暂不可用，请检查是否仍在运行。');
-  const result=await response.json();
-  if(sequence===requestSequence) { state=result; render(); }
-  return result;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),action ? 60000 : 10000);
+  if(!action) statusRequestPending=true;
+  try {
+    const response = await fetch(action ? '/api/action' : '/api/status', {
+      method: action ? 'POST' : 'GET', cache: 'no-store',
+      signal:controller.signal,
+      headers: {'X-QQ-Control': controlToken, ...(action ? {'Content-Type':'application/json'} : {})},
+      body: action ? JSON.stringify(action) : undefined
+    });
+    if (!response.ok) throw new Error(response.status === 403 ? '控制页授权已失效，请使用本次启动时显示的完整地址重新打开。' : '本机服务暂不可用，请检查是否仍在运行。');
+    const result=await response.json();
+    if(sequence===requestSequence) { state=result; lastConfirmedAt=Date.now(); syncError=''; render(); }
+    return result;
+  } catch(e) {
+    const message=controller.signal.aborted ? (action ? '操作等待超过 60 秒，结果尚未确认；不会自动重试。请等状态恢复后核对，草稿保留。' : '读取状态超过 10 秒，将继续尝试读取。') : (e instanceof TypeError ? '无法连接本机控制服务，请检查后台进程或使用当前控制地址重新打开。' : e.message);
+    if(sequence===requestSequence) { syncError=message; renderFreshness(); }
+    throw new Error(message);
+  } finally {
+    clearTimeout(timeout);
+    if(!action) statusRequestPending=false;
+  }
 }
 async function act(action) {
+  if((!lastConfirmedAt || syncError || Date.now()-lastConfirmedAt>15000) && !['pause','disconnect','clear','takeOver','clearMemory'].includes(action.action)) {
+    showActionError('后台状态尚未确认，请等状态恢复后再提交；未发送本次操作，草稿保留。'); return false;
+  }
   if (pending && !['pause','disconnect','clear','takeOver'].includes(action.action)) return false;
   if(dirtyForms.has('reply') && ['add','remove','setPersona'].includes(action.action)) {
     showActionError('范围与回复有未保存草稿。请先保存或放弃，再增删会话或切换会话性格。'); return false;
@@ -169,6 +199,7 @@ function render() {
   $('memories').replaceChildren();
   for(const memory of state.memories ?? []) { const p=document.createElement('p');p.textContent=`${memory.key} · ${memory.items ?? 0} 项重点 / ${memory.pending ?? 0} 条待整理 / 容量丢弃 ${memory.dropped ?? 0} 条 · ${new Date(memory.updatedAt*1000).toLocaleString('zh-CN')}：${memory.summary}`;$('memories').append(p); }
   if(!state.memories?.length) text('memories','尚无会话记忆');
+  renderFreshness();
 }
 function renderScopeActions() {
   const busy=state.running||state.busy||pending, hasDraft=dirtyForms.has('reply');
@@ -256,8 +287,8 @@ $('discardDrafts').addEventListener('click',()=>{
   render();
 });
 window.addEventListener('beforeunload',event=>{if(dirtyForms.size){event.preventDefault();event.returnValue='';}});
-request().catch(e=>text('error',e.message));
-setInterval(()=>{if(!pending)request().catch(e=>text('error',e.message));},3000);
+request().catch(()=>{});
+setInterval(()=>{renderFreshness();if(!pending && !statusRequestPending)request().catch(()=>{});},3000);
 
 async function renderStickers(items) {
   for(const item of items) {
