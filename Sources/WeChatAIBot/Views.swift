@@ -11,7 +11,7 @@ struct BotApp: App {
     @StateObject private var qq = QQEngine()
     @ViewState private var qqWebPanel: QQControlServer?
     var body: some Scene {
-        WindowGroup("微信与 QQ AI 助手", content: {
+        WindowGroup("微信与 QQ AI 助手", id: "dashboard", content: {
             Dashboard(engine: engine, qq: qq, openQQWebPanel: { openQQWebPanel() },
                       closeQQWebPanel: { closeQQWebPanel() }, webPanelOpen: qqWebPanel != nil)
                 .frame(minWidth: 980, minHeight: 700)
@@ -24,7 +24,7 @@ struct BotApp: App {
             Button(engine.isRunning || engine.isBusy ? "暂停微信操作" : "开始微信托管") { engine.isRunning || engine.isBusy ? engine.stop() : engine.start() }
                 .disabled(!engine.isRunning && !engine.isBusy && engine.safetyReason != nil)
             Divider()
-            Button("显示面板") { NSApp.activate(ignoringOtherApps: true); NSApp.windows.first(where: { $0.canBecomeMain })?.makeKeyAndOrderFront(nil) }
+            ShowDashboardButton()
             Button("在浏览器打开 QQ 面板") { openQQWebPanel() }
             if qqWebPanel != nil { Button("关闭网页控制入口（不暂停 QQ）") { closeQQWebPanel() } }
             Button("暂停微信与 QQ") { engine.stop(); qq.pause() }
@@ -43,6 +43,20 @@ struct BotApp: App {
         } catch { qq.error = error.localizedDescription }
     }
     @MainActor private func closeQQWebPanel() { qqWebPanel?.stop(); qqWebPanel = nil }
+}
+private struct ShowDashboardButton: View {
+    @Environment(\.openWindow) private var openWindow
+    var body: some View {
+        Button("显示面板") {
+            if let window = NSApp.windows.first(where: { $0.canBecomeMain && !($0 is NSPanel) }) {
+                window.deminiaturize(nil)
+                window.makeKeyAndOrderFront(nil)
+            } else {
+                openWindow(id: "dashboard")
+            }
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
 }
 enum Page: String, CaseIterable, Identifiable {
     case overview = "总览", chats = "托管会话", ai = "AI 配置", rules = "回复规则", logs = "运行记录", qq = "QQ 接入"

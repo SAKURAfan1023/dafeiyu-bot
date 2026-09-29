@@ -223,3 +223,14 @@
 - 当前生产代码仍是 `cbcc6b8`。[macOS CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/36524966507) 已通过 151 项测试、release 构建和 HTTP 回归；该 CI 早于本轮新队列用例，新增用例的远端结果需按新提交核对。本轮未修改引擎或界面，也没有替换生产运行服务。
 
 结构审查：在原有 `onebot` 夹具上新增可选队列控制，复用握手、身份与名单响应、线程退出及意外动作检查；新增部分仅管理合成事件与延迟响应，不新增生产接口或配置。既有不注入消息的场景保持原有行为。
+
+
+## 第十六轮验证记录 · 2026-09-29
+
+- `cbcc6b8` 的 [Linux CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/36524966493) 完成：152 项测试、图片边界、release 构建、HTTP 和 OneBot 检查通过；配合上一轮已确认的 macOS 151 项，该提交已有完整跨平台证据。这些检查早于 `8df7499` 的新队列回归。
+- `8df7499` 的 [macOS CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/36525742429) 在关闭入口验证遇到 `SO_ERROR=54`，即 `ECONNRESET`。探测握手与监听取消并发时可能先收到重置；测试现仅对这个过渡继续探测，仍保留原有一秒期限，必须最终收到 `ECONNREFUSED` 才通过，其他错误及超时仍失败。未修改生产监听器，也没有把重置当成关闭完成。
+- 原生观察再次返回找不到窗口，旧隔离进程仍存活。源码审查确认菜单栏“显示面板”只有寻找已有窗口的路径：若没有可恢复窗口会无操作。为 WindowGroup 增加明确 ID，菜单按钮优先恢复和取消最小化现有主窗口，无窗口时用 [SwiftUI openWindow](https://developer.apple.com/documentation/swiftui/environmentvalues/openwindow) 创建；不选择文件对话框等 NSPanel，不重建 App 持有的引擎。
+- 旧隔离测试进程已关闭，其临时资料保留；启动新版独立数据目录客户端后，真实 AX 已看到新 WindowGroup 的窗口 ID、菜单和总览。尝试导航时辅助服务再次断开，系统报告仍为 SkyComputerUseService 的 `Array.remove(at:)` 断言（EXC_BREAKPOINT / SIGTRAP），客户端进程存活且 CPU 空闲。该证据既不能证明重开菜单操作成功，也不能证明客户端崩溃。已发出关闭/重开窗口的人工验证请求，等待回复；未操作生产服务。
+- 本机 151 项测试、release 构建与签名通过；包含非空队列和迟到响应的新 HTTP 回归通过。窗口重建只具备源码与编译证据，真实重开、表单点击与窗口草稿生命周期仍未验收。
+
+结构审查：`ShowDashboardButton` 是私有 SwiftUI View，负责从菜单的实际视图环境取得 openWindow 并完成窗口恢复/创建；不是新引擎或配置容器。窗口 ID 仅连接已有 Scene 与菜单入口。测试仅增加对已观察到的关闭过渡状态的重试，不延长验证期限。

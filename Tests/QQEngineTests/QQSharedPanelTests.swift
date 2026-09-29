@@ -36,15 +36,19 @@ import Glibc
             if result < 0 {
                 let code = errno
                 if code == ECONNREFUSED { return }
-                try #require(code == EINPROGRESS, "Unexpected connect errno: \(code)")
-                var descriptor = pollfd(fd: socket, events: Int16(POLLOUT), revents: 0)
-                let ready = poll(&descriptor, 1, 100)
-                try #require(ready >= 0)
-                if ready > 0 {
-                    var error: Int32 = 0, length = socklen_t(MemoryLayout<Int32>.size)
-                    try #require(getsockopt(socket, SOL_SOCKET, SO_ERROR, &error, &length) == 0)
-                    if error == ECONNREFUSED { return }
-                    try #require(error == 0, "Unexpected socket error: \(error)")
+                // Cancelling the listener may reset an in-flight handshake.
+                // Retry that transition; only a later refusal proves closure.
+                if code != ECONNRESET {
+                    try #require(code == EINPROGRESS, "Unexpected connect errno: \(code)")
+                    var descriptor = pollfd(fd: socket, events: Int16(POLLOUT), revents: 0)
+                    let ready = poll(&descriptor, 1, 100)
+                    try #require(ready >= 0)
+                    if ready > 0 {
+                        var error: Int32 = 0, length = socklen_t(MemoryLayout<Int32>.size)
+                        try #require(getsockopt(socket, SOL_SOCKET, SO_ERROR, &error, &length) == 0)
+                        if error == ECONNREFUSED { return }
+                        try #require(error == 0 || error == ECONNRESET, "Unexpected socket error: \(error)")
+                    }
                 }
             }
             try await Task.sleep(nanoseconds: 20_000_000)
