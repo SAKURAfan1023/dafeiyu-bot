@@ -70,9 +70,11 @@ def onebot(mode='success', queue_control=None):
             assert not errors, str(errors)
 
 with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
+    executable = str(pathlib.Path(sys.argv[1]).resolve())
+    command = ['bash', executable] if '--shell-launcher' in sys.argv else [executable, '--qq-control-panel']
     env = dict(os.environ, DAFEIYU_DATA_DIR=folder)
     env.pop("DAFEIYU_RESOURCES", None)  # Verify packaged assets, not the source checkout.
-    process = subprocess.Popen([sys.argv[1], '--qq-control-panel'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    process = subprocess.Popen(command, cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     try:
         if not select.select([process.stdout], [], [], 20)[0]:
             raise RuntimeError('Panel did not start')
@@ -250,7 +252,7 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
                        'state':'uncertain' if index==34 else 'skipped',
                        'detail':f'合成结果 {index}；token=synthetic-private-secret https://example.invalid/?key=hidden'} for index in range(35)]
     file.write_text(json.dumps(stored))
-    process = subprocess.Popen([sys.argv[1], '--qq-control-panel'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    process = subprocess.Popen(command, cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     try:
         assert select.select([process.stdout], [], [], 20)[0], 'Panel did not reopen'
         line = process.stdout.readline().decode().strip()
