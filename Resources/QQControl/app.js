@@ -81,6 +81,9 @@ async function request(action) {
 }
 async function act(action) {
   if (pending && !['pause','disconnect','clear','takeOver'].includes(action.action)) return false;
+  if(dirtyForms.has('reply') && ['add','remove','setPersona'].includes(action.action)) {
+    showActionError('范围与回复有未保存草稿。请先保存或放弃，再增删会话或切换会话性格。'); return false;
+  }
   actionError='';
   const group=actionForms[action.action], draft=dirtyForms.get(group);
   if(draft && draft.base!==formSnapshot(group)) { showActionError('此区域存在配置冲突，草稿尚未提交。请先载入最新配置。'); return false; }
@@ -161,16 +164,21 @@ function render() {
       $('targets').append(row);
     }
   }
-  for(const checkbox of $('targets').querySelectorAll('input')) checkbox.disabled=state.running||state.busy||pending;
-  for(const select of $('targets').querySelectorAll('select')) {
-    select.disabled=state.running||state.busy||pending;
-    const target=state.config.targets.find(t=>`${t.group?'group':'private'}:${t.number}`===select.dataset.target);
-    select.value=target?.personaStyle??'default';
-  }
-  for(const row of $('targets').children) row.lastChild.disabled=state.running||state.busy||pending;
+  renderScopeActions();
   $('memories').replaceChildren();
   for(const memory of state.memories ?? []) { const p=document.createElement('p');p.textContent=`${memory.key} · ${memory.items ?? 0} 项重点 / ${memory.pending ?? 0} 条待整理 / 容量丢弃 ${memory.dropped ?? 0} 条 · ${new Date(memory.updatedAt*1000).toLocaleString('zh-CN')}：${memory.summary}`;$('memories').append(p); }
   if(!state.memories?.length) text('memories','尚无会话记忆');
+}
+function renderScopeActions() {
+  const busy=state.running||state.busy||pending, hasDraft=dirtyForms.has('reply');
+  text('scopeDraftStatus',hasDraft?'范围与回复有未保存草稿。请先保存或放弃，再增删会话或切换会话性格。':'增删会话与切换会话性格会立即保存；启用勾选需单独保存范围与回复设置。');
+  for(const checkbox of $('targets').querySelectorAll('input')) checkbox.disabled=busy;
+  for(const select of $('targets').querySelectorAll('select')) {
+    select.disabled=busy||hasDraft;
+    const target=state.config.targets.find(t=>`${t.group?'group':'private'}:${t.number}`===select.dataset.target);
+    select.value=target?.personaStyle??'default';
+  }
+  for(const row of $('targets').children) row.lastChild.disabled=busy||hasDraft;
   renderContacts();
 }
 function renderRuntimeRecords() {
@@ -193,10 +201,11 @@ function renderContacts() {
   if(!state) return;
   const search=$('search').value.trim().toLowerCase();
   const contacts=state.contacts.filter(c => !state.config.targets.some(t => `${t.group?'group':'private'}:${t.number}`===c.key) && (!search || c.number.includes(search) || c.name.toLowerCase().includes(search))).slice(0,10);
-  const signature=JSON.stringify([contacts,state.running,state.busy,pending]);
+  const editingBlocked=state.running||state.busy||pending||dirtyForms.has('reply');
+  const signature=JSON.stringify([contacts,editingBlocked]);
   if(signature===contactSignature)return;
   contactSignature=signature; $('contacts').replaceChildren();
-  for(const c of contacts){const row=document.createElement('div');row.className='target row';const name=document.createElement('span');name.textContent=`${c.group?'群':'好友'} · ${c.name} (${c.number})`;const add=button('添加',{action:'add',target:c.key});add.disabled=state.running||state.busy||pending;row.append(name,add);$('contacts').append(row);}
+  for(const c of contacts){const row=document.createElement('div');row.className='target row';const name=document.createElement('span');name.textContent=`${c.group?'群':'好友'} · ${c.name} (${c.number})`;const add=button('添加',{action:'add',target:c.key});add.disabled=editingBlocked;row.append(name,add);$('contacts').append(row);}
 }
 $('visualSave').addEventListener('click',async()=>{
   const action={action:'saveVisualTools',visualTools:{provider:$('visionProvider').value,googleWebEnabled:$('googleWebEnabled').checked},googleVisionKey:$('googleVisionKey').value,persistVisualCredentials:$('visualPersist').checked};
@@ -237,6 +246,7 @@ document.addEventListener('input',event=>{
   const group=input.closest('#connectionPanel')?'connection':input.closest('#artworkPanel')?'artwork':input.closest('#imagePanel')?'image':input.closest('#visionPanel')?'visual':'reply';
   if(!dirtyForms.has(group)) dirtyForms.set(group,{base:formSnapshot(group),revision:state.configurationRevision});
   syncForms();
+  renderScopeActions();
 });
 $('discardDrafts').addEventListener('click',()=>{
   actionError=''; dirtyForms.clear(); syncedForms.clear(); targetDraft.clear(); targetSignature='';

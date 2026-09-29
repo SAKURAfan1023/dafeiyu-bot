@@ -569,14 +569,17 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         }
         try Data().write(to: directory.appendingPathComponent("ready"))
 
-        // Wait for one in-flight HTTP request and both admitted messages in the dedup store.
+        // Wait for admitted messages and for every reserved call to reach URLSession.
+        // Memory can reserve a second call before URLProtocol.startLoading runs;
+        // comparing the counters during that scheduling gap is not a billing failure.
         let deadline = Date().addingTimeInterval(5)
         var admitted = 0
         while Date() < deadline {
             let data = try Data(contentsOf: directory.appendingPathComponent("qq-state.json"))
             let state = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
             admitted = (state["seen"] as? [String: Any])?.count ?? 0
-            if DelayedModelProtocol.counts.started >= 1 && admitted == expectedMessages { break }
+            let started = DelayedModelProtocol.counts.started
+            if started >= 1 && admitted == expectedMessages && engine.usage.calls == started { break }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         try #require(control == "memory" ? (1...2).contains(DelayedModelProtocol.counts.started) : DelayedModelProtocol.counts.started == 1)

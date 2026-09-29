@@ -159,16 +159,18 @@ struct QQView: View {
                         Text(editor.replyDraft.conflicts(with: QQReplyForm(engine.config)) ? "范围或回复设置已在别处修改。草稿保留，请先载入最新设置。" : "范围与回复设置有未保存草稿").foregroundStyle(.orange)
                         Button("放弃范围与回复草稿，载入最新设置") { editor.replyDraft.reset(QQReplyForm(engine.config)) }
                     }
+                    Text(editor.replyDraft.hasChanges ? "请先保存或放弃草稿，再增删会话或切换会话性格。" : "增删会话与切换会话性格会立即保存；启用勾选需单独保存范围与回复设置。")
+                        .font(.caption).foregroundStyle(.secondary)
                     ForEach($editor.replyDraft.value.targets) { $target in
                         HStack {
-                            Toggle(isOn: $target.enabled) { Text("\(target.group ? "群" : "好友") · \(target.name) (\(target.number))") }.disabled(engine.running)
+                            Toggle(isOn: $target.enabled) { Text("\(target.group ? "群" : "好友") · \(target.name) (\(target.number))") }.disabled(engine.running || engine.busy || engine.runtimeBusy)
                             Picker("性格", selection: Binding(get: { target.personaStyle?.rawValue ?? "default" }, set: { engine.setPersonaStyle($0, target: target.key) })) {
                                 Text("跟随默认").tag("default")
                                 ForEach(QQPersonality.allCases, id: \.rawValue) { style in Text(style.name).tag(style.rawValue) }
-                            }.frame(width: 150).disabled(engine.running || engine.busy || engine.runtimeBusy)
+                            }.frame(width: 150).disabled(engine.running || engine.busy || engine.runtimeBusy || editor.replyDraft.hasChanges)
                             Button("接管") { engine.takeOver(target.id) }
                             Button("清除记忆并暂停") { engine.clearMemory(target.id) }
-                            Button("移除") { engine.remove(target.id) }.disabled(engine.running)
+                            Button("移除") { engine.remove(target.id) }.disabled(engine.running || engine.busy || engine.runtimeBusy || editor.replyDraft.hasChanges)
                         }
                     }
                     Text(QQPersonaCommand.navigation + "。已启用群内无需 @，成员均可切换本群性格；暂停后可在面板调整。").font(.caption)
@@ -178,7 +180,7 @@ struct QQView: View {
                         HStack {
                             Text("\(contact.group ? "群" : "好友") · \(contact.name) (\(contact.number))")
                             Spacer()
-                            Button("添加到名单") { engine.add(contact) }.disabled(engine.running || engine.config.targets.contains { $0.key == contact.id })
+                            Button("添加到名单") { engine.add(contact) }.disabled(engine.running || engine.busy || engine.runtimeBusy || editor.replyDraft.hasChanges || engine.config.targets.contains { $0.key == contact.id })
                         }.font(.callout)
                     }
                     Text("列表最多显示 30 条，可输入 QQ 号／群号精确筛选。接管会暂停当前 QQ 队列并禁用该会话。")
