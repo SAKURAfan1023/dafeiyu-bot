@@ -6,8 +6,8 @@ import json, os, pathlib, select, socket, subprocess, sys, tempfile, urllib.erro
 transport = runpy.run_path(str(pathlib.Path(__file__).with_name('test-onebot-transport.py')))
 
 @contextlib.contextmanager
-def onebot(mode='success'):
-    """One real local WebSocket connection; only synthetic roster/status actions allowed."""
+def onebot(mode='success', queue_control=None):
+    """Local synthetic roster; optional events stop at held history requests, before models."""
     errors, connections = [], []
     with socket.socket() as server:
         server.bind(('127.0.0.1', 0)); server.listen(1); server.settimeout(5)
@@ -24,10 +24,34 @@ def onebot(mode='success'):
                     assert fields['authorization'] == 'Bearer synthetic-test-token'
                     accept = base64.b64encode(hashlib.sha1((fields['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest()).decode()
                     conn.sendall(('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n').encode())
+                    injected, held_history, last_heartbeat = False, [], time.monotonic()
                     while True:
+                        if queue_control is not None:
+                            if time.monotonic() - last_heartbeat >= 5:
+                                transport['send'](conn, {'post_type':'meta_event','meta_event_type':'heartbeat',
+                                    'self_id':12345,'status':{'online':True,'good':True},'interval':5000})
+                                last_heartbeat = time.monotonic()
+                            if queue_control.get('inject') and not injected:
+                                for number in range(1, 11):
+                                    transport['send'](conn, {'post_type':'message','message_type':'private','sub_type':'friend',
+                                        'self_id':12345,'user_id':54321,'sender':{'user_id':54321},'message_id':number,
+                                        'time':time.time(),'message':[{'type':'text','data':{'text':'synthetic queue check'}}]})
+                                injected = True
+                            if queue_control.get('release'):
+                                for req in held_history:
+                                    # Empty history also prevents model admission if an epoch guard regresses.
+                                    transport['send'](conn, {'status':'ok','retcode':0,'data':{'messages':[]},'echo':req['echo']})
+                                    queue_control['released'] = queue_control.get('released', 0) + 1
+                                held_history.clear()
+                        if not select.select([conn], [], [], 0.05)[0]:
+                            continue
                         try: req = transport['receive'](conn)
                         except (EOFError, ValueError, OSError): break
                         action = req['action']
+                        if queue_control is not None and action == 'get_friend_msg_history':
+                            held_history.append(req)
+                            queue_control['history_requests'] = queue_control.get('history_requests', 0) + 1
+                            continue
                         assert action in ('get_login_info','get_status','get_friend_list','get_group_list'), 'unexpected OneBot action'
                         data = {'get_login_info': {'user_id': 54321 if mode=='wrong-account' else 12345},
                                 'get_status': {'online': mode!='offline', 'good': True},
@@ -174,6 +198,44 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
                 assert not cleared['connected'] and not cleared['running'] and not cleared['temporaryCredentials']
                 assert cleared['calls'] == 0 and cleared['confirmed'] == 0
                 assert json.loads((pathlib.Path(folder)/'qq-state.json').read_text())['config'] == saved['config']
+        queue_control = {}
+        with onebot(queue_control=queue_control) as endpoint:
+            configured = action({'action':'saveConnection','endpoint':endpoint,'expectedSelfID':'12345'})
+            assert not configured['error']
+            connected = action({'action':'connect','token':'synthetic-test-token','key':'synthetic-test-key'})
+            assert connected['connected'] and not connected['error']
+            configured = action({'action':'save','ai':dict(connected['config']['ai'], workHoursEnabled=False),
+                                 'enabled':['private:54321'],'memoryEnabled':False,'visionEnabled':False,'onlineEnabled':False})
+            assert not configured['error']
+            started = action({'action':'start','durationMinutes':1})
+            assert started['running']
+            queue_control['inject'] = True
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                queued = json.loads(request('/api/status', headers)[1])
+                if queued['queued'] == 9 and queue_control.get('history_requests') == 1: break
+                time.sleep(0.05)
+            assert queued['running'] and queued['queued'] == 9 and queue_control.get('history_requests') == 1, {
+                'running':queued['running'],'queued':queued['queued'],'history_requests':queue_control.get('history_requests'),
+                'rejected':queued['rejected'],'error':queued['error']}
+            assert queued['calls'] == 0 and queued['confirmed'] == 0
+            paused = action({'action':'pause'})
+            assert paused['connected'] and not paused['running'] and paused['queued'] == 0 and not paused['runDeadline']
+            # Start a new epoch before releasing the previous worker's response.
+            restarted = action({'action':'start','durationMinutes':1})
+            assert restarted['running'] and restarted['queued'] == 0
+            queue_control['release'] = True
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                current = json.loads(request('/api/status', headers)[1])
+                assert current['connected'] and current['running'] and current['queued'] == 0
+                assert current['calls'] == 0 and current['confirmed'] == 0 and current['uncertain'] == 0
+                time.sleep(0.05)
+            assert queue_control.get('history_requests') == 1 and queue_control.get('released') == 1
+            action({'action':'pause'})
+            cleared = action({'action':'clear'})
+            assert not cleared['connected'] and not cleared['running']
+        print('PASS: ten synthetic events produce nine queued replies; pause clears queue, restart ignores late history, zero model/send calls')
         assert request('/api/status', headers)[0] == 200
         print('PASS: assets, authentication, Origin/Host, malformed requests, connection/reply persistence, stale editor rejection, stale pause, unknown scope rejection, independent image/vision/artwork persistence, invalid tool configuration rollback, identity/online rejection, saved-config start, pause/clear lifecycle, isolated zero-send state')
     finally:
