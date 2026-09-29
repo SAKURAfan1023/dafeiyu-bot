@@ -119,7 +119,11 @@ async function act(action) {
   const group=actionForms[action.action], draft=dirtyForms.get(group);
   if(draft && draft.base!==formSnapshot(group)) { showActionError('此区域存在配置冲突，草稿尚未提交。请先载入最新配置。'); return false; }
   action={...action,configurationRevision:draft?.revision??state?.configurationRevision};
+  const focused=document.activeElement;
+  let focusMoved=false;
+  const observeInteraction=()=>{focusMoved=true;};
   activeActions++; pending=true; if(state) render();
+  for(const event of ['focusin','pointerdown','keydown']) document.addEventListener(event,observeInteraction);
   let failure='';
   try {
     const result=await request(action); failure=state!==result ? '操作期间发生了更新的控制请求，请核对当前状态；未清除草稿。' : result.error||'';
@@ -133,11 +137,25 @@ async function act(action) {
       dirtyForms.delete(group); syncedForms.delete(group);
     }
   } catch(e) { failure=e.message; }
-  finally { activeActions--; pending=activeActions>0; if(state) render(); if(failure) showActionError(failure); }
+  finally {
+    for(const event of ['focusin','pointerdown','keydown']) document.removeEventListener(event,observeInteraction);
+    activeActions--; pending=activeActions>0; if(state) render(); if(failure) showActionError(failure);
+    if(!pending && !focusMoved && focused!==document.body && document.activeElement===document.body) {
+      let destination=focused.isConnected && !focused.disabled ? focused : null;
+      if(!destination && action.target) {
+        const selector=focused.tagName==='SELECT' ? '#targets select' : '#targets input';
+        destination=[...document.querySelectorAll(selector)].find(item=>item.dataset.target===action.target);
+        if(!destination) destination=$('search');
+      }
+      if(!destination && action.action==='removeArtworkArtist') destination=$('artArtistInput');
+      if(destination && !destination.disabled) destination.focus();
+    }
+  }
   return !failure;
 }
-function button(label, action) {
+function button(label, action, accessibleName) {
   const b = document.createElement('button'); b.textContent = label;
+  if(accessibleName) b.setAttribute('aria-label',accessibleName);
   b.addEventListener('click', () => act(action)); return b;
 }
 function render() {
@@ -183,15 +201,16 @@ function render() {
     $('targets').replaceChildren(); targetSignature = signature;
     for(const target of state.config.targets) {
       const key = `${target.group?'group':'private'}:${target.number}`;
+      const targetName = `${target.group?'群':'好友'} · ${target.name} (${target.number})`;
       const row = document.createElement('div'); row.className='target row';
       const label = document.createElement('label'), checkbox = document.createElement('input');
       checkbox.type='checkbox'; checkbox.dataset.target=key; checkbox.checked=targetDraft.get(key) ?? target.enabled;
       checkbox.addEventListener('change',()=>targetDraft.set(key,checkbox.checked));
-      label.append(checkbox,document.createTextNode(`${target.group?'群':'好友'} · ${target.name} (${target.number})`));
-      const style=document.createElement('select');style.setAttribute('aria-label','本会话性格');style.dataset.target=key;
+      label.append(checkbox,document.createTextNode(targetName));
+      const style=document.createElement('select');style.setAttribute('aria-label',`本会话性格：${targetName}`);style.dataset.target=key;
       for(const item of [{id:'default',name:'跟随默认'},...state.personalities]){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;style.append(option);}
       style.value=target.personaStyle??'default';style.addEventListener('change',()=>act({action:'setPersona',target:key,personaStyle:style.value}));
-      row.append(label,style,button('接管',{action:'takeOver',target:key}),button('清除记忆并暂停',{action:'clearMemory',target:key}),button('移除',{action:'remove',target:key}));
+      row.append(label,style,button('接管',{action:'takeOver',target:key},`接管：${targetName}`),button('清除记忆并暂停',{action:'clearMemory',target:key},`清除记忆并暂停：${targetName}`),button('移除',{action:'remove',target:key},`移除：${targetName}`));
       $('targets').append(row);
     }
   }
@@ -237,7 +256,7 @@ function renderContacts() {
   const signature=JSON.stringify([contacts,editingBlocked]);
   if(signature===contactSignature)return;
   contactSignature=signature; $('contacts').replaceChildren();
-  for(const c of contacts){const row=document.createElement('div');row.className='target row';const name=document.createElement('span');name.textContent=`${c.group?'群':'好友'} · ${c.name} (${c.number})`;const add=button('添加',{action:'add',target:c.key});add.disabled=editingBlocked;row.append(name,add);$('contacts').append(row);}
+  for(const c of contacts){const row=document.createElement('div');row.className='target row';const name=document.createElement('span');name.textContent=`${c.group?'群':'好友'} · ${c.name} (${c.number})`;const add=button('添加',{action:'add',target:c.key},`添加：${name.textContent}`);add.disabled=editingBlocked;row.append(name,add);$('contacts').append(row);}
 }
 $('visualSave').addEventListener('click',async()=>{
   const action={action:'saveVisualTools',visualTools:{provider:$('visionProvider').value,googleWebEnabled:$('googleWebEnabled').checked},googleVisionKey:$('googleVisionKey').value,persistVisualCredentials:$('visualPersist').checked};
@@ -314,7 +333,7 @@ function renderArtwork(first) {
   if($('artArtistList').dataset.signature!==rosterSignature) {
     $('artArtistList').dataset.signature=rosterSignature;$('artArtistList').replaceChildren();
     for(const artist of roster) {
-      const row=document.createElement('p'),link=document.createElement('a'),remove=button('移除',{action:'removeArtworkArtist',artistInput:artist.id});
+      const row=document.createElement('p'),link=document.createElement('a'),remove=button('移除',{action:'removeArtworkArtist',artistInput:artist.id},`移除画师：${artist.name}（${artist.id}）`);
       link.href=`https://www.pixiv.net/users/${artist.id}`;link.target='_blank';link.rel='noreferrer';link.textContent=`${artist.name}（${artist.id}）`;
       row.append(link,document.createTextNode(` · ${artist.deliveryStatus||'逐作检查公开图片可用性'} · /artist ${artist.id} `),remove);$('artArtistList').append(row);
     }
