@@ -52,6 +52,7 @@ function syncForms() {
   const conflicts=[...dirtyForms].filter(([group,draft])=>draft.base!==formSnapshot(group)).map(([group])=>formNames[group]);
   text('draftStatus', conflicts.length ? `配置冲突：${conflicts.join('、')}已在别处修改。你的草稿仍保留，但不会覆盖新设置。请记录需要保留的修改，再放弃草稿并载入最新配置。` : dirtyForms.size ? `未提交：${[...dirtyForms.keys()].map(k=>formNames[k]).join('、')}。请使用对应区域的保存按钮；开始回复使用已保存配置。` : '所有显示设置均已同步；保存配置不会自动启动。');
   $('discardDrafts').hidden=dirtyForms.size===0;
+  $('discardDrafts').disabled=pending;
   text('replyDraftStatus',dirtyForms.has('reply')?'范围或回复设置有未提交修改。':'范围与回复设置已同步；开始回复才会实际运行。');
 }
 
@@ -122,7 +123,7 @@ function render() {
   $('disconnect').disabled = !state.connected && !state.busy;
   $('start').disabled = !state.connected || state.running || state.busy || pending;
   $('once').disabled = $('start').disabled;
-  for(const id of ['endpoint','account','token','key','saveConnection']) $(id).disabled = state.connected || state.busy;
+  for(const id of ['endpoint','account','token','key','saveConnection']) $(id).disabled = state.connected || state.busy || pending;
   for(const id of ['model','prompt','daily','cooldown','sendDaily','chatDaily','globalInterval','duration','personaStyle','maxCharacters','banter','stickersEnabled','stickerIntervalSeconds','stickerEveryReplies','onlineEnabled','visionEnabled','memoryEnabled','memoryMessages','memoryCharacters','memoryMinutes','memoryBudget','groupParticipationEnabled','groupParticipationEvery','workHoursEnabled','workStart','workEnd','save']) $(id).disabled = state.running || state.busy || pending;
   text('imageGenCredentials', `本次已载入：智谱 ${state.imageCredentials?.zhipu ? '有凭证' : '未载入'}；Cloudflare ${state.imageCredentials?.cloudflare ? '有凭证' : '未载入'}`);
   text('groupParticipationCounts', state.config.groupParticipationEnabled ? state.config.targets.filter(t=>t.enabled && t.group).map(t=>`${t.name}：${state.groupMessageCounts?.['group:'+t.number] ?? 0} / ${state.config.groupParticipationEvery ?? 10} 条`).join('；') || '尚未启用群聊' : '主动接话未开启；群聊仍只响应真实 @');
@@ -160,13 +161,13 @@ function render() {
       $('targets').append(row);
     }
   }
-  for(const checkbox of $('targets').querySelectorAll('input')) checkbox.disabled=state.running;
+  for(const checkbox of $('targets').querySelectorAll('input')) checkbox.disabled=state.running||state.busy||pending;
   for(const select of $('targets').querySelectorAll('select')) {
     select.disabled=state.running||state.busy||pending;
     const target=state.config.targets.find(t=>`${t.group?'group':'private'}:${t.number}`===select.dataset.target);
     select.value=target?.personaStyle??'default';
   }
-  for(const row of $('targets').children) row.lastChild.disabled=state.running;
+  for(const row of $('targets').children) row.lastChild.disabled=state.running||state.busy||pending;
   $('memories').replaceChildren();
   for(const memory of state.memories ?? []) { const p=document.createElement('p');p.textContent=`${memory.key} · ${memory.items ?? 0} 项重点 / ${memory.pending ?? 0} 条待整理 / 容量丢弃 ${memory.dropped ?? 0} 条 · ${new Date(memory.updatedAt*1000).toLocaleString('zh-CN')}：${memory.summary}`;$('memories').append(p); }
   if(!state.memories?.length) text('memories','尚无会话记忆');
@@ -192,10 +193,10 @@ function renderContacts() {
   if(!state) return;
   const search=$('search').value.trim().toLowerCase();
   const contacts=state.contacts.filter(c => !state.config.targets.some(t => `${t.group?'group':'private'}:${t.number}`===c.key) && (!search || c.number.includes(search) || c.name.toLowerCase().includes(search))).slice(0,10);
-  const signature=JSON.stringify([contacts,state.running]);
+  const signature=JSON.stringify([contacts,state.running,state.busy,pending]);
   if(signature===contactSignature)return;
   contactSignature=signature; $('contacts').replaceChildren();
-  for(const c of contacts){const row=document.createElement('div');row.className='target row';const name=document.createElement('span');name.textContent=`${c.group?'群':'好友'} · ${c.name} (${c.number})`;const add=button('添加',{action:'add',target:c.key});add.disabled=state.running;row.append(name,add);$('contacts').append(row);}
+  for(const c of contacts){const row=document.createElement('div');row.className='target row';const name=document.createElement('span');name.textContent=`${c.group?'群':'好友'} · ${c.name} (${c.number})`;const add=button('添加',{action:'add',target:c.key});add.disabled=state.running||state.busy||pending;row.append(name,add);$('contacts').append(row);}
 }
 $('visualSave').addEventListener('click',async()=>{
   const action={action:'saveVisualTools',visualTools:{provider:$('visionProvider').value,googleWebEnabled:$('googleWebEnabled').checked},googleVisionKey:$('googleVisionKey').value,persistVisualCredentials:$('visualPersist').checked};
