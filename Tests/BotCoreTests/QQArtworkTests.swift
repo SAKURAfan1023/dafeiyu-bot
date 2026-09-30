@@ -3,6 +3,21 @@ import Testing
 @testable import BotCore
 
 struct QQArtworkTests {
+    @Test func artworkRecordsExpireAfterOneWeek() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        var ledger = QQArtworkLedger()
+        for age in [6 * 86400, 7 * 86400, 8 * 86400] {
+            ledger.reserve(ticket: UUID(), scope: "A", id: "pixiv:\(age)", hash: nil, request: .init(mode: "hot"), now: now.addingTimeInterval(-Double(age)))
+        }
+        ledger.schedules = ["recent": now.addingTimeInterval(-6 * 86400), "expired": now.addingTimeInterval(-7 * 86400)]
+        #expect(!ledger.excludes(scope: "A", id: "pixiv:691200", days: 90, now: now))
+        ledger.trim(now: now)
+        #expect(ledger.deliveries.map(\.artworkID) == ["pixiv:518400"])
+        #expect(Set(ledger.schedules.keys) == ["recent"])
+        #expect(ledger.continuation["A"]?.mode == "hot")
+        #expect(QQArtworkConfig().repeatDays == 7)
+    }
+
     @Test func hourlySlotsAreIndependentDurableAndDoNotCatchUp() throws {
         var config = QQArtworkConfig(); config.enabled = true; config.scheduleEnabled = true
         #expect(config.effectiveScheduleFrequency == "daily")

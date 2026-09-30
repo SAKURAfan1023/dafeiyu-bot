@@ -185,7 +185,9 @@ struct QQRuntimeCredentials: Decodable {
                 persistedData = data
                 state.sends.recoverInterrupted()
                 artworkLedger = state.artworkLedger ?? QQArtworkLedger(); artworkLedger.recover()
-                config = state.config; usage = state.usage; sends = state.sends; seen = state.seen
+                config = state.config
+                if var artwork = config.artwork { artwork.repeatDays = min(7, max(1, artwork.repeatDays)); config.artwork = artwork }
+                usage = state.usage; sends = state.sends; seen = state.seen
                 botMessageIDs = state.botMessageIDs ?? [:]; ownershipSince = state.ownershipSince ?? ownershipSince
                 recentStickers = state.stickerHistory ?? [:]; lastStickerAt = state.stickerLastSentAt
                 if let books = state.memoryBooks { memoryBooks = books }
@@ -1248,6 +1250,7 @@ struct QQRuntimeCredentials: Decodable {
         defer { if writeLock >= 0 { _ = flock(writeLock, LOCK_UN); close(writeLock) } }
         let current = FileManager.default.fileExists(atPath: file.path) ? try Data(contentsOf: file) : nil
         guard current == persistedData else { throw AppFailure.message("QQ 配置已由另一实例更新，请重新打开面板再操作") }
+        artworkLedger.trim()
         seen = seen.filter { Date().timeIntervalSince1970 - $0.value < 86400 }
         logs = Array(logs.filter { $0.date > Date().addingTimeInterval(-7 * 86400) }.suffix(1000))
         do {

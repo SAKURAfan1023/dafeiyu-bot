@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+python3 scripts/test-storage-retention.py
+if command -v node >/dev/null 2>&1; then
+  node scripts/test-storage-retention.mjs
+fi
 PLUGIN=""
 if command -v xcode-select >/dev/null 2>&1; then
   PLUGIN="$(xcode-select -p)/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib"

@@ -7,7 +7,7 @@ public struct QQArtworkConfig: Codable, Equatable, Sendable {
     public var networkDailyLimit = 300
     public var minLongEdge = 1400
     public var minShortEdge = 720
-    public var repeatDays = 30
+    public var repeatDays = 7
     public var searchMinBookmarks: Int?
     public var effectiveSearchMinBookmarks: Int {
         get { searchMinBookmarks ?? 1000 }
@@ -30,7 +30,7 @@ public struct QQArtworkConfig: Codable, Equatable, Sendable {
     public func validate() throws {
         guard (1...1000).contains(dailyPerChat), (10...2000).contains(networkDailyLimit),
               (0...4096).contains(minLongEdge), (0...4096).contains(minShortEdge), minLongEdge >= minShortEdge,
-              (1...90).contains(repeatDays), (1...1_000_000).contains(effectiveSearchMinBookmarks), pixivArtistIDs.count <= 20,
+              (1...7).contains(repeatDays), (1...1_000_000).contains(effectiveSearchMinBookmarks), pixivArtistIDs.count <= 20,
               Set(pixivArtistIDs).count == pixivArtistIDs.count, pixivArtistIDs.allSatisfy(QQConfig.validID),
               (artistNames ?? [:]).count <= 20, (artistNames ?? [:]).allSatisfy({ pixivArtistIDs.contains($0.key) && !$0.value.isEmpty && $0.value.count <= 80 && !$0.value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) }),
               imagePermissions.count <= 20, imagePermissions.allSatisfy({ QQConfig.validID($0.key) && Self.evidenceURL($0.value) }),
@@ -169,7 +169,7 @@ public struct QQArtworkLedger: Codable, Sendable {
     public var networkCalls = 0
     public init() {}
     public func excludes(scope: String, id: String, hash: String? = nil, days: Int, now: Date = Date()) -> Bool {
-        deliveries.contains { $0.scope == scope && now.timeIntervalSince($0.at) < Double(days * 86400) &&
+        deliveries.contains { $0.scope == scope && now.timeIntervalSince($0.at) < Double(min(days, 7) * 86400) &&
             ($0.artworkID == id || (hash != nil && $0.hash == hash)) }
     }
     public func allowed(scope: String, limit: Int, now: Date = Date()) -> Bool {
@@ -194,8 +194,8 @@ public struct QQArtworkLedger: Codable, Sendable {
         networkCalls += 1
     }
     public mutating func trim(now: Date = Date()) {
-        deliveries = Array(deliveries.filter { now.timeIntervalSince($0.at) < 90 * 86400 }.suffix(20000))
-        schedules = schedules.filter { now.timeIntervalSince($0.value) < 90 * 86400 }
+        deliveries = Array(deliveries.filter { now.timeIntervalSince($0.at) < 7 * 86400 }.suffix(20000))
+        schedules = schedules.filter { now.timeIntervalSince($0.value) < 7 * 86400 }
         // An empty result still establishes a search intent for /next; no delivery is required.
         if continuation.count > 100 {
             continuation = Dictionary(uniqueKeysWithValues: continuation.sorted { $0.key < $1.key }.prefix(100).map { ($0.key, $0.value) })
