@@ -1,10 +1,12 @@
 # 存储与定期清理
 
+> **2026-10-25 实测限制：NapCat 4.18.41 只允许白名单内的插件，本项目自定义清理插件被拒绝，QQ 聊天数据库自动清理当前不可用。** 下文原生聊天清理算法只有源码和模拟证据，不代表在当前 NapCat 上已运行。本机已校验并加载官方 `napcat-plugin-cleaner` 1.2.0，七天旧缓存预览成功；缓存清理不等于聊天记录清理。本轮没有删除缓存、没有开启清理定时任务。
+
 图片发送记录与定时发送槽位只保留 **7 天**，仍有 20,000 条发送记录的数量上限。同会话去重窗口最大 7 天；旧配置的 30/90 天会自动收窄，`/next` 的搜索意图保留。每次状态保存、启动恢复和插画调度会裁剪记录。
 
 ## QQ 独立环境
 
-`scripts/qq-storage-maintenance.py` 使用本机 Lima 的 `qq-ai` 虚拟机和 NapCat 插件接口：
+`scripts/qq-storage-maintenance.py` 使用本机 Lima 的 `qq-ai` 虚拟机和 NapCat 插件接口。当前版本只验证了 `cache-preview`；`install` / `dry-run` / `run` / `watch` 的原生聊天清理路径因插件限制不可用，不应启动定期任务：
 
 ```sh
 # 安装本项目的 NapCat 清理插件并预览，不删除数据
@@ -15,13 +17,15 @@ python3 scripts/qq-storage-maintenance.py dry-run
 python3 scripts/qq-storage-maintenance.py run
 # 持续检查：每 6 小时检查一次，成功后至少 24 小时再清理
 python3 scripts/qq-storage-maintenance.py watch
+# NapCat 4.18.41：先在官方插件商店安装并启用 napcat-plugin-cleaner，再只读预览缓存
+python3 scripts/qq-storage-maintenance.py cache-preview
 ```
 
 这不是开机托管。`watch` 只在它的进程存活时执行；电脑重启后需重新运行。它不会启动虚拟机、重启 QQ、登录账号、恢复自动回复、发送测试消息或调用模型。停止前台任务用 Ctrl+C；后台任务 PID 写在本机 `maintenance.lock` 中，停止时先核对实际进程。独占锁避免重复调度。
 
 默认状态位置为 `~/Library/Application Support/WeChatAIBot/qq-state.json`；`--state`、`--runtime`、`--lima` 可指定部署位置。这套脚本针对 macOS + Lima 环境；Windows/WSL 目前不能直接按上述命令验收。
 
-清理规则：
+原有清理规则（QQ 聊天与媒体项依赖被拒绝的自定义插件，当前未运行；官方插件仅提供独立缓存预览）：
 
 | 数据 | 规则与保护 |
 | --- | --- |
@@ -45,6 +49,8 @@ QQ 未登录、服务接口不存在、消息时间/归属不明确、返回结�
 
 ## 验证边界
 
+2026-10-25 登录后已通过实际应用的 OneBot 账号/在线检查，桥接返回 4.18.41。官方缓存插件的三个安装文件与官方 v1.2.0 发行包逐一哈希匹配，当前账号七天预览发现 211 个旧缓存文件、81,071,942 字节；扫描结果会随消息变化。预览删除数为 0，官方插件定时任务为 0。本项目聊天清理插件被上游白名单拒绝，不能标为真实清理通过。
+
 合成测试覆盖一周边界、会话归属、预览不删除、新文件保护、符号链接保护、原生删除确认、记忆/计数保留和 0600 权限：
 
 ```sh
@@ -53,6 +59,6 @@ python3 scripts/test-storage-retention.py
 bash scripts/test.sh
 ```
 
-真实 QQ 接口验收须在已登录环境执行 `dry-run`，确认无错误后再 `run`；在线、HTTP 成功或模拟测试通过不能替代实际删除确认。
+原生聊天清理须先解决上游插件支持条件，再在已登录环境进行 `dry-run` 与删除确认；当前不要执行 `run` 或 `watch` 作为替代。官方 `cache-preview` 只验证缓存扫描，在线、HTTP 成功或模拟测试通过不能替代实际删除确认。
 
 参考：[NapCat 原生消息服务定义](https://github.com/NapNeko/NapCatQQ/blob/main/packages/napcat-core/services/NodeIKernelMsgService.ts)、[NapCat CleanCache 实现](https://github.com/NapNeko/NapCatQQ/blob/main/packages/napcat-onebot/action/system/CleanCache.ts)。后者是缓存清理，不等于聊天记录清理，本项目没有直接调用其无年龄筛选的全量删除逻辑。

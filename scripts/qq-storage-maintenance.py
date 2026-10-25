@@ -55,7 +55,7 @@ def write_json(file, value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=['install', 'dry-run', 'run', 'watch'])
+    parser.add_argument('mode', choices=['install', 'dry-run', 'run', 'watch', 'cache-preview'])
     parser.add_argument('--state', type=Path, default=Path.home() / 'Library/Application Support/WeChatAIBot/qq-state.json')
     parser.add_argument('--runtime', type=Path, default=Path.home() / '.local/qq-runtime')
     parser.add_argument('--lima', default=os.environ.get('LIMA_BIN', str(Path.home() / '.local/qq-runtime/lima/bin/limactl')))
@@ -171,9 +171,26 @@ def main():
         if login.get('isLogin') is not True or login.get('coreReady') is not True:
             raise RuntimeError('QQ login/core unavailable; cleanup pending')
         plugins = api('/Plugin/List', credential=credential)
+        if mode == 'cache-preview':
+            identity = api('/QQLogin/GetQQLoginInfo', {}, credential)
+            if str(identity.get('uin', '')) != account:
+                raise RuntimeError('Logged-in QQ account mismatch; cache preview refused')
+            if not any(p.get('id') == 'napcat-plugin-cleaner' and p.get('status') == 'active' for p in plugins.get('plugins', [])):
+                raise RuntimeError('Official napcat-plugin-cleaner must be installed and enabled first')
+            preview = api('/Plugin/ext/napcat-plugin-cleaner/stats/' + account + '?retainDays=7', credential=credential)
+            estimated = preview.get('estimatedClean') or {}
+            if not all(type(estimated.get(k)) is int and estimated[k] >= 0 for k in ['totalFiles', 'totalSize']):
+                raise RuntimeError('Invalid official cache preview response')
+            print(json.dumps({'timestamp': now, 'retentionDays': 7, 'cacheCandidates': estimated['totalFiles'],
+                              'cacheBytes': estimated['totalSize'], 'deleted': 0, 'dryRun': True,
+                              'chatHistoryCleanupAvailable': False}), flush=True)
+            return
         if plugins.get('pluginManagerNotFound'):
             api('/Plugin/RegisterManager', {}, credential)
-        api('/Plugin/SetStatus', {'id': PLUGIN, 'enable': True}, credential)
+        try:
+            api('/Plugin/SetStatus', {'id': PLUGIN, 'enable': True}, credential)
+        except RuntimeError as error:
+            raise RuntimeError('NapCat rejected the custom history-cleanup plugin; no QQ records deleted. Use cache-preview for supported cache inspection') from error
         roots = guest('exec', 'qq-ai', 'sh', '-c', 'find /app/.config/QQ -maxdepth 1 -type d -name "nt_qq_*"').splitlines()
         if len(roots) != 1 or not re.fullmatch(r'/app/\.config/QQ/nt_qq_[a-f0-9]+', roots[0]):
             raise RuntimeError('Account media folder ambiguous; refuse cleanup')
