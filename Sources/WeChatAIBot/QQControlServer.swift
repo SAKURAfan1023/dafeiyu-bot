@@ -83,11 +83,17 @@ import BotCore
         }
     }
     private func handle(_ connection: LoopbackConnection, id: UUID, method: String, path: String, headers: [String: String], body: Data) async {
-        if method == "GET", ["/", "/app.js"].contains(path) {
-            let name = path == "/" ? "index" : "app", ext = path == "/" ? "html" : "js"
+        if method == "GET", ["/", "/app.js", "/style.css", "/logo.png"].contains(path) {
+            let name: String, ext: String, type: String
+            switch path {
+            case "/app.js": (name, ext, type) = ("app", "js", "text/javascript")
+            case "/style.css": (name, ext, type) = ("style", "css", "text/css")
+            case "/logo.png": (name, ext, type) = ("logo", "png", "image/png")
+            default: (name, ext, type) = ("index", "html", "text/html")
+            }
             guard let url = RuntimeResources.directory?.appendingPathComponent("QQControl/\(name).\(ext)"),
                   let data = try? Data(contentsOf: url) else { reply(connection, id: id, code: 404); return }
-            reply(connection, id: id, code: 200, data: data, type: path == "/" ? "text/html" : "text/javascript"); return
+            reply(connection, id: id, code: 200, data: data, type: type); return
         }
         guard headers["x-qq-control"] == token,
               headers["origin"] == nil || headers["origin"] == origin else { reply(connection, id: id, code: 403); return }
@@ -255,7 +261,7 @@ import BotCore
         var singleReply: Bool?
     }
     private func reply(_ connection: LoopbackConnection, id: UUID, code: Int, data: Data = Data(), type: String = "application/json") {
-        let header = "HTTP/1.1 \(code) Response\r\nContent-Type: \(type); charset=utf-8\r\nContent-Length: \(data.count)\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; form-action 'none'\r\n\r\n"
+        let header = "HTTP/1.1 \(code) Response\r\nContent-Type: \(type); charset=utf-8\r\nContent-Length: \(data.count)\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; form-action 'none'\r\n\r\n"
         connection.send(Data(header.utf8) + data) { [weak self] in
             connection.cancel()
             Task { @MainActor in self?.clients.removeValue(forKey: id) }

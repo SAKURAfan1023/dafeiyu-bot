@@ -1,5 +1,55 @@
 'use strict';
 const $ = id => document.getElementById(id);
+// Navigation only changes visibility. All editors and drafts stay mounted.
+const panelPages = {connection:'连接与运行',reply:'范围与回复',tools:'图片与工具',memory:'记忆与记录',wechat:'客户端面板',guide:'使用指南'};
+let activeTool=sessionStorage.getItem('panel-tool')||'artworkPanel';
+function selectTool(tool) {
+  if(!['artworkPanel','imagePanel','visionPanel'].includes(tool)) tool='artworkPanel';
+  activeTool=tool; sessionStorage.setItem('panel-tool',tool);
+  for(const id of ['artworkPanel','imagePanel','visionPanel']) $(id).hidden=document.body.dataset.page!=='tools'||id!==tool;
+  document.querySelectorAll('[data-tool]').forEach(button=>{
+    if(button.dataset.tool===tool) button.setAttribute('aria-current','page');
+    else button.removeAttribute('aria-current');
+  });
+}
+function selectPanelPage(page, focus = false) {
+  if(!Object.hasOwn(panelPages,page)) page='connection';
+  document.querySelectorAll('[data-pages]').forEach(element=>{ element.hidden=!element.dataset.pages.split(' ').includes(page); });
+  document.querySelectorAll('[data-page]').forEach(button=>{
+    if(button.dataset.page===page) button.setAttribute('aria-current','page');
+    else button.removeAttribute('aria-current');
+  });
+  document.body.dataset.platform=page==='wechat'?'wechat':'qq';
+  document.body.dataset.page=page;
+  $('pageTitle').textContent=panelPages[page];
+  sessionStorage.setItem('panel-page',page);
+  selectTool(activeTool); renderDraftControls();
+  if(focus) { $('pageTitle').focus({preventScroll:true}); window.scrollTo(0,0); }
+}
+document.querySelectorAll('[data-page]').forEach(button=>button.addEventListener('click',()=>selectPanelPage(button.dataset.page,true)));
+document.querySelectorAll('[data-tool]').forEach(button=>button.addEventListener('click',()=>selectTool(button.dataset.tool)));
+document.querySelectorAll('[data-go]').forEach(button=>button.addEventListener('click',()=>{
+  selectPanelPage(button.dataset.go,true);
+  if(button.dataset.scroll) $(button.dataset.scroll).scrollIntoView({block:'center'});
+}));
+document.querySelectorAll('.help-button').forEach(button=>{
+  button.addEventListener('click',()=>{
+    const open=button.getAttribute('aria-expanded')!=='true';
+    document.querySelectorAll('.help-button').forEach(other=>other.setAttribute('aria-expanded','false'));
+    button.setAttribute('aria-expanded',String(open));
+    button.parentElement.classList.toggle('dismissed',!open);
+  });
+  button.parentElement.addEventListener('mouseleave',()=>button.parentElement.classList.remove('dismissed'));
+});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape') document.querySelectorAll('.help-button').forEach(button=>{
+    if(button.getAttribute('aria-expanded')==='true'||button.parentElement.matches(':hover')) button.parentElement.classList.add('dismissed');
+    button.setAttribute('aria-expanded','false');
+  });
+});
+document.addEventListener('click',event=>{
+  if(!event.target.closest('.help-wrap')) document.querySelectorAll('.help-button').forEach(button=>button.setAttribute('aria-expanded','false'));
+});
 // Section anchors must never replace the authorization fragment on reload.
 const fragment = location.hash.slice(1);
 const controlToken = /^[a-f0-9-]{72}$/i.test(fragment) ? fragment : sessionStorage.getItem('qq-control-token') || '';
@@ -11,6 +61,18 @@ const dirtyForms = new Map(), syncedForms = new Map();
 const formNames = {connection:'连接配置',reply:'范围与回复',artwork:'插画定时',image:'生图',visual:'识图'};
 const actionForms = {saveConnection:'connection',connect:'connection',save:'reply',start:'reply',saveArtwork:'artwork',saveImageGeneration:'image',saveVisualTools:'visual'};
 const credentialFields = {connection:['token','key'],image:['imageGenZhipuKey','imageGenCloudflareToken'],visual:['googleVisionKey']};
+function renderDraftControls() {
+  const replyDirty=dirtyForms.has('reply'), page=document.body.dataset.page;
+  $('draftBanner').hidden=['wechat','guide'].includes(page)||dirtyForms.size===0;
+  $('replySaveBar').hidden=!replyDirty||!['reply','memory'].includes(page);
+  $('save').disabled=!replyDirty||!state||state.running||state.busy||pending;
+}
+$('reviewDrafts').addEventListener('click',()=>{
+  const group=dirtyForms.keys().next().value;
+  if(!group) return;
+  selectPanelPage({connection:'connection',reply:'reply',artwork:'tools',image:'tools',visual:'tools'}[group],true);
+  if(['artwork','image','visual'].includes(group)) selectTool({artwork:'artworkPanel',image:'imagePanel',visual:'visionPanel'}[group]);
+});
 let requestSequence = 0, activeActions = 0, actionError = '';
 const inlineError=document.createElement('div'); inlineError.id='actionErrorInline'; inlineError.className='action-error';
 let runtimeSignature = '';
@@ -53,10 +115,10 @@ function syncForms() {
   renderArtwork(shouldSync('artwork'));
   for(const id of ['workStart','workEnd']) $(id).disabled=state.running||state.busy||pending||!$('workHoursEnabled').checked;
   const conflicts=[...dirtyForms].filter(([group,draft])=>draft.base!==formSnapshot(group)).map(([group])=>formNames[group]);
-  text('draftStatus', conflicts.length ? `配置冲突：${conflicts.join('、')}已在别处修改。你的草稿仍保留，但不会覆盖新设置。请记录需要保留的修改，再放弃草稿并载入最新配置。` : dirtyForms.size ? `未提交：${[...dirtyForms.keys()].map(k=>formNames[k]).join('、')}。请使用对应区域的保存按钮；开始回复使用已保存配置。` : '所有显示设置均已同步；保存配置不会自动启动。');
+  text('draftStatus', conflicts.length ? `配置冲突：${conflicts.join('、')}已在别处修改，草稿保留，请重新载入。` : dirtyForms.size ? `未保存：${[...dirtyForms.keys()].map(k=>formNames[k]).join('、')}` : '设置已同步');
   $('discardDrafts').hidden=dirtyForms.size===0;
   $('discardDrafts').disabled=pending;
-  text('replyDraftStatus',dirtyForms.has('reply')?'范围或回复设置有未提交修改。':'范围与回复设置已同步；开始回复才会实际运行。');
+  renderDraftControls();
 }
 
 function showActionError(message, anchor=document.activeElement.closest('.buttons,.target')) {
@@ -69,7 +131,11 @@ function validateNumericInputs(ids) {
     const input=$(id);
     if(input.disabled) continue;
     input.required=true;
-    if(!input.reportValidity()) return false;
+    if(!input.checkValidity()) {
+      const page=input.closest('[data-pages]')?.dataset.pages.split(' ')[0];
+      if(page) selectPanelPage(page,true);
+      input.reportValidity(); return false;
+    }
   }
   return true;
 }
@@ -80,7 +146,9 @@ function renderFreshness() {
   text('syncUpdated',updated);
   text('syncMessage',stale ? `${syncError || (pending?'操作仍在等待回应。':'正在重新读取状态。')}下方数值仅供参考；当前连接与运行状态尚未确认，不能据此判断机器人已暂停。` : (pending?'操作正在提交，请等待结果。':'状态已同步。'));
   $('syncStatus').dataset.stale=stale;
+  $('syncStatus').dataset.pending=pending;
   if(stale) {
+    for(const id of ['stepConnection','stepScope','stepRun']) $(id).dataset.complete='false';
     text('status','后台当前状态待确认');
     text('connectionState','连接待确认'); text('runState','运行待确认');
     for(const id of ['connectionState','scopeState','runState']) $(id).dataset.ready=false;
@@ -168,15 +236,19 @@ function render() {
   text('status', state.status);
   text('connectionState',state.connected ? '账号已核对' : '等待连接'); $('connectionState').dataset.ready=state.connected;
   const activeTargets=state.config.targets.filter(t=>t.enabled).length;
-  text('scopeState',`已保存范围：${activeTargets} 个会话`); $('scopeState').dataset.ready=activeTargets>0;
-  text('runState',state.running ? '正在自动回复' : '已暂停 / 尚未开始'); $('runState').dataset.ready=state.running; text('error',actionError || state.error);
+  text('scopeState',`已启用 ${activeTargets} 个会话`); $('scopeState').dataset.ready=activeTargets>0;
+  text('runState',state.running ? '正在自动回复' : '已暂停'); $('runState').dataset.ready=state.running; text('error',actionError || state.error);
   text('deadline', state.runDeadline ? `将在 ${new Date(state.runDeadline*1000).toLocaleString('zh-CN')} 自动暂停` : '');
-  text('queue', `等待回复：${state.queued} / ${state.queueCapacity} 条（不含正在处理的消息）`);
+  text('queue', `队列 ${state.queued} / ${state.queueCapacity}`);
   for (const id of ['calls','confirmed','uncertain','rejected']) text(id,state[id]);
   const hints=state.configurationHints??[];
+  $('stepConnection').dataset.complete=state.connected;
+  $('stepScope').dataset.complete=state.config.targets.some(target=>target.enabled);
+  $('stepRun').dataset.complete=state.running;
+  $('uncertain').parentElement.dataset.alert=state.uncertain>0;
   $('configurationChecks').hidden=hints.length===0; text('configurationHints',hints.map(item=>'• '+item).join('\n'));
   renderRuntimeRecords();
-  text('credentials',state.temporaryCredentials ? '本次运行已有临时凭证，未持久化保存。' : (state.supportsKeychain === false ? '请填写本次运行的凭证；退出后需要重新填写。' : '将使用钥匙串凭证，也可填写本次运行的临时凭证。'));
+  text('credentials',state.temporaryCredentials ? '临时凭证已载入' : '');
   $('connect').disabled = state.connected || state.busy || pending;
   $('disconnect').disabled = !state.connected && !state.busy;
   $('start').disabled = !state.connected || state.running || state.busy || pending;
@@ -184,18 +256,18 @@ function render() {
   for(const id of ['endpoint','account','token','key','saveConnection']) $(id).disabled = state.connected || state.busy || pending;
   for(const id of ['model','prompt','daily','cooldown','sendDaily','chatDaily','globalInterval','duration','personaStyle','maxCharacters','banter','stickersEnabled','stickerIntervalSeconds','stickerEveryReplies','onlineEnabled','visionEnabled','memoryEnabled','memoryMessages','memoryCharacters','memoryMinutes','memoryBudget','groupParticipationEnabled','groupParticipationEvery','workHoursEnabled','workStart','workEnd','save']) $(id).disabled = state.running || state.busy || pending;
   text('imageGenCredentials', `本次已载入：智谱 ${state.imageCredentials?.zhipu ? '有凭证' : '未载入'}；Cloudflare ${state.imageCredentials?.cloudflare ? '有凭证' : '未载入'}`);
-  text('groupParticipationCounts', state.config.groupParticipationEnabled ? state.config.targets.filter(t=>t.enabled && t.group).map(t=>`${t.name}：${state.groupMessageCounts?.['group:'+t.number] ?? 0} / ${state.config.groupParticipationEvery ?? 10} 条`).join('；') || '尚未启用群聊' : '主动接话未开启；群聊仍只响应真实 @');
-  text('memoryStatus', state.memoryStatus ?? '记忆等待新消息');
-  text('imageGenStatus', state.imageGenerationStatus ?? '尚未调用生图');
+  text('groupParticipationCounts', state.config.groupParticipationEnabled ? state.config.targets.filter(t=>t.enabled && t.group).map(t=>`${t.name}：${state.groupMessageCounts?.['group:'+t.number] ?? 0} / ${state.config.groupParticipationEvery ?? 10} 条`).join('；') || '尚未启用群聊' : '');
+  text('memoryStatus', state.memoryStatus==='记忆等待新消息' ? '' : state.memoryStatus);
+  text('imageGenStatus', state.imageGenerationStatus==='尚未调用生图' ? '' : state.imageGenerationStatus);
   for(const id of ['imageGenEnabled','imageGenPrimary','imageGenFallback','imageGenZhipuKey','imageGenAccount','imageGenCloudflareToken','imageGenPersist','imageGenSave']) $(id).disabled = state.running || state.busy || pending;
   text('visualCredentials', `Google 凭证：${state.googleVisionCredential ? '已载入' : '未载入'}`);
-  text('visualStatus',state.visualStatus ?? '尚未调用识图');
+  text('visualStatus',state.visualStatus==='尚未调用外置识图或搜图' ? '' : state.visualStatus);
   for(const id of ['visionProvider','googleWebEnabled','googleVisionKey','visualPersist','visualSave']) $(id).disabled = state.running || state.busy || pending;
   if (state.supportsKeychain === false) {
     for (const id of ['imageGenPersist', 'visualPersist']) { $(id).checked = false; $(id).disabled = true; }
   }
   if(initial) {
-    for(const style of state.personalities){const option=document.createElement('option');option.value=style.id;option.textContent=style.name+' · '+style.description;$('personaStyle').append(option);}
+    for(const style of state.personalities){const option=document.createElement('option');option.value=style.id;option.textContent=style.name;option.title=style.description;$('personaStyle').append(option);}
     if(state.runDeadline && state.runDeadline*1000-Date.now()>24*60*60*1000) $('duration').value='4320';
     text('stickerCount',state.stickers.length);
     $('stickerGallery').addEventListener('toggle',()=>{if($('stickerGallery').open)renderStickers(state.stickers);},{once:true});
@@ -228,7 +300,6 @@ function render() {
 }
 function renderScopeActions() {
   const busy=state.running||state.busy||pending, hasDraft=dirtyForms.has('reply');
-  text('scopeDraftStatus',hasDraft?'范围与回复有未保存草稿。请先保存或放弃，再增删会话或切换会话性格。':'增删会话与切换会话性格会立即保存；启用勾选需单独保存范围与回复设置。');
   for(const checkbox of $('targets').querySelectorAll('input')) checkbox.disabled=busy;
   for(const select of $('targets').querySelectorAll('select')) {
     select.disabled=busy||hasDraft;
@@ -294,7 +365,6 @@ for(const action of ['start','save','once']) $(action).addEventListener('click',
   const success=await act({action:'save',persona,groupParticipationEnabled:$('groupParticipationEnabled').checked,groupParticipationEvery:Number($('groupParticipationEvery').value),onlineEnabled:$('onlineEnabled').checked,visionEnabled:$('visionEnabled').checked,memoryEnabled:$('memoryEnabled').checked,memoryOptions:{messageThreshold:Number($('memoryMessages').value),characterThreshold:Number($('memoryCharacters').value),intervalMinutes:Number($('memoryMinutes').value),retrievalCharacters:Number($('memoryBudget').value)},enabled:[...$('targets').querySelectorAll('input:checked')].map(c=>c.dataset.target),ai});
   if(success) {
     targetDraft.clear();
-    text('replyDraftStatus','范围与回复设置已保存，未启动回复。');
   }
 });
 document.addEventListener('input',event=>{
@@ -312,6 +382,7 @@ $('discardDrafts').addEventListener('click',()=>{
   render();
 });
 window.addEventListener('beforeunload',event=>{if(dirtyForms.size){event.preventDefault();event.returnValue='';}});
+selectPanelPage(sessionStorage.getItem('panel-page')||'connection');
 request().catch(()=>{});
 setInterval(()=>{renderFreshness();if(!pending && !statusRequestPending)request().catch(()=>{});},3000);
 
@@ -333,7 +404,7 @@ async function renderStickers(items) {
 function renderArtwork(first) {
   const a=state.artwork;
   if(!a) {text('artStatus','此服务尚未更新插画功能，请使用新版服务。');return;}
-  text('artStatus',`${state.artworkStatus} · 来源请求 ${state.artworkNetworkCalls} · 历史作品确认 ${state.artworkConfirmed}`);
+  text('artStatus',state.artworkStatus==='插画尚未请求' ? '' : `${state.artworkStatus} · 来源请求 ${state.artworkNetworkCalls} · 作品确认 ${state.artworkConfirmed}`);
   const roster=state.artworkArtists || a.pixivArtistIDs.map(id=>({id,name:a.artistNames?.[id] || `画师 ${id}`}));
   const rosterSignature=JSON.stringify(roster);
   if($('artArtistList').dataset.signature!==rosterSignature) {
@@ -361,12 +432,11 @@ function renderArtwork(first) {
       label.append(check,document.createTextNode(`${target.name} (${target.number})${target.enabled?'':' · 会话未启用，不会发送'}`));$('artTargets').append(label);
     }
   }
-  for(const item of $('artworkPanel').querySelectorAll('input,select,textarea,button')) item.disabled=state.running||state.busy||pending;
+  for(const item of $('artworkPanel').querySelectorAll('input,select,textarea,button:not(.help-button)')) item.disabled=state.running||state.busy||pending;
   $('artHour').disabled=$('artHour').disabled||$('artFrequency').value==='hourly';
   const hasDraft=dirtyForms.has('artwork');
   $('artArtistAdd').disabled=$('artArtistAdd').disabled||hasDraft;
   for(const button of $('artArtistList').querySelectorAll('button')) button.disabled=button.disabled||hasDraft;
-  text('artDraftStatus',hasDraft?'插画设置有未保存草稿。请先保存或放弃草稿，再单独增删画师。':'插画设置已同步；单独增删画师会立即保存。');
 }
 $('artSave').addEventListener('click',()=>{
   try {

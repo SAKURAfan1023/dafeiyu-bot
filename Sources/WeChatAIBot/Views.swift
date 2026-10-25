@@ -11,14 +11,15 @@ struct BotApp: App {
     @StateObject private var qq = QQEngine()
     @ViewState private var qqWebPanel: QQControlServer?
     var body: some Scene {
-        WindowGroup("微信与 QQ AI 助手", id: "dashboard", content: {
+        WindowGroup("大肥鱼 · 控制台", id: "dashboard", content: {
             Dashboard(engine: engine, qq: qq, openQQWebPanel: { openQQWebPanel() },
                       closeQQWebPanel: { closeQQWebPanel() }, webPanelOpen: qqWebPanel != nil)
                 .frame(minWidth: 980, minHeight: 700)
+                .onAppear { if let image = PanelLogo.image { NSApp.applicationIconImage = image } }
         })
             .defaultSize(width: 1120, height: 780)
             .commands { PanelNavigationCommands() }
-        MenuBarExtra("微信与 QQ AI 助手", systemImage: "bubble.left.and.text.bubble.right") {
+        MenuBarExtra("大肥鱼", systemImage: "bubble.left.and.text.bubble.right") {
             Text("微信：\(engine.status)")
             Text("QQ：\(qq.status)")
             Button(engine.isRunning || engine.isBusy ? "暂停微信操作" : "开始微信托管") { engine.isRunning || engine.isBusy ? engine.stop() : engine.start() }
@@ -59,13 +60,17 @@ private struct ShowDashboardButton: View {
     }
 }
 enum Page: String, CaseIterable, Identifiable {
-    case overview = "总览", chats = "托管会话", ai = "AI 配置", rules = "回复规则", logs = "运行记录", qq = "QQ 接入"
+    case overview = "总览", chats = "托管会话", ai = "AI 配置", rules = "回复规则", logs = "运行记录"
+    case qq = "连接与运行", qqReply = "范围与回复", qqTools = "图片与工具", qqMemory = "记忆与记录"
     var id: String { rawValue }
+    var qqSection: String? {
+        switch self { case .qq, .qqReply, .qqTools, .qqMemory: return rawValue; default: return nil }
+    }
     var icon: String {
-        switch self { case .overview: return "square.grid.2x2"; case .chats: return "bubble.left.and.bubble.right"; case .ai: return "sparkles"; case .rules: return "slider.horizontal.3"; case .logs: return "list.bullet.rectangle"; case .qq: return "bubble.left.fill" }
+        switch self { case .overview: return "square.grid.2x2"; case .chats: return "bubble.left.and.bubble.right"; case .ai: return "sparkles"; case .rules: return "slider.horizontal.3"; case .logs: return "list.bullet.rectangle"; case .qq: return "link"; case .qqReply: return "slider.horizontal.3"; case .qqTools: return "photo.on.rectangle"; case .qqMemory: return "clock.arrow.circlepath" }
     }
     var shortcut: KeyEquivalent {
-        switch self { case .overview: return "1"; case .chats: return "2"; case .ai: return "3"; case .rules: return "4"; case .logs: return "5"; case .qq: return "6" }
+        switch self { case .overview: return "1"; case .chats: return "2"; case .ai: return "3"; case .rules: return "4"; case .logs: return "5"; case .qq: return "6"; case .qqReply: return "7"; case .qqTools: return "8"; case .qqMemory: return "9" }
     }
 }
 private struct PanelPageKey: FocusedValueKey { typealias Value = Binding<Page> }
@@ -90,64 +95,91 @@ private struct PanelNavigationCommands: Commands {
 struct Dashboard: View {
     @ObservedObject var engine: BotEngine
     @ObservedObject var qq: QQEngine
-    @ViewState private var page: Page = .overview
+    @ViewState private var page: Page = .qq
     @ViewState private var qqEditor = QQPanelState()
+    @ViewState private var qqExpanded = true
+    @ViewState private var wechatExpanded = true
     @ViewState private var key = ""
     @ViewState private var name = ""
     @ViewState private var kind: ChatKind = .direct
     @ViewState private var importing = false
     @ViewState private var confirmingUnlock = false
+    @ViewState private var showingGuide = false
     private let openQQWebPanel: (() -> Void)?
     private let closeQQWebPanel: (() -> Void)?
     private let webPanelOpen: Bool
-    private let accent = Color(red: 0.10, green: 0.47, blue: 0.39)
-    init(engine: BotEngine, qq: QQEngine? = nil, initialPage: Page = .overview,
+    private let accent = Color(red: 0.27, green: 0.38, blue: 0.91)
+    private let ink = Color(red: 0.125, green: 0.145, blue: 0.12)
+    private let mint = Color(red: 0.82, green: 0.95, blue: 0.60)
+    init(engine: BotEngine, qq: QQEngine? = nil, initialPage: Page = .qq,
          openQQWebPanel: (() -> Void)? = nil, closeQQWebPanel: (() -> Void)? = nil, webPanelOpen: Bool = false) {
         self.engine = engine; self.qq = qq ?? QQEngine(preview: true)
         self.openQQWebPanel = openQQWebPanel; self.closeQQWebPanel = closeQQWebPanel
         self.webPanelOpen = webPanelOpen
         _page = ViewState(initialValue: initialPage)
+        var editor = QQPanelState(); editor.section = initialPage.qqSection ?? "连接与运行"
+        _qqEditor = ViewState(initialValue: editor)
     }
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 22) {
                 HStack(spacing: 10) {
-                    Image(systemName: "bubble.left.and.text.bubble.right.fill").font(.title).foregroundStyle(accent)
-                    VStack(alignment: .leading) { Text("微信与 QQ AI 助手").font(.headline); Text("本机托管 · DeepSeek").font(.caption).foregroundStyle(.secondary) }
-                }.padding(.top, 24).padding(.horizontal, 16)
-                List(Page.allCases, selection: $page) { item in Label(item.rawValue, systemImage: item.icon).tag(item).padding(.vertical, 6) }
+                    PanelLogo(size: 48).padding(3).background(mint, in: RoundedRectangle(cornerRadius: 15))
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("大肥鱼").font(.system(size: 23, weight: .bold)).foregroundStyle(.white)
+                    }
+                }.padding(.top, 30).padding(.horizontal, 17)
+                ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    DisclosureGroup("QQ", isExpanded: $qqExpanded) {
+                        ForEach(Page.allCases.filter { $0.qqSection != nil }) { item in
+                            navigationRow(item)
+                        }
+                    }
+                    DisclosureGroup("微信 · 测试中", isExpanded: $wechatExpanded) {
+                        ForEach(Page.allCases.filter { $0.qqSection == nil }) { item in
+                            navigationRow(item)
+                        }
+                    }
+                }.font(.caption).foregroundStyle(.white.opacity(0.72)).tint(.white.opacity(0.65)).padding(16)
+                }
                 VStack(alignment: .leading, spacing: 8) {
+                    Button { showingGuide = true } label: {
+                        Label("使用指南", systemImage: "book").font(.callout)
+                    }.buttonStyle(.plain).foregroundStyle(.white).padding(.bottom, 12)
                     Label(engine.isRunning ? "微信托管中" : "微信已暂停", systemImage: engine.isRunning ? "circle.fill" : "pause.circle")
-                        .foregroundStyle(engine.isRunning ? accent : .secondary)
+                        .foregroundStyle(engine.isRunning ? mint : .white.opacity(0.65))
                     Label(qq.running ? "QQ 托管中" : "QQ 已暂停", systemImage: qq.running ? "circle.fill" : "pause.circle")
-                    Text("微信本地识别 · QQ 本机接口\n持久保存的密钥位于钥匙串").font(.caption).foregroundStyle(.secondary)
-                }.padding(18)
-            }.navigationSplitViewColumnWidth(220)
+                        .foregroundStyle(qq.running ? mint : .white.opacity(0.65))
+                }.font(.caption2).padding(22)
+            }.background(ink).navigationSplitViewColumnWidth(240)
         } detail: {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 5) { Text(page.rawValue).font(.largeTitle.bold()); Text(page == .qq ? qq.status : engine.status).font(.callout).foregroundStyle(.secondary).lineLimit(2) }
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(page.rawValue).font(.system(size: 35, weight: .bold, design: .rounded))
+                    }
                     Spacer()
                     if engine.isBusy { ProgressView().controlSize(.small) }
                     Button { engine.stop(); qq.pause() } label: {
                         Label("暂停微信与 QQ", systemImage: "pause.fill").padding(.vertical, 5)
                     }.buttonStyle(.borderedProminent).tint(engine.isRunning ? .orange : accent)
-                        
-                    if page != .qq { Button("开始微信托管") { engine.start() }.disabled(engine.isRunning || engine.isBusy || engine.safetyReason != nil) }
+
+                    if page.qqSection == nil { Button("开始微信托管") { engine.start() }.disabled(engine.isRunning || engine.isBusy || engine.safetyReason != nil) }
                 }.padding(28)
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        if page != .qq, let reason = engine.safetyReason {
+                        if page.qqSection == nil, let reason = engine.safetyReason {
                             VStack(alignment: .leading, spacing: 10) {
                                 Label("微信自动操作已锁定", systemImage: "lock.shield").font(.headline)
                                 Text(reason).textSelection(.enabled)
-                                Text("停机状态会跨重启保留。AI 配置仍可编辑；诊断、验证与自测均已阻止。")
+                                HelpHint("停机状态跨重启保留。AI 配置可编辑，诊断、验证与自测被阻止。")
                                 Button("账号已核对，解除停机锁…") { confirmingUnlock = true }.disabled(engine.isBusy)
                             }.padding().frame(maxWidth: .infinity, alignment: .leading)
                                 .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
                         }
-                        if let error = engine.error {
+                        if page.qqSection == nil, let error = engine.error {
                             HStack(alignment: .top) { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange); Text(error).textSelection(.enabled); Spacer(); Button("关闭") { engine.error = nil } }
                                 .padding().background(Color.orange.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
                         }
@@ -157,24 +189,32 @@ struct Dashboard: View {
                         case .ai: ai
                         case .rules: rules
                         case .logs: logs
-                        case .qq:
+                        case .qq, .qqReply, .qqTools, .qqMemory:
                             if let openQQWebPanel {
                                 VStack(alignment: .leading, spacing: 8) {
                                     HStack {
                                         Button("在浏览器打开 QQ 面板", action: openQQWebPanel)
                                         if webPanelOpen, let closeQQWebPanel { Button("关闭网页控制入口", action: closeQQWebPanel) }
+                                        HelpHint("网页与本窗口共用同一 QQ 引擎。关闭网页入口不会暂停回复；需要停止时请使用暂停按钮。")
                                     }
-                                    Text("网页与本窗口共用同一 QQ 引擎。关闭网页入口不会暂停回复；需要停止时请使用暂停按钮。")
-                                        .font(.caption).foregroundStyle(.secondary)
                                 }
                             }
                             QQView(engine: qq, wechat: engine, editor: $qqEditor)
                         }
                     }.padding(28)
                 }
-            }.background(Color(nsColor: .windowBackgroundColor))
+            }.background(Color(red: 0.965, green: 0.965, blue: 0.94)).environment(\.colorScheme, .light)
         }.tint(accent)
+            .onChange(of: page) { _, current in
+                if let section = current.qqSection { qqEditor.section = section }
+            }
             .focusedSceneValue(\.panelPage, $page)
+            .sheet(isPresented: $showingGuide) {
+                PanelGuideView { destination in
+                    showingGuide = false
+                    page = destination
+                }
+            }
             .confirmationDialog("确认已在微信中核对账号状态并决定恢复接入？", isPresented: $confirmingUnlock) {
                 Button("解除停机锁，不启动托管", role: .destructive) { engine.clearSafetyStop() }
                 Button("保持停机", role: .cancel) { }
@@ -186,6 +226,15 @@ struct Dashboard: View {
                 catch { engine.error = error.localizedDescription }
             }
     }
+    private func navigationRow(_ item: Page) -> some View {
+        Button { page = item } label: {
+            Label(item.rawValue, systemImage: item.icon)
+                .font(.system(size: 13, weight: page == item ? .semibold : .regular))
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 12)
+                .foregroundStyle(page == item ? ink : .white.opacity(0.76))
+                .background(page == item ? mint : .clear, in: RoundedRectangle(cornerRadius: 9))
+        }.buttonStyle(.plain).accessibilityAddTraits(page == item ? .isSelected : [])
+    }
     private var overview: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 14) {
@@ -193,12 +242,12 @@ struct Dashboard: View {
                 stat("今日调用", "\(engine.usage.calls)", "上限 \(engine.config.dailyLimit) 次", "sparkles")
                 stat("发送额度已用", "\(engine.sendUsage.attempts)", "上限 \(engine.config.effectiveSendLimits.daily) 次", "paperplane")
             }
-            card("首次使用", icon: "checklist") {
+            card("连接与验证", icon: "checklist", help: "配置 DeepSeek Key，授权辅助功能与屏幕录制，并打开微信。会话须使用唯一备注，验证后才能启用。托管时会切换微信窗口，手动聊天前请先暂停。群自动回复仍未通过验收。") {
                 VStack(alignment: .leading, spacing: 12) {
-                    Label(engine.keyPresent ? "DeepSeek Key 已配置" : "请在 AI 配置中测试已保存的 Key，或配置新 Key", systemImage: engine.keyPresent ? "checkmark.circle.fill" : "1.circle")
-                    Label("授权辅助功能与屏幕录制，并运行微信主窗口", systemImage: "2.circle")
-                    Label("添加唯一名称的好友或群，验证后启用并保存", systemImage: "3.circle")
-                    Label("先验证私聊；群逐条 @ 识别尚未完成，暂不可启用群自动发送", systemImage: "4.circle")
+                    Label(engine.keyPresent ? "DeepSeek Key 已配置" : "DeepSeek Key 待验证", systemImage: engine.keyPresent ? "checkmark.circle.fill" : "1.circle")
+                    Label("辅助功能与屏幕录制", systemImage: "2.circle")
+                    Label("选择并验证会话", systemImage: "3.circle")
+                    Label("群自动回复暂不可用", systemImage: "4.circle")
                 }.font(.callout)
                 HStack {
                     Button("报告账号异常并停机") { engine.recordSafetyStop() }
@@ -208,14 +257,12 @@ struct Dashboard: View {
                 }.padding(.top, 10)
             }
             card("微信连接诊断", icon: "stethoscope") { Text(engine.diagnostics).font(.system(.callout, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
-            card("最近回复预览", icon: "text.bubble") { Text(engine.preview.isEmpty ? "尚无回复。仅显示本次运行产生的内容，退出后清空。" : engine.preview).foregroundStyle(engine.preview.isEmpty ? .secondary : .primary).textSelection(.enabled) }
-            Text("托管时程序会切换微信窗口。需要手动聊天时请先暂停。锁屏、休眠或微信退出后需要重新开始。")
-                .font(.caption).foregroundStyle(.secondary)
+            card("最近回复预览", icon: "text.bubble") { Text(engine.preview.isEmpty ? "暂无回复" : engine.preview).foregroundStyle(engine.preview.isEmpty ? .secondary : .primary).textSelection(.enabled) }
         }
     }
     private var chats: some View {
         VStack(alignment: .leading, spacing: 20) {
-            card("添加会话", icon: "plus.bubble") {
+            card("添加会话", icon: "plus.bubble", help: "使用唯一备注；重名会话无法可靠定位。建议将托管会话置顶。") {
                 HStack {
                     TextField("微信中的完整备注或群名称", text: $name)
                     Picker("类型", selection: $kind) { Text("好友").tag(ChatKind.direct); Text("群聊").tag(ChatKind.group) }.frame(width: 140)
@@ -225,8 +272,7 @@ struct Dashboard: View {
                         engine.config.chats.append(ChatRule(name: trimmed, kind: kind)); name = ""
                     }.disabled(engine.isRunning)
                 }
-                Text("使用唯一备注；重名会话不能可靠自动定位。建议将托管会话置顶，以便捕获未读和 @ 提示。")
-                    .font(.caption).foregroundStyle(.secondary)
+
             }
             ForEach($engine.config.chats) { $rule in
                 card(rule.name, icon: rule.kind == .group ? "person.3" : "person") {
@@ -245,7 +291,7 @@ struct Dashboard: View {
                     TextField("专属角色提示词（留空沿用全局）", text: $rule.prompt, axis: .vertical).lineLimit(2...5).disabled(engine.isRunning)
                 }
             }
-            HStack { Button("保存配置") { engine.save() }.buttonStyle(.borderedProminent); Text("修改配置会暂停托管，重新开始后生效。未经验证的导入会话不会自动启用。").font(.caption).foregroundStyle(.secondary) }
+            HStack { Button("保存配置") { engine.save() }.buttonStyle(.borderedProminent); HelpHint("修改配置会暂停托管，重新开始后生效。未经验证的导入会话不会启用。") }
         }
     }
     private var ai: some View {
@@ -267,7 +313,7 @@ struct Dashboard: View {
     }
     private var rules: some View {
         VStack(alignment: .leading, spacing: 20) {
-            card("自动回复规则", icon: "slider.horizontal.3") {
+            card("自动回复规则", icon: "slider.horizontal.3", help: "发送前预留额度，结果未知不返还。额度不是账号安全阈值。工作时段使用本机时区，可跨午夜，起止相同表示全天。") {
                 LabeledContent("私聊", value: "白名单中的新文字消息")
                 LabeledContent("群聊", value: "逐条 @ 证据适配未完成 · 自动发送不可用")
                 LabeledContent("运行方式", value: "自动发送 · 可随时暂停或人工接管")
@@ -277,15 +323,12 @@ struct Dashboard: View {
                 Stepper("每日发送额度：\(engine.config.effectiveSendLimits.daily) 次", value: $engine.config.effectiveSendLimits.daily, in: 1...10000)
                 Stepper("单会话每日发送额度：\(engine.config.effectiveSendLimits.perChatDaily) 次", value: $engine.config.effectiveSendLimits.perChatDaily, in: 1...10000)
                 Stepper("全局发送间隔：\(engine.config.effectiveSendLimits.globalIntervalSeconds) 秒", value: $engine.config.effectiveSendLimits.globalIntervalSeconds, in: 1...300)
-                Text("发送前预留额度并落盘；结果未知不返还。额度与间隔用于控制操作量，不是微信安全阈值。").font(.caption).foregroundStyle(.secondary)
                 Toggle("仅在工作时段回复", isOn: $engine.config.workHoursEnabled)
                 if engine.config.workHoursEnabled {
                     HStack { Stepper("开始：\(engine.config.workStart):00", value: $engine.config.workStart, in: 0...23); Stepper("结束：\(engine.config.workEnd):00", value: $engine.config.workEnd, in: 0...23) }
-                    Text("使用本机时区，支持跨午夜；开始和结束相同表示全天。").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            card("本地数据", icon: "internaldrive") {
-                Text("截图不落盘。对话上下文只在内存中保留最近 10 轮。运行记录不包含聊天正文或 Key，保留 7 天。")
+            card("本地数据", icon: "internaldrive", help: "截图不落盘。上下文只在内存保留最近 10 轮；运行记录保留 7 天，不含聊天正文或 Key。") {
                 HStack {
                     Button("导出配置（不含 Key）") {
                         let panel = NSSavePanel(); panel.allowedContentTypes = [.json]; panel.nameFieldStringValue = "wechat-bot-config.json"
@@ -319,8 +362,95 @@ struct Dashboard: View {
         VStack(alignment: .leading, spacing: 12) { Label(label, systemImage: icon).foregroundStyle(.secondary); Text(value).font(.system(size: 32, weight: .semibold, design: .rounded)); Text(detail).font(.caption).foregroundStyle(.secondary) }
             .frame(maxWidth: .infinity, alignment: .leading).padding(20).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
     }
-    private func card<Content: View>(_ title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 16) { Label(title, systemImage: icon).font(.headline); content() }
+    private func card<Content: View>(_ title: String, icon: String, help: String? = nil, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 16) { HStack { Label(title, systemImage: icon).font(.headline); if let help { HelpHint(help) } }; content() }
             .frame(maxWidth: .infinity, alignment: .leading).padding(20).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+/// Shared help control: native hover tooltip plus click/keyboard access.
+struct PanelGuideView: View {
+    @Environment(\.dismiss) private var dismiss
+    let navigate: (Page) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                PanelLogo(size: 58)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("使用指南").font(.title.bold())
+                    Text("先跑通一次回复，再开启其他功能。").foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("关闭") { dismiss() }.keyboardShortcut(.cancelAction)
+            }.padding(24)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    step(1, "登录 QQ", "启动 NapCat，扫码并在手机确认。开启 OneBot 正向 WebSocket，记下地址与令牌。已安装本项目 QQ 环境时，可在连接页启动环境和获取登录码。", destination: .qq, action: "去登录与连接")
+                    step(2, "连接账号", "填写 OneBot 地址和机器人 QQ 号。首次使用可在上方填 OneBot Token，展开「临时凭证（本次运行）」填 DeepSeek Key，再点「使用临时凭证连接」。已有保存凭证时，保存连接设置后点「连接并核对账号」。", destination: .qq, action: "去连接账号")
+                    step(3, "选谁可以收到回复", "从联系人列表添加好友或群，勾选启用，点「保存范围与回复」。群聊默认只在真正 @ 机器人时回复。", destination: .qqReply, action: "去选择会话")
+                    step(4, "试一次，再正式运行", "点「试运行一次」，让已启用的好友发新消息，或在群里用 @ 选择器选中机器人。确认收到正常回复，再选时长并点「开始回复」。", destination: .qq, action: "去试运行")
+                    step(5, "按喜好加功能", "在「范围与回复」调整性格和字数。图片、插画、定时在「图片与工具」各自配置保存，不用的功能可关闭。", destination: .qqTools, action: "设置图片工具")
+                    Divider()
+                    Text("遇到问题").font(.headline)
+                    DisclosureGroup("已连接，为什么不回复？") {
+                        Text("连接后还要开始回复。核对会话已勾选并保存、运行未到期、额度未用完。群内使用真正 @；主动接话达到条数只做评估，可能不接话。到「记忆与记录」查看处理结果。")
+                    }
+                    DisclosureGroup("如何修改配置或停止？") {
+                        Text("先暂停，再修改并保存，然后重新开始。切页保留草稿，退出应用不保留未保存内容。关闭窗口或网页不会停止机器人，停止请点暂停。")
+                    }
+                    DisclosureGroup("凭证会保存吗？") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("临时凭证退出失效。长期使用可保存 OneBot Token 到钥匙串；DeepSeek Key 在「微信 → AI 配置」保存，QQ 共用该 Key。生图与搜图凭证独立配置。请勿分享凭证或控制链接。")
+                            Button("配置共用 DeepSeek Key") { navigate(.ai) }
+                        }
+                    }
+                    DisclosureGroup("微信怎么用？（测试中）") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("先在「AI 配置」保存 DeepSeek Key，开启辅助功能和屏幕录制权限。登录微信后添加并验证会话，勾选启用并保存，再开始托管。托管会切换微信窗口，手动聊天前先暂停。群自动回复暂不可用。")
+                            Button("去微信总览") { navigate(.overview) }
+                        }
+                    }
+                    Link("NapCat 安装教程 ↗", destination: URL(string: "https://napneko.github.io/guide/start-install")!)
+                }.font(.callout).lineSpacing(5).padding(24)
+            }
+        }.frame(width: 690, height: 680).background(Color(red: 0.965, green: 0.965, blue: 0.94))
+    }
+    private func step(_ number: Int, _ title: String, _ instructions: String, destination: Page, action: String) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            Text("\(number)").font(.headline).frame(width: 30, height: 30)
+                .background(Color(red: 0.82, green: 0.95, blue: 0.60), in: Circle())
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title).font(.headline)
+                Text(instructions).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Button(action + " ↗") { navigate(destination) }
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct HelpHint: View {
+    let text: String
+    @ViewState private var expanded = false
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Button { expanded.toggle() } label: {
+            Image(systemName: "questionmark.circle").foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain).help(text).accessibilityLabel("功能说明")
+        .popover(isPresented: $expanded) {
+            Text(text).font(.callout).fixedSize(horizontal: false, vertical: true)
+                .padding(16).frame(width: 320, alignment: .leading)
+        }
+    }
+}
+
+@MainActor struct PanelLogo: View {
+    static let image = (RuntimeResources.directory?.appendingPathComponent("QQControl/logo.png")).flatMap { NSImage(contentsOf: $0) }
+    var size: CGFloat = 48
+    var body: some View {
+        if let image = Self.image {
+            Image(nsImage: image).resizable().scaledToFit().frame(width: size, height: size)
+        }
     }
 }

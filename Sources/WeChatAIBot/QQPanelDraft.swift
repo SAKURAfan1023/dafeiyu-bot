@@ -69,6 +69,7 @@ struct QQPanelState {
     var persistVisualCredentials = true
     var durationMinutes = 120
     var section = "连接与运行"
+    var toolSection = "插画与定时"
     var connectionDraft = QQPanelDraft(value: QQConnectionForm(QQConfig()))
     var replyDraft = QQPanelDraft(value: QQReplyForm(QQConfig()))
     var imageDraft = QQPanelDraft(value: QQImageGenerationConfig())

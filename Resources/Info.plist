@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleName</key><string>WeChat AI Bot</string>
-<key>CFBundleDisplayName</key><string>微信 AI 助手</string>
+<key>CFBundleDisplayName</key><string>大肥鱼</string>
 <key>CFBundleIdentifier</key><string>org.dafeiyu.bot</string>
 <key>CFBundleExecutable</key><string>WeChatAIBot</string>
 <key>CFBundlePackageType</key><string>APPL</string>

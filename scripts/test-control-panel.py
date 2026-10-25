@@ -88,6 +88,13 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
                 with urllib.request.urlopen(req, timeout=5) as response: return response.status, response.read()
             except urllib.error.HTTPError as error: return error.code, error.read()
         assert request('/')[0] == 200
+        for asset, mime in [('/style.css', 'text/css'), ('/logo.png', 'image/png')]:
+            with urllib.request.urlopen(origin + asset, timeout=5) as response:
+                assert response.status == 200 and response.headers.get_content_type() == mime
+                data = response.read()
+                assert data and (asset != '/logo.png' or data.startswith(b'\x89PNG\r\n\x1a\n'))
+                assert "style-src 'self'" in response.headers['Content-Security-Policy']
+        assert request('/../logo.png')[0] == 403
         assert request('/api/status')[0] == 403
         headers = {'X-QQ-Control': url.fragment, 'Origin': origin}
         code, data = request('/api/status', headers)
