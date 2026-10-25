@@ -98,6 +98,8 @@ def main():
                 raise RuntimeError('Retention file transfer failed')
             try:
                 guest('cp', target, 'qq-ai:' + destination)
+                # docker cp creates root-owned files; the QQ/plugin process runs as napcat.
+                guest('exec', 'qq-ai', 'chown', 'napcat:napcat', destination)
             finally:
                 subprocess.run([args.lima, 'shell', 'qq-ai', 'rm', '-f', target], capture_output=True, timeout=15)
 

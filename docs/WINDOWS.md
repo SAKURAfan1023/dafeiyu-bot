@@ -125,6 +125,7 @@ wsl -d Ubuntu-24.04 -- bash -lc 'cd ~/dafeiyu-bot && exec bash scripts/start-lin
 - 先在面板暂停，再在运行终端 Ctrl+C。需要退出 QQ 桥接时运行 `sudo docker stop qq-ai`。
 - 关闭浏览器不停止后台进程；关闭 WSL、电脑休眠、重启或网络断开可能中断服务。Windows 电源设置需要允许测试期间保持唤醒；锁屏与系统休眠是两件事。本项目不修改你的电源策略或增加开机托管。
 - 升级前先暂停并退出引擎，备份 `~/.local/share/dafeiyu`、`~/qq-runtime/config` 及 Docker 的 `qq-ai-data` 卷；备份含账号/聊天隐私，应保存在私人目录。然后 `git pull --ff-only`、重新测试/构建，再启动。升级不会自动重新登录、发送消息或重置额度。
+- NapCat 容器与回复引擎分开升级；容器冷备份、插件持久化与回退命令见 [桥接升级与回退](UPGRADING.md)。
 
 ## 排障
 
