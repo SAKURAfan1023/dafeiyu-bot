@@ -7,7 +7,7 @@ struct QQArtworkSettingsView: View {
     @Binding var artistInput: String
     var body: some View {
         GroupBox {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 20) {
                 if draft.hasChanges {
                     if draft.conflicts(with: QQArtworkForm(engine.config.effectiveArtwork)) { Text("插画设置已在别处更新，请先载入最新设置").foregroundStyle(.orange) }
                     Button("放弃插画草稿，载入最新设置") { draft.reset(QQArtworkForm(engine.config.effectiveArtwork)); artistInput = "" }
@@ -15,25 +15,17 @@ struct QQArtworkSettingsView: View {
                 Toggle("启用插画命令", isOn: $draft.value.settings.enabled)
                 Toggle("允许 Agent 通过自然语言调用（会使用模型）", isOn: $draft.value.settings.agentEnabled)
                 HStack {
-                    Stepper("单会话每天 \(draft.value.settings.dailyPerChat) 张", value: $draft.value.settings.dailyPerChat, in: 1...1000)
-                    Stepper("去重 \(draft.value.settings.repeatDays) 天", value: $draft.value.settings.repeatDays, in: 1...90)
+                    PanelNumberField("单会话每日作品上限", value: $draft.value.settings.dailyPerChat, in: 1...1000, unit: "张")
+                    PanelNumberField("同图不重复时长", value: $draft.value.settings.repeatDays, in: 1...7, unit: "天")
                 }
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("每日来源请求数").font(.callout)
-                        TextField("每日来源请求数", text: $draft.value.networkDailyLimit)
-                    }
-                    VStack(alignment: .leading) {
-                        Text("最小长边（像素）").font(.callout)
-                        TextField("最小长边像素", text: $draft.value.minLongEdge)
-                    }
-                    VStack(alignment: .leading) {
-                        Text("最小短边（像素）").font(.callout)
-                        TextField("最小短边像素", text: $draft.value.minShortEdge)
-                    }
+                HStack(alignment: .top, spacing: 20) {
+                    PanelNumberField("每日来源请求数", text: $draft.value.networkDailyLimit, in: 10...2000, unit: "次")
+                    PanelNumberField("/search 优先收藏数", text: $draft.value.searchMinBookmarks, in: 1...1000000)
                 }
-                Text("/search 优先收藏数").font(.callout)
-                TextField("/search 优先收藏数（默认1000）", text: $draft.value.searchMinBookmarks)
+                HStack(spacing: 20) {
+                    PanelNumberField("最小长边", text: $draft.value.minLongEdge, in: 0...4096, unit: "px")
+                    PanelNumberField("最小短边", text: $draft.value.minShortEdge, in: 0...4096, unit: "px")
+                }
                 DisclosureGroup("高级：历史精选来源") {
                     VStack(alignment: .leading) {
                         HStack {
@@ -62,13 +54,18 @@ struct QQArtworkSettingsView: View {
                 Picker("频率", selection: Binding(get: { draft.value.settings.effectiveScheduleFrequency }, set: { draft.value.settings.scheduleFrequency = $0 })) {
                     Text("每天").tag("daily"); Text("每小时").tag("hourly")
                 }
-                HStack {
-                    if draft.value.settings.effectiveScheduleFrequency == "daily" { Stepper("\(draft.value.settings.scheduleHour) 时", value: $draft.value.settings.scheduleHour, in: 0...23) }
-                    Stepper("\(draft.value.settings.scheduleMinute) 分", value: $draft.value.settings.scheduleMinute, in: 0...59)
-                    TextField("时区", text: $draft.value.settings.scheduleTimeZone)
-                    Picker("内容", selection: $draft.value.settings.scheduleMode) {
-                        Text("Pixiv 日榜").tag("hot"); Text("动漫游戏美少女精选").tag("featured")
-                    }
+                HStack(spacing: 20) {
+                    PanelNumberField("发送时间", value: $draft.value.settings.scheduleHour, in: 0...23, unit: "时")
+                        .disabled(draft.value.settings.effectiveScheduleFrequency == "hourly")
+                    PanelNumberField("发送分钟", value: $draft.value.settings.scheduleMinute, in: 0...59, unit: "分")
+                }
+                HStack(spacing: 20) {
+                    LabeledContent("时区") { TextField("时区", text: $draft.value.settings.scheduleTimeZone) }.labeledContentStyle(PanelLabeledContentStyle())
+                    LabeledContent("内容") {
+                        Picker("内容", selection: $draft.value.settings.scheduleMode) {
+                            Text("Pixiv 日榜").tag("hot"); Text("动漫游戏美少女精选").tag("featured")
+                        }.labelsHidden()
+                    }.labeledContentStyle(PanelLabeledContentStyle())
                 }
                 ForEach(engine.config.targets) { target in
                     Toggle(target.name + (target.enabled ? "" : "（未启用）"), isOn: Binding(get: { draft.value.settings.scheduleTargets.contains(target.key) }, set: { value in

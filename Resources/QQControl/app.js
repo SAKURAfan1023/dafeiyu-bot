@@ -1,5 +1,47 @@
 'use strict';
 const $ = id => document.getElementById(id);
+const numericUnits={maxCharacters:'字',stickerEveryReplies:'条',stickerIntervalSeconds:'秒',stickerRepeatHours:'小时',groupParticipationEvery:'条',daily:'次',cooldown:'秒',sendDaily:'条',globalInterval:'秒',chatDaily:'条',workStart:'时',workEnd:'时',artDaily:'张',artNetwork:'次',artRepeat:'天',artLong:'px',artShort:'px',artBookmarks:'',artHour:'时',artMinute:'分',memoryMessages:'条',memoryCharacters:'字',memoryMinutes:'分钟',memoryBudget:'字',customMaxInput:'字'};
+const numberInputs=[...document.querySelectorAll('input[type=number]')];
+for(const input of numberInputs) {
+  const label=input.labels?.[0], name=label?.textContent.trim()||input.id;
+  const control=document.createElement('div');control.className='number-control';
+  if(input.parentElement===label) {
+    const field=document.createElement('div');field.className='number-field';
+    label.before(field);field.append(label,control);label.htmlFor=input.id;
+  } else input.before(control);
+  input.setAttribute('aria-label',name);input.inputMode='numeric';
+  const minus=document.createElement('button'),plus=document.createElement('button'),unit=document.createElement('span');
+  minus.type=plus.type='button';minus.textContent='−';plus.textContent='+';
+  minus.setAttribute('aria-label','减少'+name);plus.setAttribute('aria-label','增加'+name);
+  unit.className='number-unit';unit.textContent=numericUnits[input.id]||'';unit.setAttribute('aria-hidden','true');unit.hidden=!unit.textContent;
+  control.append(minus,input,unit,plus);
+  for(const [button,direction] of [[minus,-1],[plus,1]]) button.addEventListener('click',()=>stepNumber(input,direction));
+  input.addEventListener('keydown',event=>{
+    if(event.key==='ArrowUp'||event.key==='ArrowDown') {
+      event.preventDefault();stepNumber(input,event.key==='ArrowUp'?1:-1);
+    }
+  });
+}
+function stepNumber(input,direction) {
+  if(input.disabled||input.readOnly)return;
+  const min=input.min===''?-Infinity:Number(input.min),max=input.max===''?Infinity:Number(input.max);
+  const value=Number.isFinite(input.valueAsNumber)?input.valueAsNumber:Number(input.defaultValue||input.min||0);
+  const base=Math.min(max,Math.max(min,value)),step=Number(input.dataset.step||input.step||1);
+  input.value=String(Math.min(max,Math.max(min,base+direction*step)));
+  input.dispatchEvent(new Event('input',{bubbles:true}));input.focus({preventScroll:true});
+}
+function syncNumberControls() {
+  for(const input of numberInputs) {
+    const control=input.parentElement,disabled=input.disabled||input.readOnly,value=input.valueAsNumber;
+    control.dataset.disabled=disabled;
+    control.firstElementChild.disabled=disabled||(input.min!==''&&value<=Number(input.min));
+    control.lastElementChild.disabled=disabled||(input.max!==''&&value>=Number(input.max));
+  }
+}
+document.addEventListener('input',syncNumberControls);
+new MutationObserver(records=>{if(records.some(record=>record.target.matches('input[type=number]')))syncNumberControls();})
+  .observe(document.body,{subtree:true,attributes:true,attributeFilter:['disabled','readonly']});
+syncNumberControls();
 // Show recommended values immediately, but wait for saved settings before editing.
 document.querySelector('.grid').inert=true;
 // Navigation only changes visibility. All editors and drafts stay mounted.
@@ -215,6 +257,7 @@ function validateNumericInputs(ids) {
     if(!input.checkValidity()) {
       const page=input.closest('[data-pages]')?.dataset.pages.split(' ')[0];
       if(page) selectPanelPage(page,true);
+      for(let parent=input.parentElement;parent;parent=parent.parentElement) if(parent.tagName==='DETAILS')parent.open=true;
       input.reportValidity(); return false;
     }
   }
@@ -386,7 +429,7 @@ function render() {
   if(!state.memories?.length) text('memories','尚无会话记忆');
   document.querySelector('.grid').inert=false;
   $('restoreDefaults').disabled=state.running||state.busy||pending;
-  renderFreshness();
+  syncNumberControls(); renderFreshness();
 }
 function renderScopeActions() {
   const busy=state.running||state.busy||pending, hasDraft=dirtyForms.has('reply');
@@ -443,7 +486,7 @@ for(const action of ['start','save','once']) $(action).addEventListener('click',
     await act({action:'start',singleReply:action==='once',durationMinutes:Number($('duration').value)});
     return;
   }
-  const numeric=['daily','cooldown','sendDaily','chatDaily','globalInterval','maxCharacters','stickerIntervalSeconds','stickerEveryReplies','memoryMessages','memoryCharacters','memoryMinutes','memoryBudget','groupParticipationEvery','workStart','workEnd'];
+  const numeric=['daily','cooldown','sendDaily','chatDaily','globalInterval','maxCharacters','stickerIntervalSeconds','stickerEveryReplies','stickerRepeatHours','memoryMessages','memoryCharacters','memoryMinutes','memoryBudget','groupParticipationEvery','workStart','workEnd'];
   if(!validateNumericInputs(numeric)) return;
   const ai=structuredClone(state.config.ai);
   ai.model=$('model').value.trim();ai.prompt=$('prompt').value;

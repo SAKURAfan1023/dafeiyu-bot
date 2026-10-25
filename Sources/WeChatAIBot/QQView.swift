@@ -69,13 +69,13 @@ struct QQView: View {
                 }
                 LabeledContent("OneBot 地址") {
                     TextField("ws://127.0.0.1:3001", text: $editor.connectionDraft.value.endpoint)
-                }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                }.labeledContentStyle(PanelLabeledContentStyle()).disabled(engine.connected || engine.busy || engine.runtimeBusy)
                 LabeledContent("机器人 QQ 号") {
                     TextField("预期登录 QQ 号", text: $editor.connectionDraft.value.expectedSelfID)
-                }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                }.labeledContentStyle(PanelLabeledContentStyle()).disabled(engine.connected || engine.busy || engine.runtimeBusy)
                 LabeledContent("OneBot 令牌") {
                     SecureField("留空保留已保存值", text: $editor.token)
-                }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                }.labeledContentStyle(PanelLabeledContentStyle()).disabled(engine.connected || engine.busy || engine.runtimeBusy)
                 HStack(spacing: 10) {
                     Button("保存连接设置") {
                         guard !editor.connectionDraft.conflicts(with: QQConnectionForm(engine.config)) else { engine.error = "连接配置已更新，请先载入最新设置"; return }
@@ -127,7 +127,7 @@ struct QQView: View {
                         Text("15 分钟").tag(15); Text("30 分钟").tag(30); Text("2 小时").tag(120)
                         Text("3 天（72 小时）").tag(4320); Text("持续运行").tag(0)
                     }.labelsHidden().frame(maxWidth: .infinity)
-                }.disabled(engine.running || engine.busy || engine.runtimeBusy)
+                }.labeledContentStyle(PanelLabeledContentStyle()).disabled(engine.running || engine.busy || engine.runtimeBusy)
                 VStack(spacing: 10) {
                     Button { engine.start(duration: editor.durationMinutes == 0 ? nil : Double(editor.durationMinutes * 60)) } label: {
                         Label("开始回复", systemImage: "play.fill").frame(maxWidth: .infinity)
@@ -213,15 +213,17 @@ struct QQView: View {
                         Button("放弃范围与回复草稿，载入最新设置") { editor.replyDraft.reset(QQReplyForm(engine.config)) }
                     }
                     ForEach($editor.replyDraft.value.targets) { $target in
-                        HStack {
+                        VStack(alignment: .leading, spacing: 12) {
                             Toggle(isOn: $target.enabled) { Text("\(target.group ? "群" : "好友") · \(target.name) (\(target.number))") }.disabled(engine.running || engine.busy || engine.runtimeBusy)
-                            Picker("性格", selection: Binding(get: { target.personaStyle?.rawValue ?? "default" }, set: { engine.setPersonaStyle($0, target: target.key) })) {
-                                Text("跟随默认").tag("default")
-                                ForEach(QQPersonality.allCases, id: \.rawValue) { style in Text(style.name).tag(style.rawValue) }
-                            }.frame(width: 150).disabled(engine.running || engine.busy || engine.runtimeBusy || editor.replyDraft.hasChanges)
-                            Button("接管") { engine.takeOver(target.id) }
-                            Button("清除记忆并暂停") { engine.clearMemory(target.id) }
-                            Button("移除") { engine.remove(target.id) }.disabled(engine.running || engine.busy || engine.runtimeBusy || editor.replyDraft.hasChanges)
+                            HStack {
+                                Picker("性格", selection: Binding(get: { target.personaStyle?.rawValue ?? "default" }, set: { engine.setPersonaStyle($0, target: target.key) })) {
+                                    Text("跟随默认").tag("default")
+                                    ForEach(QQPersonality.allCases, id: \.rawValue) { style in Text(style.name).tag(style.rawValue) }
+                                }.frame(width: 150).disabled(engine.running || engine.busy || engine.runtimeBusy || editor.replyDraft.hasChanges)
+                                Button("接管") { engine.takeOver(target.id) }
+                                Button("清除记忆并暂停") { engine.clearMemory(target.id) }
+                                Button("移除") { engine.remove(target.id) }.disabled(engine.running || engine.busy || engine.runtimeBusy || editor.replyDraft.hasChanges)
+                            }
                         }
                     }
                     if engine.config.targets.isEmpty { Text("暂无会话，请连接后添加") }
@@ -305,104 +307,127 @@ struct QQView: View {
             }
             }
             if editor.section == "范围与回复" {
-            GroupBox {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        TextField("模型", text: $editor.replyDraft.value.ai.model)
-                        Button("复制微信 AI 参数") {
-                            var ai = wechat.config; ai.chats = []
-                            ai.prompt = editor.replyDraft.value.ai.prompt; editor.replyDraft.value.ai = ai
-                            editor.replyDraft.value.dailyLimit = String(ai.dailyLimit)
-                            editor.replyDraft.value.sendDaily = String(ai.effectiveSendLimits.daily)
-                            editor.replyDraft.value.perChatDaily = String(ai.effectiveSendLimits.perChatDaily)
-                        }
-                    }
-                    Picker("默认性格", selection: Binding(get: { editor.replyDraft.value.persona.effectiveStyle }, set: { style in
-                        if style == .custom { openCustomPersona() }
-                        else { editor.replyDraft.value.persona.effectiveStyle = style }
-                    })) {
-                        ForEach(QQPersonality.allCases, id: \.rawValue) { style in Text(style.name).tag(style).help(style.description) }
-                    }
-                    Button("自定义性格…") { openCustomPersona() }
-                    Stepper("回复最多 \(editor.replyDraft.value.persona.maxCharacters) 字符", value: $editor.replyDraft.value.persona.maxCharacters, in: 20...200)
-                    Picker("雌小鬼嘴欠程度", selection: $editor.replyDraft.value.persona.banter) {
-                        Text("温和").tag(0); Text("轻微吐槽").tag(1); Text("犀利但有分寸").tag(2); Text("锋利回怼").tag(3)
-                    }
-                    Toggle("定期配图，强烈情绪可提前配图", isOn: $editor.replyDraft.value.persona.stickersEnabled)
-                    Picker("配图方式", selection: $editor.replyDraft.value.persona.effectiveStickerTrigger) {
-                        Text("按语境与条数").tag(QQStickerTrigger.contextual)
-                        Text("只在指定情绪").tag(QQStickerTrigger.emotions)
-                        Text("收到指定关键词").tag(QQStickerTrigger.keywords)
-                    }
-                    if editor.replyDraft.value.persona.effectiveStickerTrigger == .emotions {
-                        HStack {
-                            ForEach(QQEmotion.allCases, id: \.self) { emotion in
-                                Toggle(stickerEmotionName(emotion), isOn: Binding(get: { editor.replyDraft.value.persona.effectiveStickerEmotions.contains(emotion) }, set: { enabled in
-                                    var emotions = Set(editor.replyDraft.value.persona.effectiveStickerEmotions)
-                                    if enabled { emotions.insert(emotion) } else { emotions.remove(emotion) }
-                                    editor.replyDraft.value.persona.stickerEmotions = QQEmotion.allCases.filter { emotions.contains($0) }
+                GroupBox {
+                    HStack(alignment: .top, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 18) {
+                            LabeledContent("默认性格") {
+                                Picker("默认性格", selection: Binding(get: { editor.replyDraft.value.persona.effectiveStyle }, set: { style in
+                                    if style == .custom { openCustomPersona() }
+                                    else { editor.replyDraft.value.persona.effectiveStyle = style }
+                                })) {
+                                    ForEach(QQPersonality.allCases, id: \.rawValue) { style in Text(style.name).tag(style).help(style.description) }
+                                }.labelsHidden()
+                            }.labeledContentStyle(PanelLabeledContentStyle())
+                            Button("自定义性格…") { openCustomPersona() }
+                            PanelNumberField("回复字数上限", value: $editor.replyDraft.value.persona.maxCharacters, in: 20...200, unit: "字")
+                            LabeledContent("雌小鬼嘴欠程度") {
+                                Picker("雌小鬼嘴欠程度", selection: $editor.replyDraft.value.persona.banter) {
+                                    Text("温和").tag(0); Text("轻微吐槽").tag(1); Text("犀利但有分寸").tag(2); Text("锋利回怼").tag(3)
+                                }.labelsHidden()
+                            }.labeledContentStyle(PanelLabeledContentStyle())
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 18) {
+                            Toggle("启用表情配图", isOn: $editor.replyDraft.value.persona.stickersEnabled)
+                            LabeledContent("配图方式") {
+                                Picker("配图方式", selection: $editor.replyDraft.value.persona.effectiveStickerTrigger) {
+                                    Text("按语境与条数").tag(QQStickerTrigger.contextual)
+                                    Text("只在指定情绪").tag(QQStickerTrigger.emotions)
+                                    Text("收到指定关键词").tag(QQStickerTrigger.keywords)
+                                }.labelsHidden()
+                            }.labeledContentStyle(PanelLabeledContentStyle())
+                            if editor.replyDraft.value.persona.effectiveStickerTrigger == .emotions {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 85))], alignment: .leading, spacing: 10) {
+                                    ForEach(QQEmotion.allCases, id: \.self) { emotion in
+                                        Toggle(stickerEmotionName(emotion), isOn: Binding(get: { editor.replyDraft.value.persona.effectiveStickerEmotions.contains(emotion) }, set: { enabled in
+                                            var emotions = Set(editor.replyDraft.value.persona.effectiveStickerEmotions)
+                                            if enabled { emotions.insert(emotion) } else { emotions.remove(emotion) }
+                                            editor.replyDraft.value.persona.stickerEmotions = QQEmotion.allCases.filter { emotions.contains($0) }
+                                        }))
+                                    }
+                                }
+                            }
+                            if editor.replyDraft.value.persona.effectiveStickerTrigger == .keywords {
+                                TextField("关键词，用逗号分隔", text: Binding(get: { (editor.replyDraft.value.persona.stickerKeywords ?? []).joined(separator: "，") }, set: { value in
+                                    editor.replyDraft.value.persona.stickerKeywords = value.components(separatedBy: CharacterSet(charactersIn: ",，\n")).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
                                 }))
                             }
-                        }
+                            PanelNumberField("配图条数间隔", value: $editor.replyDraft.value.persona.effectiveStickerEveryReplies, in: 0...10, unit: "条")
+                                .help("0 为仅在强烈情绪时配图；仍需符合当前语境。")
+                            PanelNumberField("两次配图至少间隔", value: $editor.replyDraft.value.persona.stickerIntervalSeconds, in: 1...3600, unit: "秒")
+                            PanelNumberField("同图不重复时长", value: $editor.replyDraft.value.persona.effectiveStickerRepeatHours, in: 1...168, unit: "小时")
+                            Button("表情库与本机导入（\(engine.stickerLibrary.items.count) 张）") { showingStickerLibrary = true }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    if editor.replyDraft.value.persona.effectiveStickerTrigger == .keywords {
-                        TextField("关键词，用逗号分隔", text: Binding(get: { (editor.replyDraft.value.persona.stickerKeywords ?? []).joined(separator: "，") }, set: { value in
-                            editor.replyDraft.value.persona.stickerKeywords = value.components(separatedBy: CharacterSet(charactersIn: ",，\n")).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                        }))
+                } label: { HStack { Text("人设与表情"); HelpHint("性格按会话独立覆盖。配图结合语境，无合适图不硬配；配图间隔为 0 时仅考虑强烈情绪。") } }
+                    .disabled(engine.running || engine.busy || engine.runtimeBusy)
+                GroupBox {
+                    HStack(alignment: .center, spacing: 24) {
+                        Toggle("启用主动接话", isOn: $editor.replyDraft.value.groupParticipationEnabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        PanelNumberField("主动接话触发条数", value: $editor.replyDraft.value.groupParticipationEvery, in: 1...1000, unit: "条")
+                            .frame(maxWidth: .infinity)
                     }
-                    Stepper("同会话同图 \(editor.replyDraft.value.persona.effectiveStickerRepeatHours) 小时不重复", value: $editor.replyDraft.value.persona.effectiveStickerRepeatHours, in: 1...168)
-                    Button("表情库与本机导入（\(engine.stickerLibrary.items.count) 张）") { showingStickerLibrary = true }
-                    Stepper("每隔 \(editor.replyDraft.value.persona.effectiveStickerEveryReplies) 条回复配图（0 为仅强烈情绪）", value: $editor.replyDraft.value.persona.effectiveStickerEveryReplies, in: 0...10)
-                    Toggle("按群消息数量评估主动接话", isOn: $editor.replyDraft.value.groupParticipationEnabled)
-                    Stepper("每累计 \(editor.replyDraft.value.groupParticipationEvery) 条群消息评估一次接话", value: $editor.replyDraft.value.groupParticipationEvery, in: 1...1000)
                     ForEach(engine.config.targets.filter { $0.enabled && $0.group }) { target in
                         Text("\(target.name)：\(engine.groupMessageCounts[target.key, default: 0]) / \(editor.replyDraft.value.groupParticipationEvery) 条").font(.caption)
                     }
-                    Toggle("允许搜索网页和网络图片", isOn: $editor.replyDraft.value.onlineEnabled)
-                    Toggle("识别图片与表情包", isOn: $editor.replyDraft.value.visionEnabled)
-                    Stepper("配图至少间隔 \(editor.replyDraft.value.persona.stickerIntervalSeconds) 秒", value: $editor.replyDraft.value.persona.stickerIntervalSeconds, in: 1...3600)
-                    Text("补充偏好").font(.caption)
-                    TextEditor(text: $editor.replyDraft.value.ai.prompt).frame(height: 90).border(Color.secondary.opacity(0.2)).accessibilityLabel("补充偏好")
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("每日模型调用上限").font(.callout)
-                            TextField("每日模型调用上限", text: $editor.replyDraft.value.dailyLimit)
+                } label: { HStack { Text("群聊主动接话"); HelpHint("每群独立计数，包含主人手动发言，@ 不重置计数。达到条数只评估是否接话，可以选择保持安静。") } }
+                    .disabled(engine.running || engine.busy || engine.runtimeBusy)
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 20) {
+                        HStack(spacing: 20) {
+                            LabeledContent("模型") { TextField("模型", text: $editor.replyDraft.value.ai.model) }.labeledContentStyle(PanelLabeledContentStyle())
+                            Button("复制微信 AI 参数") {
+                                var ai = wechat.config; ai.chats = []
+                                ai.prompt = editor.replyDraft.value.ai.prompt; editor.replyDraft.value.ai = ai
+                                editor.replyDraft.value.dailyLimit = String(ai.dailyLimit)
+                                editor.replyDraft.value.sendDaily = String(ai.effectiveSendLimits.daily)
+                                editor.replyDraft.value.perChatDaily = String(ai.effectiveSendLimits.perChatDaily)
+                            }
                         }
-                        Stepper("单会话间隔 \(editor.replyDraft.value.ai.cooldownSeconds) 秒", value: $editor.replyDraft.value.ai.cooldownSeconds, in: 1...300)
+                        HStack(spacing: 24) {
+                            Toggle("识别图片与表情包", isOn: $editor.replyDraft.value.visionEnabled)
+                            Toggle("允许搜索网页和网络图片", isOn: $editor.replyDraft.value.onlineEnabled)
+                        }
+                        LabeledContent("补充偏好") {
+                            TextEditor(text: $editor.replyDraft.value.ai.prompt).frame(height: 100)
+                                .modifier(PanelTextEditorStyle()).accessibilityLabel("补充偏好")
+                        }.labeledContentStyle(PanelLabeledContentStyle())
+                        HStack(alignment: .top, spacing: 20) {
+                            PanelNumberField("每日模型调用上限", text: $editor.replyDraft.value.dailyLimit, in: 1...10000, unit: "次")
+                            PanelNumberField("每日发送上限", text: $editor.replyDraft.value.sendDaily, in: 1...10000, unit: "条")
+                            PanelNumberField("单会话每日发送上限", text: $editor.replyDraft.value.perChatDaily, in: 1...10000, unit: "条")
+                        }
+                        HStack(spacing: 20) {
+                            PanelNumberField("单会话间隔", value: $editor.replyDraft.value.ai.cooldownSeconds, in: 1...300, unit: "秒")
+                            PanelNumberField("全局发送间隔", value: $editor.replyDraft.value.ai.effectiveSendLimits.globalIntervalSeconds, in: 1...300, unit: "秒")
+                        }
+                        Toggle("仅在指定时段回复", isOn: $editor.replyDraft.value.ai.workHoursEnabled)
+                        if editor.replyDraft.value.ai.workHoursEnabled {
+                            HStack(spacing: 20) {
+                                PanelNumberField("开始时间", value: $editor.replyDraft.value.ai.workStart, in: 0...23, unit: "时")
+                                PanelNumberField("结束时间", value: $editor.replyDraft.value.ai.workEnd, in: 0...23, unit: "时")
+                            }
+                        }
+                        if engine.rejectedScopedEvents > 0 { Text("规则跳过 \(engine.rejectedScopedEvents) 条").font(.callout) }
                     }
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("每日发送上限").font(.callout)
-                            TextField("每日发送上限", text: $editor.replyDraft.value.sendDaily)
-                        }
-                        VStack(alignment: .leading) {
-                            Text("单会话每日发送上限").font(.callout)
-                            TextField("单会话每日发送上限", text: $editor.replyDraft.value.perChatDaily)
-                        }
-                    }
-                    Stepper("全局发送间隔 \(editor.replyDraft.value.ai.effectiveSendLimits.globalIntervalSeconds) 秒", value: $editor.replyDraft.value.ai.effectiveSendLimits.globalIntervalSeconds, in: 1...300)
-                    Toggle("仅在指定时段回复", isOn: $editor.replyDraft.value.ai.workHoursEnabled)
-                    if editor.replyDraft.value.ai.workHoursEnabled {
-                        HStack {
-                            Stepper("开始 \(editor.replyDraft.value.ai.workStart) 时", value: $editor.replyDraft.value.ai.workStart, in: 0...23)
-                            Stepper("结束 \(editor.replyDraft.value.ai.workEnd) 时", value: $editor.replyDraft.value.ai.workEnd, in: 0...23)
-                        }
-                    }
-                    if engine.rejectedScopedEvents > 0 { Text("规则跳过 \(engine.rejectedScopedEvents) 条").font(.callout) }
-                    Button("保存范围与回复") { saveReplyDraft() }
-                        .buttonStyle(PanelButtonStyle(kind: .primary))
-                    QQPanelOperationError(message: engine.error)
-                }.padding(8).disabled(engine.running || engine.busy || engine.runtimeBusy)
-            } label: { HStack { Text("QQ AI 与限额"); HelpHint("每条通常包含生成与语义校对两次模型调用。性格按会话独立覆盖；配图结合语境，同会话 24 小时不重复，无合适图不硬配。主动接话按群独立计数，包含主人手动发言，@ 不重置计数。修改额度不重置今日用量，保存不会自动启动。") } }
+                } label: { HStack { Text("模型与回复"); HelpHint("每条通常包含生成与语义校对两次模型调用。修改额度不重置今日用量；保存不会启动回复。工作时段使用本机时区，可跨午夜，起止相同表示全天。") } }
+                    .disabled(engine.running || engine.busy || engine.runtimeBusy)
+                Button("保存范围与回复") { saveReplyDraft() }.buttonStyle(PanelButtonStyle(kind: .primary))
+                    .disabled(engine.running || engine.busy || engine.runtimeBusy)
+                QQPanelOperationError(message: engine.error)
             }
             if editor.section == "记忆与记录" {
             GroupBox {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("独立会话记忆与自动压缩", isOn: $editor.replyDraft.value.memoryEnabled)
-                    Stepper("记忆每 \(editor.replyDraft.value.memoryOptions.messageThreshold) 条整理", value: $editor.replyDraft.value.memoryOptions.messageThreshold, in: 4...100)
-                    Stepper("或累计 \(editor.replyDraft.value.memoryOptions.characterThreshold) 字符", value: $editor.replyDraft.value.memoryOptions.characterThreshold, in: 1000...20000, step: 1000)
-                    Stepper("或经过 \(editor.replyDraft.value.memoryOptions.intervalMinutes) 分钟", value: $editor.replyDraft.value.memoryOptions.intervalMinutes, in: 1...120)
-                    Stepper("每轮检索最多 \(editor.replyDraft.value.memoryOptions.retrievalCharacters) 字符", value: $editor.replyDraft.value.memoryOptions.retrievalCharacters, in: 600...4000, step: 200)
+                    HStack(spacing: 20) {
+                        PanelNumberField("累计消息数", value: $editor.replyDraft.value.memoryOptions.messageThreshold, in: 4...100, unit: "条")
+                        PanelNumberField("累计字符数", value: $editor.replyDraft.value.memoryOptions.characterThreshold, in: 1000...20000, step: 1000, unit: "字")
+                    }
+                    HStack(spacing: 20) {
+                        PanelNumberField("整理时间阈值", value: $editor.replyDraft.value.memoryOptions.intervalMinutes, in: 1...120, unit: "分钟")
+                        PanelNumberField("每轮检索预算", value: $editor.replyDraft.value.memoryOptions.retrievalCharacters, in: 600...4000, step: 200, unit: "字")
+                    }
                     if engine.memoryStatus != "记忆等待新消息" { Text(engine.memoryStatus).font(.callout) }
                     Button("保存记忆与回复设置") { saveReplyDraft() }
                 }.padding(8).disabled(engine.running || engine.busy || engine.runtimeBusy)
@@ -435,7 +460,7 @@ struct QQView: View {
             } label: { HStack { Text("近期运行结果"); HelpHint("最近 30 条，新记录在前。发送确认不代表对方已读，规则跳过不等于故障。记录不包含所有入站消息，也不代表回复质量。") } }
             }
         }.textFieldStyle(PanelTextFieldStyle()).groupBoxStyle(PanelGroupBoxStyle())
-            .buttonStyle(PanelButtonStyle()).controlSize(.large).labeledContentStyle(PanelLabeledContentStyle())
+            .buttonStyle(PanelButtonStyle()).controlSize(.large)
         .onAppear { editor.refresh(engine.config) }
         .onChange(of: engine.config) { _, current in editor.refresh(current) }
         .sheet(isPresented: $showingCustomPersona) {

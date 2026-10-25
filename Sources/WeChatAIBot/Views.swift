@@ -213,7 +213,7 @@ struct Dashboard: View {
                 }
             }.background(PanelTheme.canvas).foregroundStyle(PanelTheme.ink)
                 .buttonStyle(PanelButtonStyle()).textFieldStyle(PanelTextFieldStyle())
-                .labeledContentStyle(PanelLabeledContentStyle()).controlSize(.large)
+                .controlSize(.large)
                 .environment(\.colorScheme, .light)
         }.tint(accent)
             .onChange(of: page) { _, current in
@@ -316,8 +316,8 @@ struct Dashboard: View {
             }
             card("回复风格", icon: "text.alignleft") {
                 Text("全局角色提示词").font(.headline)
-                TextEditor(text: $engine.config.prompt).font(.body).frame(height: 150).scrollContentBackground(.hidden)
-                Stepper("最大输出：\(engine.config.maxTokens) tokens", value: $engine.config.maxTokens, in: 100...2000, step: 100)
+                TextEditor(text: $engine.config.prompt).frame(height: 150).modifier(PanelTextEditorStyle()).accessibilityLabel("全局角色提示词")
+                PanelNumberField("最大输出", value: $engine.config.maxTokens, in: 100...2000, step: 100, unit: "tokens")
             }
             HStack { Button("保存配置") { engine.save() }.buttonStyle(PanelButtonStyle(kind: .primary)); Button("清空会话上下文") { engine.clearContext() } }
         }
@@ -329,14 +329,14 @@ struct Dashboard: View {
                 LabeledContent("群聊", value: "逐条 @ 证据适配未完成 · 自动发送不可用")
                 LabeledContent("运行方式", value: "自动发送 · 可随时暂停或人工接管")
                 LabeledContent("连续消息", value: "等待 2 秒合并，最长 5 秒")
-                Stepper("每个会话冷却：\(engine.config.cooldownSeconds) 秒", value: $engine.config.cooldownSeconds, in: 1...300)
-                Stepper("每日 API 请求上限：\(engine.config.dailyLimit) 次", value: $engine.config.dailyLimit, in: 10...10000, step: 10)
-                Stepper("每日发送额度：\(engine.config.effectiveSendLimits.daily) 次", value: $engine.config.effectiveSendLimits.daily, in: 1...10000)
-                Stepper("单会话每日发送额度：\(engine.config.effectiveSendLimits.perChatDaily) 次", value: $engine.config.effectiveSendLimits.perChatDaily, in: 1...10000)
-                Stepper("全局发送间隔：\(engine.config.effectiveSendLimits.globalIntervalSeconds) 秒", value: $engine.config.effectiveSendLimits.globalIntervalSeconds, in: 1...300)
+                PanelNumberField("单会话间隔", value: $engine.config.cooldownSeconds, in: 1...300, unit: "秒")
+                PanelNumberField("每日模型调用上限", value: $engine.config.dailyLimit, in: 10...10000, step: 10, unit: "次")
+                PanelNumberField("每日发送上限", value: $engine.config.effectiveSendLimits.daily, in: 1...10000, unit: "条")
+                PanelNumberField("单会话每日发送上限", value: $engine.config.effectiveSendLimits.perChatDaily, in: 1...10000, unit: "条")
+                PanelNumberField("全局发送间隔", value: $engine.config.effectiveSendLimits.globalIntervalSeconds, in: 1...300, unit: "秒")
                 Toggle("仅在工作时段回复", isOn: $engine.config.workHoursEnabled)
                 if engine.config.workHoursEnabled {
-                    HStack { Stepper("开始：\(engine.config.workStart):00", value: $engine.config.workStart, in: 0...23); Stepper("结束：\(engine.config.workEnd):00", value: $engine.config.workEnd, in: 0...23) }
+                    HStack { PanelNumberField("开始时间", value: $engine.config.workStart, in: 0...23, unit: "时"); PanelNumberField("结束时间", value: $engine.config.workEnd, in: 0...23, unit: "时") }
                 }
             }
             card("本地数据", icon: "internaldrive", help: "截图不落盘。上下文只在内存保留最近 10 轮；运行记录保留 7 天，不含聊天正文或 Key。") {
@@ -393,8 +393,7 @@ struct QQCustomPersonaEditor: View {
             TextField("角色名称（最多 40 字）", text: Binding(get: { draft.customName ?? "" }, set: { draft.customName = $0 }))
             Text("性格 prompt").font(.headline)
             TextEditor(text: Binding(get: { draft.customPrompt ?? "" }, set: { draft.customPrompt = $0 }))
-                .frame(minHeight: 180).padding(8).background(.white, in: RoundedRectangle(cornerRadius: 9))
-                .overlay(RoundedRectangle(cornerRadius: 9).stroke(.gray.opacity(0.2)))
+                .frame(minHeight: 180).modifier(PanelTextEditorStyle())
                 .accessibilityLabel("性格 prompt")
             HStack {
                 Button("简短闲聊") { draft.customPrompt = "你是轻松自然的聊天搭子，认真接住对方的话，通常一两句。可以接梗，但不写动作描写、不套客服语气。" }
@@ -402,7 +401,7 @@ struct QQCustomPersonaEditor: View {
                 Button("犀利吐槽") { draft.customPrompt = "你是嘴快但讲道理的游戏搭子，抓当前话题里的具体矛盾俏皮吐槽，承认自己答错；不攻击身份、身体或家人，认真求助时收起玩笑。" }
             }
             HStack {
-                Stepper("回复最多 \(draft.maxCharacters) 字", value: $draft.maxCharacters, in: 20...200)
+                PanelNumberField("回复字数上限", value: $draft.maxCharacters, in: 20...200, unit: "字")
                 Toggle("启用表情配图", isOn: $draft.stickersEnabled)
             }
             DisclosureGroup("可调整的范围") {
@@ -422,8 +421,8 @@ struct QQCustomPersonaEditor: View {
                     } catch { self.error = error.localizedDescription }
                 }.buttonStyle(PanelButtonStyle(kind: .primary))
             }
-        }.padding(26).frame(width: 620).textFieldStyle(PanelTextFieldStyle())
-            .background(Color(red: 0.965, green: 0.965, blue: 0.94))
+        }.padding(26).frame(width: 620).textFieldStyle(PanelTextFieldStyle()).buttonStyle(PanelButtonStyle())
+            .background(PanelTheme.canvas)
     }
 }
 
