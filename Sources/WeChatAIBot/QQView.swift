@@ -1,10 +1,18 @@
 import SwiftUI
 import BotCore
 
+private typealias QQViewState<Value> = SwiftUI.State<Value>
+
 struct QQView: View {
     @ObservedObject var engine: QQEngine
     @ObservedObject var wechat: BotEngine
     @Binding var editor: QQPanelState
+    @QQViewState private var showingCustomPersona = false
+    @QQViewState private var customPersonaBaseline: QQReplyForm?
+    private func openCustomPersona() {
+        customPersonaBaseline = editor.replyDraft.baseline
+        showingCustomPersona = true
+    }
     private func saveReplyDraft() {
         guard !editor.replyDraft.conflicts(with: QQReplyForm(engine.config)) else { engine.error = "范围或回复配置已在别处更新，请先载入最新设置"; return }
         let value = editor.replyDraft.value
@@ -266,9 +274,13 @@ struct QQView: View {
                             editor.replyDraft.value.perChatDaily = String(ai.effectiveSendLimits.perChatDaily)
                         }
                     }
-                    Picker("默认性格", selection: $editor.replyDraft.value.persona.effectiveStyle) {
+                    Picker("默认性格", selection: Binding(get: { editor.replyDraft.value.persona.effectiveStyle }, set: { style in
+                        if style == .custom { openCustomPersona() }
+                        else { editor.replyDraft.value.persona.effectiveStyle = style }
+                    })) {
                         ForEach(QQPersonality.allCases, id: \.rawValue) { style in Text(style.name).tag(style).help(style.description) }
                     }
+                    Button("自定义性格…") { openCustomPersona() }
                     Stepper("回复最多 \(editor.replyDraft.value.persona.maxCharacters) 字符", value: $editor.replyDraft.value.persona.maxCharacters, in: 20...200)
                     Picker("雌小鬼嘴欠程度", selection: $editor.replyDraft.value.persona.banter) {
                         Text("温和").tag(0); Text("轻微吐槽").tag(1); Text("犀利但有分寸").tag(2); Text("锋利回怼").tag(3)
@@ -359,6 +371,13 @@ struct QQView: View {
         }.textFieldStyle(.roundedBorder).groupBoxStyle(PanelGroupBoxStyle())
         .onAppear { editor.refresh(engine.config) }
         .onChange(of: engine.config) { _, current in editor.refresh(current) }
+        .sheet(isPresented: $showingCustomPersona) {
+            QQCustomPersonaEditor(persona: editor.replyDraft.value.persona) { persona in
+                guard !engine.running, !engine.busy, !engine.runtimeBusy else { throw AppFailure.message("请先暂停并等待当前操作完成") }
+                guard customPersonaBaseline == QQReplyForm(engine.config) else { throw AppFailure.message("配置已在别处更新；本窗口输入保留，请关闭后重新核对设置") }
+                editor.replyDraft.value.persona = persona
+            }
+        }
     }
 }
 

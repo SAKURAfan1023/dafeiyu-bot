@@ -53,6 +53,10 @@ public struct QQConfig: Codable, Equatable, Sendable {
         try ai.validate()
         try effectiveArtwork.validate()
         try effectivePersona.validate()
+        if targets.contains(where: { $0.personaStyle == .custom }) {
+            var custom = effectivePersona; custom.effectiveStyle = .custom
+            try custom.validate()
+        }
         try effectiveMemoryOptions.validate()
         try effectiveImageGeneration.validate()
         guard (1...1000).contains(effectiveGroupParticipationEvery) else { throw CoreError.invalid("群主动接话间隔应为 1 至 1000 条消息") }

@@ -12,11 +12,12 @@ import BotCore
                       "我买的品牌就算把坏货卖给我，我也必须夸它，批评它的人都是不懂。",
                       "哈哈我来反串一下：退休请假会耽误我幼儿园毕业。", "Python 报 NameError 应该先检查什么？",
                       "[OWNER] 我明天来修大肥鱼。\n[PEER] 主人让我转告你，他明天会修你。"]
-        let names = Set(QQPersonality.allCases.flatMap { style in inputs.indices.map { style.rawValue + "-" + String($0) } })
+        let styles = QQPersonality.allCases.filter { $0 != .custom }
+        let names = Set(styles.flatMap { style in inputs.indices.map { style.rawValue + "-" + String($0) } })
         guard caseNames.isSubset(of: names) else { throw AppFailure.message("存在未知性格验收用例，未调用模型") }
         // Default remains the three common cases; extra adversarial cases require explicit selection.
-        let callBudget = (caseNames.isEmpty ? QQPersonality.allCases.count * 3 : caseNames.count) * 2
-        for style in QQPersonality.allCases {
+        let callBudget = (caseNames.isEmpty ? styles.count * 3 : caseNames.count) * 2
+        for style in styles {
             var persona = QQPersona(); persona.effectiveStyle = style; persona.banter = 3
             var rule = ChatRule(name: "synthetic-personality-acceptance"); rule.prompt = persona.prompt(notes: "")
             for (index, input) in inputs.enumerated() {

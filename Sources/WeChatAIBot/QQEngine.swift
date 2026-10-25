@@ -1035,14 +1035,17 @@ struct QQRuntimeCredentials: Decodable {
             guard sends.allowance(chat: target.id, limits: config.ai.effectiveSendLimits, chatCooldown: config.ai.cooldownSeconds) == .allowed else {
                 record(target.id, .skipped, "性格命令未执行：发送额度不足"); return
             }
-            switch command {
-            case .set(let style): try persistPersonaStyle(style, target: target)
-            case .reset: try persistPersonaStyle(nil, target: target)
-            default: break
+            let customMissing = command == .set(.custom) && (config.effectivePersona.customPrompt ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if !customMissing {
+                switch command {
+                case .set(let style): try persistPersonaStyle(style, target: target)
+                case .reset: try persistPersonaStyle(nil, target: target)
+                default: break
+                }
             }
             let actual = config.persona(for: target.key).effectiveStyle
             let inherited = config.targets.first(where: { $0.id == target.id })?.personaStyle == nil
-            let text = command.response(style: actual, inherited: inherited)
+            let text = customMissing ? "【尚未配置自定义性格】\n请先在面板填写自定义 prompt 并保存，再使用 /persona 自定义。当前性格未改变。" : command.response(style: actual, inherited: inherited)
             ticket = try sends.reserve(chat: target.id, limits: config.ai.effectiveSendLimits, chatCooldown: config.ai.cooldownSeconds)
             try persist()
             let (action, params) = QQPolicy.sendAction(target: target, text: text)
@@ -1057,7 +1060,7 @@ struct QQRuntimeCredentials: Decodable {
                 let held = heldOwnerEvents.filter { $0.key.hasPrefix(target.key + ":") }
                 held.keys.forEach { heldOwnerEvents.removeValue(forKey: $0) }
                 for (_, event) in held.sorted(by: { ($0.value["time"] as? Double ?? 0) < ($1.value["time"] as? Double ?? 0) }) { receive(event) }
-                status = "性格命令已确认：" + actual.name
+                status = customMissing ? "自定义尚未配置，提示已获发送确认" : "性格命令已确认：" + actual.name
                 if singleReply { pause() }
             }
             record(target.id, .confirmed, "性格命令已获发送确认；仅作用于本会话，未调用模型")

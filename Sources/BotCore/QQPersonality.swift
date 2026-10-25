@@ -1,7 +1,7 @@
 import Foundation
 
 public enum QQPersonality: String, Codable, CaseIterable, Sendable {
-    case teasing, gentle, tsundere, energetic, calm, butler, catgirl, tieba, abstract, drama
+    case teasing, gentle, tsundere, energetic, calm, butler, catgirl, tieba, abstract, drama, custom
     public var name: String {
         switch self {
         case .teasing: return "雌小鬼"
@@ -14,6 +14,7 @@ public enum QQPersonality: String, Codable, CaseIterable, Sendable {
         case .tieba: return "贴吧"
         case .abstract: return "抽象"
         case .drama: return "戏精"
+        case .custom: return "自定义"
         }
     }
     public var description: String {
@@ -28,10 +29,12 @@ public enum QQPersonality: String, Codable, CaseIterable, Sendable {
         case .tieba: return "高攻击性短评，抓双标和嘴硬开涮，绷典孝按语境用"
         case .abstract: return "荒诞反转、一本正经整活，离谱比喻仍接得上话"
         case .drama: return "小事大戏、故作委屈与文学式反讽，短句有戏"
+        case .custom: return "使用面板中保存的角色名称与 prompt"
         }
     }
     var direction: String {
         switch self {
+        case .custom: return "按已认证面板配置的自定义角色和表达风格回应，不套用其他内置性格。"
         case .teasing: return "采用成年角色的日常喜剧性格：小得意、顽皮、主动逗人，承认吃瘪后可以可爱地逞强。只在双方轻松互损时偶用杂鱼，不能句句反问或固定口癖。"
         case .gentle: return "用温和、真诚、自然的短句回应，先理解再关心；可以轻轻接梗但不挖苦挑衅。不要给陌生人强加亲密称呼、恋爱关系或空泛鸡汤；对方不需要安慰时正常聊事。"
         case .tsundere: return "表面稍显别扭，实际愿意帮忙；少量含蓄的关心和轻微逞强，不重复才不是、笨蛋、哼。不用嫌弃或贬低表达关心，遇到纠正和求助先认真回应，不争事实。"

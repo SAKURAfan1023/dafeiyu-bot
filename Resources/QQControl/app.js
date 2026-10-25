@@ -62,6 +62,7 @@ const targetDraft = new Map();
 const dirtyForms = new Map(), syncedForms = new Map();
 const formNames = {connection:'连接配置',reply:'范围与回复',artwork:'插画定时',image:'生图',visual:'识图'};
 const actionForms = {saveConnection:'connection',connect:'connection',save:'reply',start:'reply',saveArtwork:'artwork',saveImageGeneration:'image',saveVisualTools:'visual'};
+let customPersonaBase='';
 const credentialFields = {connection:['token','key'],image:['imageGenZhipuKey','imageGenCloudflareToken'],visual:['googleVisionKey']};
 function renderDraftControls() {
   const replyDirty=dirtyForms.has('reply'), page=document.body.dataset.page;
@@ -130,6 +131,7 @@ function syncForms() {
     for(const [id,value] of Object.entries({model:ai.model,prompt:ai.prompt,daily:ai.dailyLimit,cooldown:ai.cooldownSeconds,sendDaily:ai.sendLimits?.daily??100,chatDaily:ai.sendLimits?.perChatDaily??30,globalInterval:ai.sendLimits?.globalIntervalSeconds??3,workStart:ai.workStart,workEnd:ai.workEnd,groupParticipationEvery:state.config.groupParticipationEvery??10,personaStyle:persona.style??'teasing',maxCharacters:persona.maxCharacters,banter:persona.banter,stickerIntervalSeconds:persona.stickerIntervalSeconds,stickerEveryReplies:persona.stickerEveryReplies??3,memoryMessages:memory.messageThreshold,memoryCharacters:memory.characterThreshold,memoryMinutes:memory.intervalMinutes,memoryBudget:memory.retrievalCharacters})) $(id).value=value;
     for(const id of ['onlineEnabled','visionEnabled','memoryEnabled','groupParticipationEnabled']) $(id).checked=state.config[id]??false;
     $('workHoursEnabled').checked=ai.workHoursEnabled; $('stickersEnabled').checked=persona.stickersEnabled;
+    $('customPersonaName').value=persona.customName??''; $('customPersonaPrompt').value=persona.customPrompt??'';
     targetDraft.clear(); targetSignature='';
   }
   renderArtwork(shouldSync('artwork'));
@@ -138,8 +140,56 @@ function syncForms() {
   text('draftStatus', conflicts.length ? `配置冲突：${conflicts.join('、')}已在别处修改，草稿保留，请重新载入。` : dirtyForms.size ? `未保存：${[...dirtyForms.keys()].map(k=>formNames[k]).join('、')}` : '设置已同步');
   $('discardDrafts').hidden=dirtyForms.size===0;
   $('discardDrafts').disabled=pending;
-  renderDraftControls();
+  renderDraftControls(); renderPersonaPicker();
 }
+
+
+function closePersonaPicker() {
+  $('personaOptions').hidden=true; $('personaPicker').setAttribute('aria-expanded','false');
+}
+function renderPersonaPicker() {
+  const busy=!state||state.running||state.busy||pending;
+  $('personaPicker').disabled=busy; $('editCustomPersona').disabled=busy||!state?.personalities.some(item=>item.id==='custom'); $('customPersonaApply').disabled=busy;
+  const style=state?.personalities.find(item=>item.id===$('personaStyle').value);
+  $('personaPicker').textContent=(style?.name??'雌小鬼')+(style?.id==='custom'&&$('customPersonaName').value ? ' · '+$('customPersonaName').value : '')+' ⌄';
+  for(const choice of $('personaOptions').children) {choice.disabled=busy;choice.setAttribute('aria-selected',String(choice.dataset.style===$('personaStyle').value));}
+  if(busy) closePersonaPicker();
+}
+$('personaPicker').addEventListener('click',()=>{
+  const open=$('personaOptions').hidden; $('personaOptions').hidden=!open; $('personaPicker').setAttribute('aria-expanded',String(open));
+  if(open) ($('personaOptions').querySelector('[aria-selected=true]')??$('personaOptions').firstElementChild)?.focus();
+});
+$('personaPicker').addEventListener('keydown',event=>{if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();if($('personaOptions').hidden)$('personaPicker').click();}});
+$('personaOptions').addEventListener('keydown',event=>{
+  const choices=[...$('personaOptions').children],index=choices.indexOf(document.activeElement);
+  if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?choices.length-1:(index+(event.key==='ArrowDown'?1:-1)+choices.length)%choices.length;choices[next]?.focus();}
+  if(event.key==='Escape'){closePersonaPicker();$('personaPicker').focus();}
+  if(event.key==='Tab') closePersonaPicker();
+});
+document.addEventListener('click',event=>{if(!event.target.closest('.persona-picker')) closePersonaPicker();});
+function openCustomPersona() {
+  customPersonaBase=dirtyForms.get('reply')?.base??formSnapshot('reply');
+  $('customNameInput').value=$('customPersonaName').value;
+  $('customPromptInput').value=$('customPersonaPrompt').value;
+  $('customMaxInput').value=$('maxCharacters').value;
+  $('customStickersInput').checked=$('stickersEnabled').checked;
+  text('customPersonaError','');$('customPersonaDialog').showModal();
+}
+$('editCustomPersona').addEventListener('click',openCustomPersona);
+$('customPersonaDialog').addEventListener('close',()=>$('editCustomPersona').focus());
+for(const id of ['customPersonaCancel','customPersonaClose']) $(id).addEventListener('click',()=>$('customPersonaDialog').close());
+const personaPresets={chat:'你是轻松自然的聊天搭子，认真接住对方的话，通常一两句。可以接梗，但不写动作描写、不套客服语气。',gentle:'你是温柔耐心的陪伴者，先理解再回应，不说教、不强行安慰，不编造亲密关系。熟悉后可以轻轻开玩笑。',banter:'你是嘴快但讲道理的游戏搭子，抓当前话题里的具体矛盾俏皮吐槽，承认自己答错；不攻击身份、身体或家人，认真求助时收起玩笑。'};
+document.querySelectorAll('[data-persona-preset]').forEach(button=>button.addEventListener('click',()=>{$('customPromptInput').value=personaPresets[button.dataset.personaPreset];$('customPromptInput').focus();}));
+$('customPersonaApply').addEventListener('click',()=>{
+  const name=$('customNameInput').value.trim(),prompt=$('customPromptInput').value.trim();
+  if(!prompt||prompt.length>4000||name.length>40) {text('customPersonaError','请填写性格 prompt（最多 4000 字），名称最多 40 字。');return;}
+  if(!$('customMaxInput').checkValidity()){$('customMaxInput').reportValidity();return;}
+  if(!state||state.running||state.busy||pending){text('customPersonaError','请先暂停并等待当前操作完成。');return;}
+  if(customPersonaBase!==formSnapshot('reply')){text('customPersonaError','配置已在其他窗口修改，输入已保留；请先核对最新设置。');return;}
+  $('customPersonaName').value=name;$('customPersonaPrompt').value=prompt;$('personaStyle').value='custom';
+  $('maxCharacters').value=$('customMaxInput').value;$('stickersEnabled').checked=$('customStickersInput').checked;
+  $('personaStyle').dispatchEvent(new Event('input',{bubbles:true}));$('customPersonaDialog').close();$('editCustomPersona').focus();
+});
 
 function showActionError(message, anchor=document.activeElement.closest('.buttons,.target')) {
   actionError=message; text('error',message); inlineError.textContent=message;
@@ -287,8 +337,13 @@ function render() {
     for (const id of ['imageGenPersist', 'visualPersist']) { $(id).checked = false; $(id).disabled = true; }
   }
   if(initial) {
-    $('personaStyle').replaceChildren();
-    for(const style of state.personalities){const option=document.createElement('option');option.value=style.id;option.defaultSelected=style.id==='teasing';option.textContent=style.name;option.title=style.description;$('personaStyle').append(option);}
+    $('personaStyle').replaceChildren(); $('personaOptions').replaceChildren();
+    for(const style of state.personalities) {
+      const option=document.createElement('option');option.value=style.id;option.defaultSelected=style.id==='teasing';option.textContent=style.name;option.title=style.description;$('personaStyle').append(option);
+      const choice=document.createElement('button');choice.type='button';choice.role='option';choice.dataset.style=style.id;choice.textContent=style.name;choice.title=style.description;
+      choice.addEventListener('click',()=>{closePersonaPicker();if(style.id==='custom') openCustomPersona();else {$('personaStyle').value=style.id;$('personaStyle').dispatchEvent(new Event('input',{bubbles:true}));$('personaPicker').focus();}});
+      $('personaOptions').append(choice);
+    }
     if(state.runDeadline && state.runDeadline*1000-Date.now()>24*60*60*1000) $('duration').value='4320';
     text('stickerCount',state.stickers.length);
     $('stickerGallery').addEventListener('toggle',()=>{if($('stickerGallery').open)renderStickers(state.stickers);},{once:true});
@@ -384,7 +439,7 @@ for(const action of ['start','save','once']) $(action).addEventListener('click',
   if(ai.workHoursEnabled) { ai.workStart=Number($('workStart').value);ai.workEnd=Number($('workEnd').value); }
   ai.dailyLimit=Number($('daily').value);ai.cooldownSeconds=Number($('cooldown').value);
   ai.sendLimits={...(ai.sendLimits ?? {globalIntervalSeconds:3}),globalIntervalSeconds:Number($('globalInterval').value),daily:Number($('sendDaily').value),perChatDaily:Number($('chatDaily').value)};
-  const persona={style:$('personaStyle').value,maxCharacters:Number($('maxCharacters').value),banter:Number($('banter').value),stickersEnabled:$('stickersEnabled').checked,stickerIntervalSeconds:Number($('stickerIntervalSeconds').value),stickerEveryReplies:Number($('stickerEveryReplies').value)};
+  const persona={style:$('personaStyle').value,customName:$('customPersonaName').value,customPrompt:$('customPersonaPrompt').value,maxCharacters:Number($('maxCharacters').value),banter:Number($('banter').value),stickersEnabled:$('stickersEnabled').checked,stickerIntervalSeconds:Number($('stickerIntervalSeconds').value),stickerEveryReplies:Number($('stickerEveryReplies').value)};
   const success=await act({action:'save',persona,groupParticipationEnabled:$('groupParticipationEnabled').checked,groupParticipationEvery:Number($('groupParticipationEvery').value),onlineEnabled:$('onlineEnabled').checked,visionEnabled:$('visionEnabled').checked,memoryEnabled:$('memoryEnabled').checked,memoryOptions:{messageThreshold:Number($('memoryMessages').value),characterThreshold:Number($('memoryCharacters').value),intervalMinutes:Number($('memoryMinutes').value),retrievalCharacters:Number($('memoryBudget').value)},enabled:[...$('targets').querySelectorAll('input:checked')].map(c=>c.dataset.target),ai});
   if(success) {
     targetDraft.clear();
@@ -393,12 +448,13 @@ for(const action of ['start','save','once']) $(action).addEventListener('click',
 document.addEventListener('input',event=>{
   if(!state) return;
   const input=event.target;
-  if(['search','duration','artArtistInput'].includes(input.id)||input.matches('#targets select')) return;
+  if(['search','duration','artArtistInput'].includes(input.id)||input.matches('#targets select')||input.closest('#customPersonaDialog')) return;
   const group=input.closest('#connectionPanel')?'connection':input.closest('#artworkPanel')?'artwork':input.closest('#imagePanel')?'image':input.closest('#visionPanel')?'visual':'reply';
   if(!dirtyForms.has(group)) dirtyForms.set(group,{base:formSnapshot(group),revision:state.configurationRevision});
   syncForms();
   renderScopeActions();
 });
+document.addEventListener('change',event=>{if(event.target.matches('select:not(#personaStyle)')&&!event.target.matches('#targets select')) event.target.dispatchEvent(new Event('input',{bubbles:true}));});
 $('discardDrafts').addEventListener('click',()=>{
   showActionError(''); dirtyForms.clear(); syncedForms.clear(); targetDraft.clear(); targetSignature='';
   for(const id of ['token','key','imageGenZhipuKey','imageGenCloudflareToken','googleVisionKey']) $(id).value='';

@@ -368,7 +368,54 @@ struct Dashboard: View {
     }
 }
 
-/// Shared help control: native hover tooltip plus click/keyboard access.
+struct QQCustomPersonaEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @ViewState private var draft: QQPersona
+    @ViewState private var error: String?
+    let apply: (QQPersona) throws -> Void
+    init(persona: QQPersona, apply: @escaping (QQPersona) throws -> Void) {
+        _draft = ViewState(initialValue: persona); self.apply = apply
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("自定义性格").font(.title2.bold())
+            TextField("角色名称（最多 40 字）", text: Binding(get: { draft.customName ?? "" }, set: { draft.customName = $0 }))
+            Text("性格 prompt").font(.headline)
+            TextEditor(text: Binding(get: { draft.customPrompt ?? "" }, set: { draft.customPrompt = $0 }))
+                .frame(minHeight: 180).padding(8).background(.white, in: RoundedRectangle(cornerRadius: 9))
+                .overlay(RoundedRectangle(cornerRadius: 9).stroke(.gray.opacity(0.2)))
+                .accessibilityLabel("性格 prompt")
+            HStack {
+                Button("简短闲聊") { draft.customPrompt = "你是轻松自然的聊天搭子，认真接住对方的话，通常一两句。可以接梗，但不写动作描写、不套客服语气。" }
+                Button("温柔陪伴") { draft.customPrompt = "你是温柔耐心的陪伴者，先理解再回应，不说教、不强行安慰，不编造亲密关系。熟悉后可以轻轻开玩笑。" }
+                Button("犀利吐槽") { draft.customPrompt = "你是嘴快但讲道理的游戏搭子，抓当前话题里的具体矛盾俏皮吐槽，承认自己答错；不攻击身份、身体或家人，认真求助时收起玩笑。" }
+            }
+            HStack {
+                Stepper("回复最多 \(draft.maxCharacters) 字", value: $draft.maxCharacters, in: 20...200)
+                Toggle("启用表情配图", isOn: $draft.stickersEnabled)
+            }
+            DisclosureGroup("可调整的范围") {
+                Text("可自定角色名、身份设定、语气、称呼与互动偏好，prompt 最多 4000 字。应用只修改草稿，保存后生效；不会改变主人识别、会话名单、凭证或工具开关。")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            if let error { Text(error).foregroundStyle(.orange).font(.callout) }
+            HStack {
+                Spacer()
+                Button("取消") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("应用到草稿") {
+                    do {
+                        var value = draft; value.effectiveStyle = .custom
+                        value.customName = value.customName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                        value.customPrompt = value.customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
+                        try value.validate(); try apply(value); dismiss()
+                    } catch { self.error = error.localizedDescription }
+                }.buttonStyle(.borderedProminent)
+            }
+        }.padding(26).frame(width: 620).textFieldStyle(.roundedBorder)
+            .background(Color(red: 0.965, green: 0.965, blue: 0.94))
+    }
+}
+
 struct PanelGuideView: View {
     @Environment(\.dismiss) private var dismiss
     let navigate: (Page) -> Void

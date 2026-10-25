@@ -67,7 +67,7 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(latest.config.persona(for: "group:99999").effectiveStyle == .butler)
         #expect(latest.memoryBooks["12345:private:54321"] == book)
     }
-    @Test(arguments: ["teasing", "gentle", "tsundere", "energetic", "calm", "butler", "catgirl", "tieba", "abstract", "drama", "proactive", "private", "owner", "reset", "invalid", "list", "quoted", "atOther", "foreign", "disabled", "paused", "duplicate", "unknown", "pauseQueue", "noParticipation", "order"])
+    @Test(arguments: ["teasing", "gentle", "tsundere", "energetic", "calm", "butler", "catgirl", "tieba", "abstract", "drama", "custom", "customMissing", "proactive", "private", "owner", "reset", "invalid", "list", "quoted", "atOther", "foreign", "disabled", "paused", "duplicate", "unknown", "pauseQueue", "noParticipation", "order"])
     func commandIsolationAndReplyPipeline(_ mode: String) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -86,6 +86,7 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory, modelClient: DeepSeekClient(session: session))
         defer { engine.disconnect() }
         engine.config.endpoint = "ws://127.0.0.1:\(port)"; engine.config.expectedSelfID = "12345"
+        if mode == "custom" { engine.config.effectivePersona.customName = "合成角色"; engine.config.effectivePersona.customPrompt = "SYNTHETIC_CUSTOM_STYLE：自然简短的游戏搭子。" }
         engine.config.effectivePersona.stickersEnabled = false; engine.config.effectiveArtwork.enabled = false
         engine.config.effectiveImageGeneration.enabled = false; engine.config.effectiveOnlineEnabled = false
         engine.config.ai.cooldownSeconds = 1; engine.config.ai.effectiveSendLimits.globalIntervalSeconds = 1
@@ -102,7 +103,7 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         if pipeline { engine.config.effectiveMemoryEnabled = false }
         engine.start()
         if mode == "paused" { engine.pause() }
-        let style = QQPersonality(rawValue: mode) ?? .gentle
+        let style = mode == "customMissing" ? QQPersonality.custom : QQPersonality(rawValue: mode) ?? .gentle
         let command = mode == "reset" ? "/persona default" : mode == "invalid" ? "/persona nonexistent" : mode == "list" ? "/persona list" : "/persona " + style.rawValue
         func event(_ id: Int, _ text: String, group: String? = "99999", mention: Bool = false) -> [String: Any] {
             var parts: [[String: Any]] = [["type": "text", "data": ["text": text]]]
@@ -133,7 +134,7 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         if rejected {
             #expect(engine.sends.attempts == 0); #expect(engine.config.persona(for: key).effectiveStyle == .teasing)
         } else {
-            #expect(engine.config.persona(for: key).effectiveStyle == (["reset", "invalid", "list"].contains(mode) ? .teasing : style))
+            #expect(engine.config.persona(for: key).effectiveStyle == (["reset", "invalid", "list", "customMissing"].contains(mode) ? .teasing : style))
             if mode == "unknown" { #expect(!engine.running); #expect(engine.sends.uncertain == 1) }
             else { #expect(engine.sends.confirmed == (pipeline ? 3 : 1)); #expect(engine.sends.uncertain == 0) }
         }
@@ -141,6 +142,10 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         if mode != "private" { #expect(engine.config.persona(for: "private:54321").effectiveStyle == .teasing) }
         if pipeline {
             #expect(PersonalityModelProtocol.captured.count == 4)
+            if mode == "custom" {
+                #expect(PersonalityModelProtocol.captured.prefix(2).allSatisfy { $0.contains("SYNTHETIC_CUSTOM_STYLE") })
+                #expect(PersonalityModelProtocol.captured.suffix(2).allSatisfy { !$0.contains("SYNTHETIC_CUSTOM_STYLE") })
+            }
             #expect(PersonalityModelProtocol.captured.prefix(2).allSatisfy { $0.contains("当前会话唯一生效性格：" + (mode == "order" ? QQPersonality.teasing.name : style.name)) })
             #expect(PersonalityModelProtocol.captured.suffix(2).allSatisfy { $0.contains("当前会话唯一生效性格：" + (mode == "order" ? style.name : QQPersonality.teasing.name)) })
             #expect(PersonalityModelProtocol.captured.contains { $0.contains("发送前的语义校对") })

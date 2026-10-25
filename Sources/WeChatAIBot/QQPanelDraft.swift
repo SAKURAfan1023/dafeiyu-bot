@@ -89,6 +89,8 @@ struct QQPanelState {
         case "范围与回复":
             let current = replyDraft.value
             var recommended = QQReplyForm(QQConfig())
+            recommended.persona.customName = current.persona.customName
+            recommended.persona.customPrompt = current.persona.customPrompt
             recommended.targets = current.targets
             recommended.memoryEnabled = current.memoryEnabled; recommended.memoryOptions = current.memoryOptions
             recommended.ai.maxTokens = current.ai.maxTokens; recommended.ai.chats = current.ai.chats

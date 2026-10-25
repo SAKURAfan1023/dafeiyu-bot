@@ -130,6 +130,14 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
         assert not paused['error'] and not paused['running'] and paused['config'] == saved['config']
         invalid = action({'action': 'save', 'enabled': ['group:99999']})
         assert invalid['error'] and invalid['config'] == saved['config']
+        custom = dict(saved['persona'], style='custom', customName='synthetic character', customPrompt='Use concise, patient replies.')
+        saved = action({'action':'save', 'persona':custom})
+        assert not saved['error'] and saved['persona']==custom and not saved['running']
+        for bad_prompt in ['', 'x'*4001]:
+            invalid = action({'action':'save', 'persona':dict(custom, customPrompt=bad_prompt)})
+            assert invalid['error'] and invalid['config']==saved['config']
+        invalid = action({'action':'save', 'persona':dict(custom, customName='x'*41)})
+        assert invalid['error'] and invalid['config']==saved['config']
         # Independent tool editors persist only their own configuration, without credentials or sends.
         prior_ai = saved['config']['ai']
         image_settings = dict(saved['imageGeneration'], enabled=True, fallbackEnabled=False)

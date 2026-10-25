@@ -9,9 +9,10 @@
 | `/persona` 或 `/性格` | 当前性格 |
 | `/persona list` | 列表与说明 |
 | `/persona 猫娘` | 切换当前会话；也可用英文 ID |
+| `/persona 自定义` | 使用面板已保存的自定义定义；未配置 prompt 时不切换 |
 | `/persona default` | 恢复继承默认 |
 
-可选：雌小鬼(teasing)、温柔(gentle)、傲娇(tsundere)、元气(energetic)、理性(calm)、管家(butler)、猫娘(catgirl)、贴吧(tieba)、抽象(abstract)、戏精(drama)。群成员共享群性格；每个好友私聊独立。编号只是浏览标识，不是选择参数。选择会持久化，不抹掉记忆。
+可选：雌小鬼(teasing)、温柔(gentle)、傲娇(tsundere)、元气(energetic)、理性(calm)、管家(butler)、猫娘(catgirl)、贴吧(tieba)、抽象(abstract)、戏精(drama)，以及面板已配置的自定义(custom)。群成员共享群性格；每个好友私聊独立。编号只是浏览标识，不是选择参数。选择会持久化，不抹掉记忆。
 
 ## 插画
 
