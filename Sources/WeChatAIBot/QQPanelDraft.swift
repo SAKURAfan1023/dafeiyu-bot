@@ -84,6 +84,34 @@ struct QQPanelState {
         imageDraft.refresh(config.effectiveImageGeneration); visualDraft.refresh(config.effectiveVisualTools)
         artworkDraft.refresh(QQArtworkForm(config.effectiveArtwork))
     }
+    mutating func useRecommendedSettings() {
+        switch section {
+        case "范围与回复":
+            let current = replyDraft.value
+            var recommended = QQReplyForm(QQConfig())
+            recommended.targets = current.targets
+            recommended.memoryEnabled = current.memoryEnabled; recommended.memoryOptions = current.memoryOptions
+            recommended.ai.maxTokens = current.ai.maxTokens; recommended.ai.chats = current.ai.chats
+            replyDraft.value = recommended
+        case "记忆与记录":
+            replyDraft.value.memoryEnabled = QQConfig().effectiveMemoryEnabled
+            replyDraft.value.memoryOptions = QQMemoryOptions()
+        case "图片与工具":
+            switch toolSection {
+            case "AI 生图":
+                let account = imageDraft.value.cloudflareAccountID
+                imageDraft.value = QQImageGenerationConfig(); imageDraft.value.cloudflareAccountID = account
+            case "识图与搜图": visualDraft.value = QQVisualConfig()
+            default:
+                let current = artworkDraft.value
+                var settings = QQArtworkConfig()
+                settings.pixivArtistIDs = current.settings.pixivArtistIDs; settings.artistNames = current.settings.artistNames
+                settings.imagePermissions = current.settings.imagePermissions; settings.scheduleTargets = current.settings.scheduleTargets
+                artworkDraft.value = QQArtworkForm(settings); artworkDraft.value.artists = current.artists
+            }
+        default: break
+        }
+    }
 }
 
 struct QQArtworkForm: Equatable {

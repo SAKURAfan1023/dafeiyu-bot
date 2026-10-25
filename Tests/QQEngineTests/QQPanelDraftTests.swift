@@ -4,6 +4,80 @@ import BotCore
 @testable import WeChatAIBot
 
 @Suite @MainActor struct QQPanelDraftTests {
+    @Test func firstPaintWebDefaultsMatchNativeSettings() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let html = try String(contentsOf: root.appendingPathComponent("Resources/QQControl/index.html"), encoding: .utf8)
+        let config = QQConfig(), persona = QQPersona(), memory = QQMemoryOptions(), art = QQArtworkConfig(), limits = SendLimits()
+        let values = ["maxCharacters": persona.maxCharacters, "stickerEveryReplies": persona.effectiveStickerEveryReplies,
+                      "stickerIntervalSeconds": persona.stickerIntervalSeconds, "groupParticipationEvery": config.effectiveGroupParticipationEvery,
+                      "daily": config.ai.dailyLimit, "cooldown": config.ai.cooldownSeconds, "sendDaily": limits.daily,
+                      "chatDaily": limits.perChatDaily, "globalInterval": limits.globalIntervalSeconds,
+                      "workStart": config.ai.workStart, "workEnd": config.ai.workEnd,
+                      "memoryMessages": memory.messageThreshold, "memoryCharacters": memory.characterThreshold,
+                      "memoryMinutes": memory.intervalMinutes, "memoryBudget": memory.retrievalCharacters,
+                      "artDaily": art.dailyPerChat, "artNetwork": art.networkDailyLimit, "artRepeat": art.repeatDays,
+                      "artBookmarks": art.effectiveSearchMinBookmarks, "artLong": art.minLongEdge, "artShort": art.minShortEdge,
+                      "artHour": art.scheduleHour, "artMinute": art.scheduleMinute]
+        for (id, value) in values {
+            let pattern = "<input\\b[^>]*\\bid=\"\(id)\"[^>]*\\bvalue=\"\(value)\""
+            #expect(html.range(of: pattern, options: .regularExpression) != nil, "Missing or mismatched default: \(id)")
+        }
+        #expect(html.contains("<option value=\"teasing\" selected>\(persona.effectiveStyle.name)</option>"))
+        #expect(html.contains("<option value=\"\(persona.banter)\" selected>"))
+        #expect(html.contains("id=\"stickersEnabled\" type=\"checkbox\" checked"))
+        #expect(html.contains("value=\"\(config.ai.model)\""))
+        #expect(html.contains("value=\"\(config.endpoint)\""))
+        #expect(html.contains("<textarea id=\"prompt\">\(config.ai.prompt)</textarea>"))
+    }
+
+    @Test(arguments: ["范围与回复", "记忆与记录", "插画与定时", "AI 生图", "识图与搜图"])
+    func recommendedSettingsOnlyChangeCurrentPageDraft(_ section: String) throws {
+        var config = QQConfig()
+        config.expectedSelfID = "12345"
+        config.targets = [QQTarget(number: "54321", name: "synthetic friend", group: false)]
+        config.targets[0].enabled = true; config.targets[0].personaStyle = .gentle
+        config.ai.dailyLimit = 999; config.ai.maxTokens = 950
+        config.effectivePersona.maxCharacters = 88
+        config.memoryEnabled = true; config.effectiveMemoryOptions.messageThreshold = 99
+        config.effectiveArtwork.networkDailyLimit = 450
+        config.effectiveArtwork.pixivArtistIDs = ["54321"]
+        config.effectiveArtwork.scheduleTargets = ["private:54321"]
+        config.effectiveImageGeneration.enabled = true
+        config.effectiveImageGeneration.cloudflareAccountID = String(repeating: "a", count: 32)
+        config.effectiveVisualTools.googleWebEnabled = true
+        var editor = QQPanelState(); editor.refresh(config)
+        editor.section = ["范围与回复", "记忆与记录"].contains(section) ? section : "图片与工具"
+        editor.toolSection = section
+        editor.token = "synthetic-token-input"; editor.temporaryKey = "synthetic-key-input"
+        editor.imageZhipuKey = "synthetic-image-input"; editor.googleVisionKey = "synthetic-google-input"
+        editor.artworkDraft.value.artists = "24680"
+        editor.useRecommendedSettings()
+        #expect(editor.connectionDraft.value == QQConnectionForm(config))
+        #expect(editor.replyDraft.value.targets == config.targets)
+        #expect(editor.replyDraft.baseline == QQReplyForm(config))
+        #expect(editor.artworkDraft.baseline == QQArtworkForm(config.effectiveArtwork))
+        #expect(editor.imageDraft.baseline == config.effectiveImageGeneration)
+        #expect(editor.visualDraft.baseline == config.effectiveVisualTools)
+        #expect(editor.imageDraft.value.cloudflareAccountID == config.effectiveImageGeneration.cloudflareAccountID)
+        #expect(editor.token == "synthetic-token-input" && editor.temporaryKey == "synthetic-key-input")
+        #expect(editor.imageZhipuKey == "synthetic-image-input" && editor.googleVisionKey == "synthetic-google-input")
+        #expect(editor.artworkDraft.value.artists == "24680")
+        #expect(editor.artworkDraft.value.settings.scheduleTargets == config.effectiveArtwork.scheduleTargets)
+        switch section {
+        case "范围与回复":
+            #expect(editor.replyDraft.value.persona == QQPersona())
+            #expect(editor.replyDraft.value.dailyLimit == String(QQConfig().ai.dailyLimit))
+            #expect(editor.replyDraft.value.ai.maxTokens == 950)
+            #expect(editor.replyDraft.value.memoryEnabled && editor.replyDraft.value.memoryOptions == config.effectiveMemoryOptions)
+        case "记忆与记录":
+            #expect(editor.replyDraft.value.memoryOptions == QQMemoryOptions())
+            #expect(editor.replyDraft.value.persona == config.effectivePersona)
+        case "插画与定时": #expect(try editor.artworkDraft.value.validatedSettings().networkDailyLimit == QQArtworkConfig().networkDailyLimit)
+        case "AI 生图": #expect(!editor.imageDraft.value.enabled)
+        default: #expect(editor.visualDraft.value == QQVisualConfig())
+        }
+    }
+
     @Test func replyLimitTextKeepsInvalidDraftAndPersistsAllCorrectedFieldsTogether() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

@@ -1,5 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
+// Show recommended values immediately, but wait for saved settings before editing.
+document.querySelector('.grid').inert=true;
 // Navigation only changes visibility. All editors and drafts stay mounted.
 const panelPages = {connection:'连接与运行',reply:'范围与回复',tools:'图片与工具',memory:'记忆与记录',wechat:'客户端面板',guide:'使用指南'};
 let activeTool=sessionStorage.getItem('panel-tool')||'artworkPanel';
@@ -67,6 +69,24 @@ function renderDraftControls() {
   $('replySaveBar').hidden=!replyDirty||!['reply','memory'].includes(page);
   $('save').disabled=!replyDirty||!state||state.running||state.busy||pending;
 }
+
+$('restoreDefaults').addEventListener('click',()=>{
+  const page=document.body.dataset.page;
+  const sections=page==='reply' ? ['personaPanel','groupPanel','replyPanel'] : page==='memory' ? ['memoryPanel'] : [activeTool];
+  let changedInput;
+  for(const id of sections) {
+    for(const input of $(id).querySelectorAll('input[type=number],input[type=checkbox],select,#model,#prompt,#artZone')) {
+      if(input.closest('#artTargets')||['imageGenPersist','visualPersist'].includes(input.id)) continue;
+      const before=input.type==='checkbox' ? input.checked : input.value;
+      if(input.type==='checkbox') input.checked=input.defaultChecked;
+      else if(input.tagName==='SELECT') input.value=([...input.options].find(option=>option.defaultSelected)||input.options[0]).value;
+      else input.value=input.defaultValue;
+      if(before!==(input.type==='checkbox' ? input.checked : input.value)) changedInput=input;
+    }
+  }
+  if(changedInput) changedInput.dispatchEvent(new Event('input',{bubbles:true}));
+});
+
 $('reviewDrafts').addEventListener('click',()=>{
   const group=dirtyForms.keys().next().value;
   if(!group) return;
@@ -267,7 +287,8 @@ function render() {
     for (const id of ['imageGenPersist', 'visualPersist']) { $(id).checked = false; $(id).disabled = true; }
   }
   if(initial) {
-    for(const style of state.personalities){const option=document.createElement('option');option.value=style.id;option.textContent=style.name;option.title=style.description;$('personaStyle').append(option);}
+    $('personaStyle').replaceChildren();
+    for(const style of state.personalities){const option=document.createElement('option');option.value=style.id;option.defaultSelected=style.id==='teasing';option.textContent=style.name;option.title=style.description;$('personaStyle').append(option);}
     if(state.runDeadline && state.runDeadline*1000-Date.now()>24*60*60*1000) $('duration').value='4320';
     text('stickerCount',state.stickers.length);
     $('stickerGallery').addEventListener('toggle',()=>{if($('stickerGallery').open)renderStickers(state.stickers);},{once:true});
@@ -296,6 +317,8 @@ function render() {
   $('memories').replaceChildren();
   for(const memory of state.memories ?? []) { const p=document.createElement('p');p.textContent=`${memory.key} · ${memory.items ?? 0} 项重点 / ${memory.pending ?? 0} 条待整理 / 容量丢弃 ${memory.dropped ?? 0} 条 · ${new Date(memory.updatedAt*1000).toLocaleString('zh-CN')}：${memory.summary}`;$('memories').append(p); }
   if(!state.memories?.length) text('memories','尚无会话记忆');
+  document.querySelector('.grid').inert=false;
+  $('restoreDefaults').disabled=state.running||state.busy||pending;
   renderFreshness();
 }
 function renderScopeActions() {

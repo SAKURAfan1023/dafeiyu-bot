@@ -53,6 +53,14 @@ struct QQView: View {
                     .frame(maxWidth: .infinity, alignment: .leading).padding(12)
                     .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
             }
+            if editor.section != "连接与运行" {
+                HStack {
+                    Spacer()
+                    Button("使用推荐配置") { editor.useRecommendedSettings() }
+                        .help("填入当前页推荐参数；保留账号、密钥与会话名单，保存后生效")
+                        .disabled(engine.running || engine.busy || engine.runtimeBusy)
+                }
+            }
             if editor.replyDraft.hasChanges || editor.imageDraft.hasChanges || editor.visualDraft.hasChanges || editor.connectionDraft.hasChanges || editor.artworkDraft.hasChanges || editor.hasCredentialDrafts {
                 Text("有未保存修改").foregroundStyle(.orange)
             }
