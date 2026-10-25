@@ -63,6 +63,7 @@ const dirtyForms = new Map(), syncedForms = new Map();
 const formNames = {connection:'连接配置',reply:'范围与回复',artwork:'插画定时',image:'生图',visual:'识图'};
 const actionForms = {saveConnection:'connection',connect:'connection',save:'reply',start:'reply',saveArtwork:'artwork',saveImageGeneration:'image',saveVisualTools:'visual'};
 let customPersonaBase='';
+let stickerSignature='', stickerRenderSequence=0, importingStickers=false;
 const credentialFields = {connection:['token','key'],image:['imageGenZhipuKey','imageGenCloudflareToken'],visual:['googleVisionKey']};
 function renderDraftControls() {
   const replyDirty=dirtyForms.has('reply'), page=document.body.dataset.page;
@@ -132,6 +133,10 @@ function syncForms() {
     for(const id of ['onlineEnabled','visionEnabled','memoryEnabled','groupParticipationEnabled']) $(id).checked=state.config[id]??false;
     $('workHoursEnabled').checked=ai.workHoursEnabled; $('stickersEnabled').checked=persona.stickersEnabled;
     $('customPersonaName').value=persona.customName??''; $('customPersonaPrompt').value=persona.customPrompt??'';
+    $('stickerTrigger').value=persona.stickerTrigger??'contextual';
+    $('stickerKeywords').value=(persona.stickerKeywords??[]).join('\n');
+    $('stickerRepeatHours').value=persona.stickerRepeatHours??24;
+    for(const option of $('stickerEmotions').options) option.selected=(persona.stickerEmotions??['joy','smug','sleepy']).includes(option.value);
     targetDraft.clear(); targetSignature='';
   }
   renderArtwork(shouldSync('artwork'));
@@ -140,8 +145,13 @@ function syncForms() {
   text('draftStatus', conflicts.length ? `配置冲突：${conflicts.join('、')}已在别处修改，草稿保留，请重新载入。` : dirtyForms.size ? `未保存：${[...dirtyForms.keys()].map(k=>formNames[k]).join('、')}` : '设置已同步');
   $('discardDrafts').hidden=dirtyForms.size===0;
   $('discardDrafts').disabled=pending;
-  renderDraftControls(); renderPersonaPicker();
+  renderDraftControls(); renderPersonaPicker(); renderStickerTrigger();
 }
+function renderStickerTrigger() {
+  $('stickerEmotionFields').hidden=$('stickerTrigger').value!=='emotions';
+  $('stickerKeywordFields').hidden=$('stickerTrigger').value!=='keywords';
+}
+$('stickerTrigger').addEventListener('input',renderStickerTrigger);
 
 
 function closePersonaPicker() {
@@ -231,7 +241,7 @@ async function request(action) {
   const timeout=setTimeout(()=>controller.abort(),action ? 60000 : 10000);
   if(!action) statusRequestPending=true;
   try {
-    const response = await fetch(action ? '/api/action' : '/api/status', {
+    const response = await fetch(action?.action==='importSticker' ? '/api/import-sticker' : action ? '/api/action' : '/api/status', {
       method: action ? 'POST' : 'GET', cache: 'no-store',
       signal:controller.signal,
       headers: {'X-QQ-Control': controlToken, ...(action ? {'Content-Type':'application/json'} : {})},
@@ -345,10 +355,11 @@ function render() {
       $('personaOptions').append(choice);
     }
     if(state.runDeadline && state.runDeadline*1000-Date.now()>24*60*60*1000) $('duration').value='4320';
-    text('stickerCount',state.stickers.length);
-    $('stickerGallery').addEventListener('toggle',()=>{if($('stickerGallery').open)renderStickers(state.stickers);},{once:true});
     initial=false;
   }
+  const catalogSignature=JSON.stringify(state.stickers);
+  if(catalogSignature!==stickerSignature) {stickerSignature=catalogSignature;text('stickerCount',state.stickers.length);if($('stickerGallery').open)renderStickers(state.stickers);}
+  for(const id of ['stickerTrigger','stickerEmotions','stickerKeywords','stickerRepeatHours','stickerFiles','importEmotion','importContext','importAuthor','importLicense','importSource','importPublic','importStickers']) $(id).disabled=state.running||state.busy||pending||importingStickers;
   syncForms();
   const signature = JSON.stringify(state.config.targets.map(t => [t.id,t.name,t.number,t.group,t.enabled,t.personaStyle]));
   if(signature !== targetSignature) {
@@ -439,7 +450,7 @@ for(const action of ['start','save','once']) $(action).addEventListener('click',
   if(ai.workHoursEnabled) { ai.workStart=Number($('workStart').value);ai.workEnd=Number($('workEnd').value); }
   ai.dailyLimit=Number($('daily').value);ai.cooldownSeconds=Number($('cooldown').value);
   ai.sendLimits={...(ai.sendLimits ?? {globalIntervalSeconds:3}),globalIntervalSeconds:Number($('globalInterval').value),daily:Number($('sendDaily').value),perChatDaily:Number($('chatDaily').value)};
-  const persona={style:$('personaStyle').value,customName:$('customPersonaName').value,customPrompt:$('customPersonaPrompt').value,maxCharacters:Number($('maxCharacters').value),banter:Number($('banter').value),stickersEnabled:$('stickersEnabled').checked,stickerIntervalSeconds:Number($('stickerIntervalSeconds').value),stickerEveryReplies:Number($('stickerEveryReplies').value)};
+  const persona={style:$('personaStyle').value,customName:$('customPersonaName').value,customPrompt:$('customPersonaPrompt').value,maxCharacters:Number($('maxCharacters').value),banter:Number($('banter').value),stickersEnabled:$('stickersEnabled').checked,stickerIntervalSeconds:Number($('stickerIntervalSeconds').value),stickerEveryReplies:Number($('stickerEveryReplies').value),stickerTrigger:$('stickerTrigger').value,stickerEmotions:[...$('stickerEmotions').selectedOptions].map(o=>o.value),stickerKeywords:$('stickerKeywords').value.split('\n').map(s=>s.trim()).filter(Boolean),stickerRepeatHours:Number($('stickerRepeatHours').value)};
   const success=await act({action:'save',persona,groupParticipationEnabled:$('groupParticipationEnabled').checked,groupParticipationEvery:Number($('groupParticipationEvery').value),onlineEnabled:$('onlineEnabled').checked,visionEnabled:$('visionEnabled').checked,memoryEnabled:$('memoryEnabled').checked,memoryOptions:{messageThreshold:Number($('memoryMessages').value),characterThreshold:Number($('memoryCharacters').value),intervalMinutes:Number($('memoryMinutes').value),retrievalCharacters:Number($('memoryBudget').value)},enabled:[...$('targets').querySelectorAll('input:checked')].map(c=>c.dataset.target),ai});
   if(success) {
     targetDraft.clear();
@@ -448,7 +459,7 @@ for(const action of ['start','save','once']) $(action).addEventListener('click',
 document.addEventListener('input',event=>{
   if(!state) return;
   const input=event.target;
-  if(['search','duration','artArtistInput'].includes(input.id)||input.matches('#targets select')||input.closest('#customPersonaDialog')) return;
+  if(['search','duration','artArtistInput'].includes(input.id)||input.matches('#targets select')||input.closest('#customPersonaDialog,#stickerImport')) return;
   const group=input.closest('#connectionPanel')?'connection':input.closest('#artworkPanel')?'artwork':input.closest('#imagePanel')?'image':input.closest('#visionPanel')?'visual':'reply';
   if(!dirtyForms.has(group)) dirtyForms.set(group,{base:formSnapshot(group),revision:state.configurationRevision});
   syncForms();
@@ -466,19 +477,45 @@ request().catch(()=>{});
 setInterval(()=>{renderFreshness();if(!pending && !statusRequestPending)request().catch(()=>{});},3000);
 
 async function renderStickers(items) {
+  const sequence=++stickerRenderSequence;
+  $('stickers').replaceChildren();
   for(const item of items) {
+    if(sequence!==stickerRenderSequence)return;
     const card=document.createElement('div'), image=document.createElement('img'), link=document.createElement('a');
     image.width=120;image.height=120;image.style.objectFit='contain';image.alt=item.title;
-    link.textContent=item.title+' · 来源';link.href=item.source;link.target='_blank';link.rel='noreferrer';link.style.display='block';
-    const caption=document.createElement('small');caption.textContent=item.context ?? '';caption.style.display='block';
+    link.textContent=item.title+(item.source?' · 来源':' · 本机');if(item.source)link.href=item.source;link.target='_blank';link.rel='noreferrer';link.style.display='block';
+    const caption=document.createElement('small');caption.textContent=[item.context,item.author,item.license,item.local?(item.publicSharing?'待手动发布':'仅本机'):null].filter(Boolean).join(' · ');caption.style.display='block';
     card.style.width='160px';card.append(image,link,caption);$('stickers').append(card);
     try {
       const r=await fetch('/api/sticker/'+encodeURIComponent(item.id),{headers:{'X-QQ-Control':controlToken}});
       if(!r.ok)throw new Error('图片不可用');
-      const url=URL.createObjectURL(await r.blob());image.onload=()=>URL.revokeObjectURL(url);image.src=url;
+      const blob=await r.blob();if(sequence!==stickerRenderSequence)return;
+      const url=URL.createObjectURL(blob);image.onload=image.onerror=()=>URL.revokeObjectURL(url);image.src=url;
     } catch {image.alt=item.title+'（不可用）';}
   }
 }
+$('stickerGallery').addEventListener('toggle',()=>{if($('stickerGallery').open&&state)renderStickers(state.stickers);});
+$('importStickers').addEventListener('click',async()=>{
+  const files=[...$('stickerFiles').files];
+  if(!files.length||files.length>50){text('stickerImportStatus','每次选择 1–50 张图片。');return;}
+  if(!state||state.running||state.busy||pending||importingStickers){text('stickerImportStatus','请先暂停并等待当前操作完成。');return;}
+  const metadata={emotion:$('importEmotion').value,context:$('importContext').value.trim(),author:$('importAuthor').value.trim(),license:$('importLicense').value.trim(),source:$('importSource').value.trim(),publicSharing:$('importPublic').checked};
+  importingStickers=true;render();let imported=0;const failures=[];
+  try {
+    for(const file of files) {
+      try {
+        if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>3000000)throw new Error('需要 3 MB 内的 PNG/JPEG/WebP');
+        const bytes=await file.arrayBuffer();
+        let binary='';for(const byte of new Uint8Array(bytes))binary+=String.fromCharCode(byte);
+        const result=await request({action:'importSticker',sticker:{...metadata,title:file.name.replace(/\.[^.]+$/,'').slice(0,80)},stickerImage:btoa(binary)});
+        if(result.error)throw new Error(result.error);imported++;
+      }catch(error){failures.push(file.name+'：'+error.message);}
+      text('stickerImportStatus',`已导入 ${imported} / ${files.length} 张`);
+    }
+    text('stickerImportStatus',`已导入 ${imported} 张。`+(failures.length?'\n'+failures.join('\n'):'仅保存到本机；公开分享由独立发布步骤完成。'));
+    if(!failures.length)$('stickerFiles').value='';
+  }finally{importingStickers=false;render();}
+});
 
 function renderArtwork(first) {
   const a=state.artwork;

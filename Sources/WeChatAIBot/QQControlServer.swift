@@ -55,7 +55,7 @@ import BotCore
             Task { @MainActor in
                 guard let self, self.clients[id] != nil else { return }
                 var buffer = buffer; if let data { buffer.append(data) }
-                guard error == nil, buffer.count <= 131072 else { self.reply(connection, id: id, code: 400); return }
+                guard error == nil, buffer.count <= 4_220_000 else { self.reply(connection, id: id, code: 400); return }
                 guard let separator = buffer.range(of: Data("\r\n\r\n".utf8)) else {
                     if ended || buffer.count > 16384 { self.reply(connection, id: id, code: 400) }
                     else { self.receive(connection, id: id, buffer: buffer) }
@@ -70,8 +70,11 @@ import BotCore
                     guard headers[name] == nil else { self.reply(connection, id: id, code: 400); return }
                     headers[name] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
                 }
+                let importing = request.count == 3 && request[0] == "POST" && request[1] == "/api/import-sticker"
+                let bodyLimit = importing ? 4_200_000 : 65536
+                guard !importing || (headers["x-qq-control"] == self.token && headers["origin"] == self.origin) else { self.reply(connection, id: id, code: 403); return }
                 guard request.count == 3, request[2] == "HTTP/1.1", headers["transfer-encoding"] == nil,
-                      let count = Int(headers["content-length"] ?? "0"), (0...65536).contains(count),
+                      let count = Int(headers["content-length"] ?? "0"), (0...bodyLimit).contains(count),
                       headers["host"] == self.origin.replacingOccurrences(of: "http://", with: "") else {
                     self.reply(connection, id: id, code: 400); return
                 }
@@ -104,12 +107,13 @@ import BotCore
             reply(connection, id: id, code: 200, data: data, type: item.file.hasSuffix(".png") ? "image/png" : item.file.hasSuffix(".webp") ? "image/webp" : "image/jpeg"); return
         }
         var configurationSaved = false
-        if method == "POST", path == "/api/action" {
+        if method == "POST", path == "/api/action" || path == "/api/import-sticker" {
             guard headers["origin"] == origin, headers["content-type"]?.hasPrefix("application/json") == true else {
                 reply(connection, id: id, code: 403); return
             }
             do {
                 let request = try JSONDecoder().decode(Action.self, from: body)
+                guard (path == "/api/import-sticker") == (request.action == "importSticker") else { throw AppFailure.message("操作路径不匹配") }
                 engine.error = nil
                 // Pause/takeover must remain available even from an old page. Editing
                 // and starting require the exact configuration the editor observed.
@@ -120,6 +124,10 @@ import BotCore
                     }
                 }
                 switch request.action {
+                case "importSticker":
+                    guard let image = request.stickerImage, let data = Data(base64Encoded: image), let item = request.sticker else { throw AppFailure.message("缺少图片或表情信息") }
+                    try engine.importSticker(data: data, title: item.title, emotion: item.emotion, context: item.context,
+                        source: item.source, author: item.author, license: item.license, publicSharing: item.publicSharing)
                 case "saveConnection":
                     configurationSaved = engine.save(endpoint: request.endpoint, expectedSelfID: request.expectedSelfID)
                 case "addArtworkArtist":
@@ -220,7 +228,7 @@ import BotCore
                 },
                 "personalities": QQPersonality.allCases.map { ["id": $0.rawValue, "name": $0.name, "description": $0.description] },
                 "persona": try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.config.effectivePersona)),
-                "stickers": engine.stickerLibrary.items.map { ["id": $0.id, "title": $0.title, "source": $0.source, "context": $0.context ?? ""] },
+                "stickers": engine.stickerLibrary.items.map { ["id": $0.id, "title": $0.title, "source": $0.source, "context": $0.context ?? "", "emotion": $0.emotion.rawValue, "author": $0.author ?? "", "license": $0.license ?? "", "local": $0.id.hasPrefix("local-"), "publicSharing": $0.publicSharing ?? false] as [String: Any] },
                 "runDeadline": engine.runDeadline.map { $0.timeIntervalSince1970 as Any } ?? NSNull(),
                 "calls": engine.usage.calls, "attempts": engine.sends.attempts, "confirmed": engine.sends.confirmed,
                 "groupMessageCounts": engine.groupMessageCounts,
@@ -231,6 +239,17 @@ import BotCore
         } catch { reply(connection, id: id, code: 500) }
     }
     private struct Action: Decodable {
+        struct Sticker: Decodable {
+            var title: String
+            var emotion: QQEmotion
+            var context: String
+            var source: String
+            var author: String
+            var license: String
+            var publicSharing: Bool
+        }
+        var sticker: Sticker?
+        var stickerImage: String?
         var configurationRevision: String?
         var endpoint: String?
         var groupParticipationEnabled: Bool?

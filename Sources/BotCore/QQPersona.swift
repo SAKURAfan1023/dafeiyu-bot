@@ -3,6 +3,9 @@ import Foundation
 public enum QQEmotion: String, Codable, CaseIterable, Sendable {
     case neutral, joy, smug, annoyed, sad, sleepy, flustered, teasing
 }
+public enum QQStickerTrigger: String, Codable, CaseIterable, Sendable {
+    case contextual, emotions, keywords
+}
 public struct QQPersona: Codable, Equatable, Sendable {
     public var style: QQPersonality?
     public var customName: String?
@@ -13,9 +16,29 @@ public struct QQPersona: Codable, Equatable, Sendable {
     public var stickersEnabled = true
     public var stickerIntervalSeconds = 180
     public var stickerEveryReplies: Int?
+    public var stickerTrigger: QQStickerTrigger?
+    public var stickerEmotions: [QQEmotion]?
+    public var stickerKeywords: [String]?
+    public var stickerRepeatHours: Int?
+    public var effectiveStickerTrigger: QQStickerTrigger { get { stickerTrigger ?? .contextual } set { stickerTrigger = newValue } }
+    public var effectiveStickerRepeatHours: Int { get { stickerRepeatHours ?? 24 } set { stickerRepeatHours = newValue } }
+    public var effectiveStickerEmotions: [QQEmotion] { get { stickerEmotions ?? [.joy, .smug, .sleepy] } set { stickerEmotions = newValue } }
     public var effectiveStickerEveryReplies: Int { get { stickerEveryReplies ?? 3 } set { stickerEveryReplies = newValue } }
     public init() {}
+    public func permitsSticker(input: String, reply: QQReply, repliesSinceSticker: Int) -> Bool {
+        guard stickersEnabled, !reply.isFallback else { return false }
+        if effectiveStickerTrigger == .keywords {
+            return (stickerKeywords ?? []).contains { !$0.isEmpty && input.localizedCaseInsensitiveContains($0) }
+        }
+        if effectiveStickerTrigger == .emotions && !effectiveStickerEmotions.contains(reply.emotion) { return false }
+        return reply.wantsSticker || (effectiveStickerEveryReplies > 0 && reply.intensity > 0 && repliesSinceSticker + 1 >= effectiveStickerEveryReplies)
+    }
     public func validate() throws {
+        guard (1...168).contains(effectiveStickerRepeatHours), (stickerKeywords ?? []).count <= 30,
+              (stickerKeywords ?? []).allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.count <= 40 }),
+              (stickerEmotions ?? []).count <= QQEmotion.allCases.count else { throw CoreError.invalid("表情去重 1–168 小时，关键词最多 30 个、每个 1–40 字") }
+        if effectiveStickerTrigger == .keywords && (stickerKeywords ?? []).isEmpty { throw CoreError.invalid("请填写至少一个表情触发关键词") }
+        if effectiveStickerTrigger == .emotions && effectiveStickerEmotions.isEmpty { throw CoreError.invalid("请至少选择一种配图情绪") }
         let name = customName ?? "", prompt = customPrompt ?? ""
         guard name.count <= 40, !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
               prompt.count <= 4000, !prompt.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) && $0 != "\n" && $0 != "\t" }) else {

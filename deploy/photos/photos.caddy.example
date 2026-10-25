@@ -1,0 +1,15 @@
+# Candidate only. Merge into the existing :9443 site path after checking the host's Caddy layout.
+https://photos.example.com:9443 {
+    root * /srv/dafeiyu-photos/current
+    encode zstd gzip
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'none'"
+    }
+    @images path /images/* /favicon.png
+    header @images Cache-Control "public, max-age=604800"
+    @catalog path / /index.html /stickers.json /gallery.js /gallery.css
+    header @catalog Cache-Control "no-cache"
+    file_server
+}

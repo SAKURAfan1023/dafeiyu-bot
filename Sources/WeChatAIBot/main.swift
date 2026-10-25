@@ -108,6 +108,7 @@ if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.argument
             let qq = QQEngine(preview: true, allowAuthenticationUI: false)
             previews.append(("使用指南", AnyView(PanelGuideView(navigate: { _ in })), true))
             previews.append(("自定义性格", AnyView(QQCustomPersonaEditor(persona: QQPersona(), apply: { _ in })), true))
+            previews.append(("表情库", AnyView(QQStickerManager(engine: qq)), true))
             for section in ["连接与运行", "范围与回复", "图片与工具", "记忆与记录"] {
                 var editor = QQPanelState(); editor.refresh(qq.config); editor.section = section
                 previews.append(("QQ-" + section, AnyView(QQView(engine: qq, wechat: engine, editor: .constant(editor)).padding(24)), true))

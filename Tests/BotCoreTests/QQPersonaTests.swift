@@ -3,6 +3,25 @@ import Testing
 @testable import BotCore
 
 struct QQPersonaTests {
+    @Test func stickerTriggersHonorSelectedConditionsWithoutCreatingReplies() throws {
+        var persona = QQPersona()
+        let quiet = persona.decode(#"{"text":"晚安。","emotion":"sleepy","intensity":1}"#, input: "晚安")
+        #expect(!persona.permitsSticker(input: "晚安", reply: quiet, repliesSinceSticker: 0))
+        #expect(persona.permitsSticker(input: "晚安", reply: quiet, repliesSinceSticker: 2))
+        persona.effectiveStickerTrigger = .keywords; persona.stickerKeywords = ["晚安", "good night"]
+        try persona.validate()
+        #expect(persona.permitsSticker(input: "GOOD NIGHT！", reply: quiet, repliesSinceSticker: 0))
+        #expect(!persona.permitsSticker(input: "早上好", reply: quiet, repliesSinceSticker: 10))
+        persona.effectiveStickerTrigger = .emotions; persona.stickerEmotions = [.joy]
+        try persona.validate()
+        #expect(!persona.permitsSticker(input: "晚安", reply: quiet, repliesSinceSticker: 10))
+        persona.stickerEmotions = [.sleepy]
+        #expect(persona.permitsSticker(input: "晚安", reply: quiet, repliesSinceSticker: 2))
+        persona.stickersEnabled = false
+        #expect(!persona.permitsSticker(input: "晚安", reply: quiet, repliesSinceSticker: 10))
+        persona.stickerEmotions = []
+        #expect(throws: (any Error).self) { try persona.validate() }
+    }
     @Test func stickerIntervalAcceptsOneSecondButRejectsZero() throws {
         var persona = QQPersona(); persona.stickerIntervalSeconds = 1
         try persona.validate()

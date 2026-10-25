@@ -8,7 +8,7 @@ def process(payload):
     mode = payload['mode']
     limits = {'frames': (8_000_000, 12000, 40_000_000), 'artwork': (20_000_000, 12000, 40_000_000),
               'sticker': (3_000_000, 4096, 4096 * 4096), 'generated': (8_000_000, 4096, 8_000_000),
-              'search': (3_000_000, 4096, 8_000_000)}
+              'search': (3_000_000, 4096, 8_000_000), 'sticker-import': (3_000_000, 4096, 8_000_000)}
     byte_limit, edge, pixels = limits[mode]
     raw = base64.b64decode(payload['image'], validate=True)
     if len(raw) > byte_limit:
@@ -56,7 +56,9 @@ def process(payload):
             background.paste(frame, mask=frame.getchannel('A'))
             frame = background
         output = io.BytesIO()
-        frame.save(output, format='PNG' if mode == 'search' else 'JPEG', quality=80 if mode == 'frames' else 88)
+        if mode == 'sticker-import':
+            frame.info.clear()
+        frame.save(output, format='PNG' if mode in ('search', 'sticker-import') else 'JPEG', quality=80 if mode == 'frames' else 88)
         encoded = output.getvalue()
         if len(encoded) > (2_000_000 if mode == 'frames' else 3_000_000):
             raise ValueError('output size')

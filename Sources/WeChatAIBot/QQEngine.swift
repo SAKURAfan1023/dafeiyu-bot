@@ -161,20 +161,25 @@ struct QQRuntimeCredentials: Decodable {
         }
         return hints
     }
-    let stickerLibrary: QQStickerLibrary
+    @Published private(set) var stickerLibrary: QQStickerLibrary
+    func importSticker(data: Data, title: String, emotion: QQEmotion, context: String, source: String, author: String, license: String, publicSharing: Bool) throws {
+        guard !running, !busy, !runtimeBusy, storageOK else { throw AppFailure.message("请先暂停，等待操作完成后导入表情") }
+        try stickerLibrary.importImage(data, title: title, emotion: emotion, context: context, source: source, author: author, license: license, publicSharing: publicSharing)
+    }
     private var lastStickerAt: Date?
     private var recentStickers: [String: [QQStickerLibrary.Use]] = [:]
     private var repliesSinceSticker: [String: Int] = [:]
     @Published private var runtimeCredentials: QQRuntimeCredentials?
     var usesTemporaryCredentials: Bool { runtimeCredentials != nil }
-    init(preview: Bool = false, allowAuthenticationUI: Bool = true, storageDirectory: URL? = nil, modelClient: DeepSeekClient = DeepSeekClient(), stickerLibrary: QQStickerLibrary = QQStickerLibrary(), imageGenerator: QQImageGenerator = QQImageGenerator(), incomingImageLoader: QQIncomingImages = QQIncomingImages(), artworkLibrary: QQArtworkLibrary? = nil, credentialWriter: @escaping (String, String) throws -> Void = { value, account in try Keychain.save(value, account: account) }) {
+    init(preview: Bool = false, allowAuthenticationUI: Bool = true, storageDirectory: URL? = nil, modelClient: DeepSeekClient = DeepSeekClient(), stickerLibrary: QQStickerLibrary? = nil, imageGenerator: QQImageGenerator = QQImageGenerator(), incomingImageLoader: QQIncomingImages = QQIncomingImages(), artworkLibrary: QQArtworkLibrary? = nil, credentialWriter: @escaping (String, String) throws -> Void = { value, account in try Keychain.save(value, account: account) }) {
         self.credentialWriter = credentialWriter
         self.allowAuthenticationUI = allowAuthenticationUI
         self.modelClient = modelClient
         self.imageGenerator = imageGenerator
         self.incomingImageLoader = incomingImageLoader
         self.artworkLibrary = artworkLibrary ?? QQArtworkLibrary()
-        self.stickerLibrary = stickerLibrary
+        let localStickers = preview ? nil : (storageDirectory ?? (try? LocalStore().directory))?.appendingPathComponent("QQStickers")
+        self.stickerLibrary = stickerLibrary ?? QQStickerLibrary(localDirectory: localStickers)
         guard !preview else { storageOK = false; return }
         do {
             let directory = try storageDirectory ?? LocalStore().directory
@@ -847,7 +852,7 @@ struct QQRuntimeCredentials: Decodable {
                     }
                 }
                 let stickerScope = config.expectedSelfID + ":" + message.key
-                let stickerOptions = persona.stickersEnabled ? stickerLibrary.available(recent: recentStickers[stickerScope] ?? []) : []
+                let stickerOptions = persona.stickersEnabled ? stickerLibrary.available(recent: recentStickers[stickerScope] ?? [], repeatHours: persona.effectiveStickerRepeatHours) : []
                 var result: ModelResult
                 if !proactive && persona.rebuff(for: message.text) != nil {
                     result = ModelResult(text: "", tokens: 0, seconds: 0)
@@ -880,8 +885,7 @@ struct QQRuntimeCredentials: Decodable {
                 preview = reply.text
                 var image = result.image
                 var sticker: QQStickerLibrary.Item?
-                let periodicSticker = persona.effectiveStickerEveryReplies > 0 && reply.intensity > 0 && repliesSinceSticker[message.key, default: 0] + 1 >= persona.effectiveStickerEveryReplies
-                if image == nil, !result.usedTools, persona.stickersEnabled, reply.wantsSticker || periodicSticker,
+                if image == nil, !result.usedTools, persona.permitsSticker(input: message.text, reply: reply, repliesSinceSticker: repliesSinceSticker[message.key, default: 0]),
                    lastStickerAt.map({ Date().timeIntervalSince($0) >= Double(persona.stickerIntervalSeconds) }) ?? true,
                    let selected = result.stickerID,
                    let item = stickerOptions.first(where: { $0.id == selected }) {
@@ -1259,7 +1263,7 @@ struct QQRuntimeCredentials: Decodable {
         do {
             botMessageIDs = botMessageIDs.filter { Date().timeIntervalSince1970 - $0.value < 7 * 86400 }
             if botMessageIDs.count > 10000 { botMessageIDs = Dictionary(uniqueKeysWithValues: botMessageIDs.sorted { $0.value > $1.value }.prefix(10000).map { ($0.key, $0.value) }) }
-            recentStickers = recentStickers.mapValues { Array($0.filter { Date().timeIntervalSince($0.at) < 86400 }.suffix(500)) }.filter { !$0.value.isEmpty }
+            recentStickers = recentStickers.mapValues { Array($0.filter { Date().timeIntervalSince($0.at) < 7 * 86400 }.suffix(500)) }.filter { !$0.value.isEmpty }
             if recentStickers.count > 60 { recentStickers = Dictionary(uniqueKeysWithValues: recentStickers.sorted { ($0.value.last?.at ?? .distantPast) > ($1.value.last?.at ?? .distantPast) }.prefix(60).map { ($0.key, $0.value) }) }
             let state = QQStored(config: config, usage: usage, sends: sends, logs: logs, seen: seen, memories: nil, memoryBooks: memoryBooks, botMessageIDs: botMessageIDs, ownershipSince: ownershipSince, stickerHistory: recentStickers, stickerLastSentAt: lastStickerAt, artworkLedger: artworkLedger)
             // QQ uses authenticated network events and may run while the desktop is locked.

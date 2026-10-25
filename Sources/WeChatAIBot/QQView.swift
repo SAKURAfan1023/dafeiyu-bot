@@ -8,6 +8,7 @@ struct QQView: View {
     @ObservedObject var wechat: BotEngine
     @Binding var editor: QQPanelState
     @QQViewState private var showingCustomPersona = false
+    @QQViewState private var showingStickerLibrary = false
     @QQViewState private var customPersonaBaseline: QQReplyForm?
     private func openCustomPersona() {
         customPersonaBaseline = editor.replyDraft.baseline
@@ -286,6 +287,29 @@ struct QQView: View {
                         Text("温和").tag(0); Text("轻微吐槽").tag(1); Text("犀利但有分寸").tag(2); Text("锋利回怼").tag(3)
                     }
                     Toggle("定期配图，强烈情绪可提前配图", isOn: $editor.replyDraft.value.persona.stickersEnabled)
+                    Picker("配图方式", selection: $editor.replyDraft.value.persona.effectiveStickerTrigger) {
+                        Text("按语境与条数").tag(QQStickerTrigger.contextual)
+                        Text("只在指定情绪").tag(QQStickerTrigger.emotions)
+                        Text("收到指定关键词").tag(QQStickerTrigger.keywords)
+                    }
+                    if editor.replyDraft.value.persona.effectiveStickerTrigger == .emotions {
+                        HStack {
+                            ForEach(QQEmotion.allCases, id: \.self) { emotion in
+                                Toggle(stickerEmotionName(emotion), isOn: Binding(get: { editor.replyDraft.value.persona.effectiveStickerEmotions.contains(emotion) }, set: { enabled in
+                                    var emotions = Set(editor.replyDraft.value.persona.effectiveStickerEmotions)
+                                    if enabled { emotions.insert(emotion) } else { emotions.remove(emotion) }
+                                    editor.replyDraft.value.persona.stickerEmotions = QQEmotion.allCases.filter { emotions.contains($0) }
+                                }))
+                            }
+                        }
+                    }
+                    if editor.replyDraft.value.persona.effectiveStickerTrigger == .keywords {
+                        TextField("关键词，用逗号分隔", text: Binding(get: { (editor.replyDraft.value.persona.stickerKeywords ?? []).joined(separator: "，") }, set: { value in
+                            editor.replyDraft.value.persona.stickerKeywords = value.components(separatedBy: CharacterSet(charactersIn: ",，\n")).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                        }))
+                    }
+                    Stepper("同会话同图 \(editor.replyDraft.value.persona.effectiveStickerRepeatHours) 小时不重复", value: $editor.replyDraft.value.persona.effectiveStickerRepeatHours, in: 1...168)
+                    Button("表情库与本机导入（\(engine.stickerLibrary.items.count) 张）") { showingStickerLibrary = true }
                     Stepper("每隔 \(editor.replyDraft.value.persona.effectiveStickerEveryReplies) 条回复配图（0 为仅强烈情绪）", value: $editor.replyDraft.value.persona.effectiveStickerEveryReplies, in: 0...10)
                     Toggle("按群消息数量评估主动接话", isOn: $editor.replyDraft.value.groupParticipationEnabled)
                     Stepper("每累计 \(editor.replyDraft.value.groupParticipationEvery) 条群消息评估一次接话", value: $editor.replyDraft.value.groupParticipationEvery, in: 1...1000)
@@ -378,6 +402,7 @@ struct QQView: View {
                 editor.replyDraft.value.persona = persona
             }
         }
+        .sheet(isPresented: $showingStickerLibrary) { QQStickerManager(engine: engine) }
     }
 }
 

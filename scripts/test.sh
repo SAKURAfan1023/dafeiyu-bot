@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 scripts/test-storage-retention.py
+python3 scripts/test-photo-gallery.py
 if command -v node >/dev/null 2>&1; then
   node scripts/test-storage-retention.mjs
 fi
