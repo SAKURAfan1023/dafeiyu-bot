@@ -21,7 +21,7 @@ class PhotoGalleryTests(unittest.TestCase):
             (directory / 'test.png').write_bytes(data)
             record = dict(id='fixture', title='hello', emotion='neutral', context='greeting', author='fixture',
                 license='CC0-1.0', source='https://example.com/art', file='test.png',
-                sha256=hashlib.sha256(data).hexdigest(), publicSharing=True, privateNote='must not export')
+                sha256=hashlib.sha256(data).hexdigest(), publicSharing=True, character='deepseek-whale-maid', privateNote='must not export')
             private = dict(record, id='private', publicSharing=False)
             (directory / 'manifest.json').write_text(json.dumps([private, record]))
             output = Path(folder) / 'output'
@@ -37,17 +37,18 @@ class PhotoGalleryTests(unittest.TestCase):
                 gallery.export(output, [directory])
 
     def test_tampering_traversal_symlinks_and_secret_sources_fail_closed(self):
-        for invalid in ('hash', 'traversal', 'symlink', 'source'):
+        for invalid in ('hash', 'traversal', 'symlink', 'source', 'character'):
             with self.subTest(invalid=invalid), tempfile.TemporaryDirectory() as folder:
                 directory = Path(folder) / 'input'; directory.mkdir()
                 data = b'test image fixture'
                 (directory / 'test.png').write_bytes(data)
                 record = dict(id='fixture', title='hello', emotion='joy', context='greeting', author='fixture',
                     license='CC0-1.0', source='https://example.com/art', file='test.png',
-                    sha256=hashlib.sha256(data).hexdigest(), publicSharing=True)
+                    sha256=hashlib.sha256(data).hexdigest(), publicSharing=True, character='deepseek-whale-maid')
                 if invalid == 'hash': record['sha256'] = '0' * 64
                 if invalid == 'traversal': record['file'] = '../test.png'
                 if invalid == 'source': record['source'] = 'https://example.com/art?token=synthetic'
+                if invalid == 'character': record['character'] = 'unrelated-character'
                 if invalid == 'symlink':
                     (directory / 'link.png').symlink_to(directory / 'test.png'); record['file'] = 'link.png'
                 (directory / 'manifest.json').write_text(json.dumps([record]))

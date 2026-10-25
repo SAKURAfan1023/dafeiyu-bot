@@ -131,15 +131,15 @@ struct Dashboard: View {
     }
     var body: some View {
         NavigationSplitView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
                     PanelLogo(size: 48).padding(3).background(mint, in: RoundedRectangle(cornerRadius: 15))
                     VStack(alignment: .leading, spacing: 7) {
                         Text("大肥鱼").font(.system(size: 23, weight: .bold)).foregroundStyle(.white)
                     }
-                }.padding(.top, 30).padding(.horizontal, 17)
-                ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                }.padding(.top, 24).padding(.horizontal, 17)
+                ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
                     DisclosureGroup("QQ", isExpanded: $qqExpanded) {
                         ForEach(Page.allCases.filter { $0.qqSection != nil }) { item in
                             navigationRow(item)
@@ -150,8 +150,9 @@ struct Dashboard: View {
                             navigationRow(item)
                         }
                     }
-                }.font(.caption).foregroundStyle(.white.opacity(0.72)).tint(.white.opacity(0.65)).padding(16)
-                }
+                }.font(.caption).foregroundStyle(.white.opacity(0.72)).tint(.white.opacity(0.65))
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                }.scrollBounceBehavior(.basedOnSize).background(ink)
                 VStack(alignment: .leading, spacing: 8) {
                     Button { showingGuide = true } label: {
                         Label("使用指南", systemImage: "book").font(.callout)

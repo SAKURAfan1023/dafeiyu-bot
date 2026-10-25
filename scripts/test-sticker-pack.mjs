@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import { webcrypto, createHash } from 'node:crypto';
+const context=vm.createContext({crypto:webcrypto,atob,Uint8Array,URL,Error,Set});
+vm.runInContext(fs.readFileSync(new URL('../Resources/QQControl/sticker-pack.js',import.meta.url),'utf8'),context);
+const bytes=fs.readFileSync(new URL('../Resources/QQStickers/neutral.png',import.meta.url));
+const item={title:'synthetic',emotion:'joy',context:'ordinary greeting',source:'https://example.com/image',author:'fixture',license:'CC0-1.0',sha256:createHash('sha256').update(bytes).digest('hex'),imageBase64:bytes.toString('base64'),publicSharing:true,action:'start'};
+const pack={format:'dafeiyu-stickers',version:1,items:[item]};
+const file=value=>new File([JSON.stringify(value)],'fixture.dafeiyu.json',{type:'application/json'});
+const result=await context.readStickerPack(file(pack));
+assert.equal(result.length,1);assert.equal(result[0].sticker.context,item.context);assert.equal(result[0].sticker.publicSharing,false);assert.equal(result[0].action,undefined);assert.equal(result[0].sticker.action,undefined);
+for(const invalid of [{...pack,version:2},{...pack,items:[]},{...pack,items:[item,item]},{...pack,items:Array(51).fill(item)},{...pack,items:[{...item,sha256:'bad'}]},{...pack,items:[{...item,source:'http://example.com'}]},{...pack,items:[{...item,title:''}]}])await assert.rejects(()=>context.readStickerPack(file(invalid)));
+await assert.rejects(()=>context.readStickerPack({size:24000001}));
+console.log('PASS: resource pack schema, bounds, hash, duplicates, metadata and runtime-setting isolation');

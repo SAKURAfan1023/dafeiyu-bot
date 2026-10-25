@@ -1,0 +1,39 @@
+Photos 网页独立表情库 · 2026-10-25 核对
+
+仅收录 DeepSeek 蓝发鲸鱼娘。网页资源不是机器人默认安装包。
+图片为上游原始文件，未重绘、裁剪或添加文字；逐图来源、SHA-256 与下载地址见 manifest.json。
+
+1. B站原作者合集 · 29 张
+作者：ZipZipPipe
+原帖《所有的鲸鱼表情包（并非所有，也并非鲸鱼）》：
+https://www.bilibili.com/opus/1238946461156114455
+作者主页：https://space.bilibili.com/4168597
+原帖结尾明确：鲸鱼娘基于上善无形原创角色二创，依 CC BY-NC-SA 4.0 非商业使用，二创同协议授权。
+2026-10-25 通过公开原帖核对；逐张排除其他 AI 角色与混合角色图片，保留本帖图片标题。
+原图从帖子公开的 hdslb 图片 CDN 获取，不从视频截帧，不使用评论者图片。
+
+2. 中文社区投稿 · 59 张
+发现入口：蓝色大肥鱼 AI 娘二创开放档案
+https://xn--pssy23gqgbz2d718b.com/
+社区站长 B站介绍：https://www.bilibili.com/video/BV1vSh964EPw/
+其中 58 张署名 1cyberlangke1，投稿表单说明自己创作或生成、标为 CC0：
+https://github.com/lmy414/ai-girl-stickers/issues/32
+另 1 张署名 MX1951，作品详情明确自己创作或生成并标为 CC0：
+https://xn--pssy23gqgbz2d718b.com/works/deepseek202609200017.html
+逐图链接见 manifest.json。原图使用该中文社区详情页公布的下载地址，固定存档版本：
+4f4781c6d59ddb146afa3934f0df63c7680c0770
+未将“投稿者只授权本站下载”或“授权未明”的图片视为可自由再分发；不收录这些条目。
+本次排除动图、实物照片、非表情立绘、其他角色与超过现有导入尺寸/体积上限的图片。
+
+角色基础的署名与权利
+鲸鱼娘原作：上善无形，https://space.bilibili.com/4456176
+DeepSeek 女仆元素二次设计：ZipZipPipe，https://space.bilibili.com/4168597
+CC BY-NC-SA 4.0：https://creativecommons.org/licenses/by-nc-sa/4.0/
+完整文本：CC-BY-NC-SA-4.0.txt；投稿者 CC0 文本：CC0-1.0.txt。
+投稿者仅能放弃其自身作品权利；CC0 不取消底层角色的署名、非商业与相同方式共享要求。
+本项目 MIT 不替代图片、角色、商标或其他第三方权利，不暗示 DeepSeek 官方认可。
+
+其他检索来源与排除
+B站星璃收藏屋的鲸鱼娘合集、贴吧 deepseek 吧分享帖已用于寻找线索。
+网盘合集未逐图核对作者和许可，未直接整包收入；贴吧原帖触发安全验证，未绕过验证。
+先前误选的和泉妃爱、Pysio、小云与通用程序员表情已从本次公开目录移除，不属于 DeepSeek 娘。

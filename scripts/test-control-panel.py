@@ -88,7 +88,7 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
                 with urllib.request.urlopen(req, timeout=5) as response: return response.status, response.read()
             except urllib.error.HTTPError as error: return error.code, error.read()
         assert request('/')[0] == 200
-        for asset, mime in [('/style.css', 'text/css'), ('/logo.png', 'image/png')]:
+        for asset, mime in [('/style.css', 'text/css'), ('/logo.png', 'image/png'), ('/sticker-pack.js', 'text/javascript')]:
             with urllib.request.urlopen(origin + asset, timeout=5) as response:
                 assert response.status == 200 and response.headers.get_content_type() == mime
                 data = response.read()

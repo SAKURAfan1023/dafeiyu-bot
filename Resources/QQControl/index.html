@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>大肥鱼 · 控制台</title>
-<link rel="icon" type="image/png" href="/logo.png"><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head><body><aside class="sidebar"><div class="brand"><span class="brand-icon"><img src="/logo.png" alt="大肥鱼 · Q 版 DeepSeek 娘" width="52" height="52"></span><div><strong>大肥鱼</strong></div></div>
+<link rel="icon" type="image/png" href="/logo.png"><link rel="stylesheet" href="/style.css"><script src="/sticker-pack.js" defer></script><script src="/app.js" defer></script></head><body><aside class="sidebar"><div class="brand"><span class="brand-icon"><img src="/logo.png" alt="大肥鱼 · Q 版 DeepSeek 娘" width="52" height="52"></span><div><strong>大肥鱼</strong></div></div>
 <nav aria-label="面板目录"><details open class="nav-group"><summary>QQ</summary><div class="nav-children">
 <button type="button" data-page="connection" aria-current="page"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15l6-6M7.5 17.5l-1 1a4.2 4.2 0 01-6-6l4-4a4.2 4.2 0 016 0M16.5 6.5l1-1a4.2 4.2 0 016 6l-4 4a4.2 4.2 0 01-6 0" transform="translate(1 -1) scale(.9)"/></svg></span>连接与运行</button>
 <button type="button" data-page="reply"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></svg></span>范围与回复</button>
@@ -19,13 +19,13 @@
 <label for="stickerRepeatHours">同图不重复时长</label><input id="stickerRepeatHours" type="number" min="1" max="168" value="24">
 </details>
 <details id="stickerImport"><summary>导入本机表情</summary><div class="two">
-<div><label for="stickerFiles">静态图片（每张不超过 3 MB）</label><input id="stickerFiles" type="file" multiple accept="image/png,image/jpeg,image/webp">
+<div><label for="stickerFiles">图片或网页资源包</label><input id="stickerFiles" type="file" multiple accept="image/png,image/jpeg,image/webp,application/json,.json">
 <label for="importEmotion">情绪</label><select id="importEmotion"><option value="neutral">平静</option><option value="joy">开心</option><option value="smug">得意</option><option value="annoyed">不满</option><option value="sad">难过</option><option value="sleepy">困倦</option><option value="flustered">害羞</option><option value="teasing">调侃</option></select>
 <label for="importContext">适用情境</label><input id="importContext" maxlength="300" placeholder="例如：晚安、准备睡觉，不用于白天问候"></div>
 <div><label for="importAuthor">作者</label><input id="importAuthor" maxlength="80"><label for="importLicense">许可</label><input id="importLicense" maxlength="100" placeholder="未确认可留空，仅本机使用">
 <label for="importSource">公开来源网页</label><input id="importSource" type="url" placeholder="https://">
 <label><input id="importPublic" type="checkbox">已确认可公开分享</label></div></div>
-<button id="importStickers" type="button">导入所选图片</button><p id="stickerImportStatus" role="status"></p></details>
+<button id="importStickers" type="button">导入所选内容</button><p id="stickerImportStatus" role="status"></p></details>
 <details id="stickerGallery"><summary>查看表情库与来源（<span id="stickerCount">—</span> 张）</summary><div id="stickers" style="display:flex;flex-wrap:wrap;gap:16px"></div><button id="loadMoreStickers" type="button" hidden>加载更多</button></details></section>
 <section data-pages="reply" hidden id="groupPanel" class="card span"><h2>群聊主动接话<span class="help-wrap"><button type="button" class="help-button" aria-label="群聊主动接话说明" aria-describedby="help-groupPanel" aria-expanded="false">?</button><span class="help-tip" id="help-groupPanel" role="tooltip">每群独立计数，包含主人手动发言，自动回复、重复、历史和系统消息不计入。真实 @ 独立回复，不重置计数。达到条数只评估，适合时才接话；暂停清空进度。</span></span></h2>
 

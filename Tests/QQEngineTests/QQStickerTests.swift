@@ -8,6 +8,50 @@ import BotCore
 
 struct QQStickerTests {
     let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources/QQStickers")
+    @Test func communityCatalogImportsIndependentlyWithoutChangingBuiltInPack() throws {
+        let community = directory.deletingLastPathComponent().appendingPathComponent("PhotoStickers")
+        let catalog = QQStickerLibrary(directory: community)
+        let records = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: community.appendingPathComponent("manifest.json"))) as? [[String: Any]])
+        #expect(catalog.items.count >= 50)
+        #expect(catalog.items.count == records.count)
+        #expect(catalog.items.allSatisfy { $0.character == "deepseek-whale-maid" })
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        var local = QQStickerLibrary(directory: nil, localDirectory: folder)
+        for item in catalog.items {
+            let bytes = try #require(catalog.data(for: item))
+            try local.importImage(bytes, title: item.title, emotion: item.emotion, context: item.context ?? "", source: item.source,
+                                  author: item.author ?? "", license: item.license ?? "", publicSharing: false)
+        }
+        #expect(local.items.count == catalog.items.count)
+        #expect(local.items.allSatisfy { $0.publicSharing == false })
+        #expect(QQStickerLibrary(directory: directory).items.count == 37)
+    }
+    @Test func resourcePackValidatesBeforeImportAndRetainsPerImageMetadata() throws {
+        let item = try #require(QQStickerLibrary(directory: directory).items.first)
+        let bytes = try Data(contentsOf: directory.appendingPathComponent(item.file))
+        let record: [String: Any] = ["title":"合成问候", "emotion":"neutral", "context":"普通问候", "source":"https://example.com/sticker",
+                                   "author":"synthetic", "license":"CC0-1.0", "sha256":item.sha256, "imageBase64":bytes.base64EncodedString()]
+        let pack: [String: Any] = ["format":"dafeiyu-stickers", "version":1, "items":[record], "runtimeSettings":["enabled":true]]
+        let decoded = try QQStickerPack.decode(JSONSerialization.data(withJSONObject: pack))
+        #expect(decoded.count == 1)
+        #expect(decoded[0].data == bytes)
+        #expect(decoded[0].context == "普通问候")
+        #expect(decoded[0].author == "synthetic")
+        for mode in ["version", "empty", "duplicate", "hash", "source", "title", "count"] {
+            var changed = pack, invalid = record
+            switch mode {
+            case "version": changed["version"] = 2
+            case "empty": changed["items"] = []
+            case "duplicate": changed["items"] = [record, record]
+            case "hash": invalid["sha256"] = String(repeating: "0", count: 64); changed["items"] = [invalid]
+            case "source": invalid["source"] = "file:///synthetic"; changed["items"] = [invalid]
+            case "title": invalid["title"] = ""; changed["items"] = [invalid]
+            default: changed["items"] = Array(repeating: record, count: 51)
+            }
+            #expect(throws: (any Error).self) { try QQStickerPack.decode(JSONSerialization.data(withJSONObject: changed)) }
+        }
+    }
     @Test func everyBundledImagePassesIntegrityAndDecodeChecks() throws {
         let library = QQStickerLibrary(directory: directory)
         #expect(library.items.count == 37)

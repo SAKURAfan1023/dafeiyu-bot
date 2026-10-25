@@ -39,8 +39,9 @@ struct QQStickerManager: View {
                     HStack { TextField("作者", text: $author); TextField("许可，未确认可留空", text: $license) }
                     TextField("公开来源网页 https://", text: $source)
                     Toggle("已确认可公开分享（不会自动上传）", isOn: $publicSharing)
-                    Button("选择本机图片并导入…") { importing = true }
+                    Button("导入图片或网页资源包…") { importing = true }
                         .disabled(engine.running || engine.busy || engine.runtimeBusy)
+                        .help("网页资源包保留每张图的情绪、适用情境与来源；上方字段仅用于单独导入的图片。资源包不会自动公开或启用回复。")
                     if !status.isEmpty { Text(status).font(.callout).textSelection(.enabled) }
                     Text("静态 PNG / JPEG / WebP，每张最多 3 MB；同图自动去重。公开发布与本机导入分开。").font(.caption).foregroundStyle(.secondary)
                     Divider()
@@ -59,10 +60,28 @@ struct QQStickerManager: View {
                 }
             }
         }.padding(24).frame(width: 720, height: 650).textFieldStyle(PanelTextFieldStyle())
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.png, .jpeg, .webP], allowsMultipleSelection: true) { result in
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.png, .jpeg, .webP, .json], allowsMultipleSelection: true) { result in
             do {
                 let urls = try result.get()
                 guard (1...50).contains(urls.count) else { throw AppFailure.message("每次选择 1–50 张图片") }
+                if urls.contains(where: { $0.pathExtension.lowercased() == "json" }) {
+                    guard urls.count == 1, let url = urls.first else { throw AppFailure.message("资源包请单独导入，不与图片混选") }
+                    let access = url.startAccessingSecurityScopedResource()
+                    defer { if access { url.stopAccessingSecurityScopedResource() } }
+                    let values = try url.resourceValues(forKeys: [.fileSizeKey, .isSymbolicLinkKey, .isRegularFileKey])
+                    guard values.isRegularFile == true, values.isSymbolicLink != true, (1...24_000_000).contains(values.fileSize ?? 0) else { throw AppFailure.message("需要 24 MB 内的普通资源包文件") }
+                    let items = try QQStickerPack.decode(Data(contentsOf: url))
+                    var count = 0, failures: [String] = []
+                    for item in items {
+                        do {
+                            try engine.importSticker(data: item.data, title: item.title, emotion: item.emotion, context: item.context,
+                                                     source: item.source, author: item.author, license: item.license, publicSharing: false)
+                            count += 1
+                        } catch { failures.append(item.title + "：" + error.localizedDescription) }
+                    }
+                    status = "已导入 \(count) / \(items.count) 张。" + failures.joined(separator: "\n")
+                    return
+                }
                 var count = 0, failures: [String] = []
                 for url in urls {
                     let access = url.startAccessingSecurityScopedResource()

@@ -86,10 +86,11 @@ import BotCore
         }
     }
     private func handle(_ connection: LoopbackConnection, id: UUID, method: String, path: String, headers: [String: String], body: Data) async {
-        if method == "GET", ["/", "/app.js", "/style.css", "/logo.png"].contains(path) {
+        if method == "GET", ["/", "/app.js", "/sticker-pack.js", "/style.css", "/logo.png"].contains(path) {
             let name: String, ext: String, type: String
             switch path {
             case "/app.js": (name, ext, type) = ("app", "js", "text/javascript")
+            case "/sticker-pack.js": (name, ext, type) = ("sticker-pack", "js", "text/javascript")
             case "/style.css": (name, ext, type) = ("style", "css", "text/css")
             case "/logo.png": (name, ext, type) = ("logo", "png", "image/png")
             default: (name, ext, type) = ("index", "html", "text/html")

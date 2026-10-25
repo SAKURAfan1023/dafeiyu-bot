@@ -555,19 +555,29 @@ $('importStickers').addEventListener('click',async()=>{
   const metadata={emotion:$('importEmotion').value,context:$('importContext').value.trim(),author:$('importAuthor').value.trim(),license:$('importLicense').value.trim(),source:$('importSource').value.trim(),publicSharing:$('importPublic').checked};
   importingStickers=true;render();let imported=0;const failures=[];
   try {
-    for(const file of files) {
+    const isPack=files.some(file=>file.name.toLowerCase().endsWith('.json'));
+    if(isPack&&files.length!==1)throw new Error('资源包请单独导入，不与图片混选。');
+    const jobs=isPack?await readStickerPack(files[0]):files.map(file=>({file}));
+    for(const job of jobs) {
+      const name=job.file?.name||job.sticker.title;
       try {
-        if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>3000000)throw new Error('需要 3 MB 内的 PNG/JPEG/WebP');
-        const bytes=await file.arrayBuffer();
-        let binary='';for(const byte of new Uint8Array(bytes))binary+=String.fromCharCode(byte);
-        const result=await request({action:'importSticker',sticker:{...metadata,title:file.name.replace(/\.[^.]+$/,'').slice(0,80)},stickerImage:btoa(binary)});
+        let payload=job;
+        if(job.file){
+          const file=job.file;
+          if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>3000000)throw new Error('需要 3 MB 内的 PNG/JPEG/WebP');
+          const bytes=await file.arrayBuffer();
+          let binary='';for(const byte of new Uint8Array(bytes))binary+=String.fromCharCode(byte);
+          payload={sticker:{...metadata,title:file.name.replace(/\.[^.]+$/,'').slice(0,80)},stickerImage:btoa(binary)};
+        }
+        const result=await request({action:'importSticker',...payload});
         if(result.error)throw new Error(result.error);imported++;
-      }catch(error){failures.push(file.name+'：'+error.message);}
-      text('stickerImportStatus',`已导入 ${imported} / ${files.length} 张`);
+      }catch(error){failures.push(name+'：'+error.message);}
+      text('stickerImportStatus',`已导入 ${imported} / ${jobs.length} 张`);
     }
     text('stickerImportStatus',`已导入 ${imported} 张。`+(failures.length?'\n'+failures.join('\n'):'仅保存到本机；公开分享由独立发布步骤完成。'));
     if(!failures.length)$('stickerFiles').value='';
-  }finally{importingStickers=false;render();}
+  }catch(error){text('stickerImportStatus',error.message||'资源包解析失败，未开始导入。');}
+  finally{importingStickers=false;render();}
 });
 
 function renderArtwork(first) {
