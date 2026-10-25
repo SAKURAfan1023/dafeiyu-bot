@@ -11,6 +11,8 @@ struct QQStickerTests {
     @Test func everyBundledImagePassesIntegrityAndDecodeChecks() throws {
         let library = QQStickerLibrary(directory: directory)
         #expect(library.items.count == 37)
+        #expect(library.items.allSatisfy { $0.character == "deepseek-whale-maid" })
+        #expect(!library.items.contains { $0.id.hasPrefix("pysio-") })
         for item in library.items { #expect(library.data(for: item) != nil) }
     }
     @Test func contentCooldownSurvivesSerializationAndExpires() throws {

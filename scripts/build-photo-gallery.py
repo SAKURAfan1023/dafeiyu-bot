@@ -48,7 +48,7 @@ def export(output, directories):
             if item['id'] in ids:
                 raise ValueError('Duplicate catalog ID')
             hashes.add(digest); ids.add(item['id'])
-            record = {key: item.get(key, '') for key in ('id', 'title', 'emotion', 'context', 'source', 'author', 'license', 'sha256')}
+            record = {key: item.get(key, '') for key in ('id', 'title', 'emotion', 'context', 'source', 'author', 'license', 'sha256', 'character')}
             record['file'] = 'images/' + digest + path.suffix.lower()
             selected.append((record, data))
     output.mkdir(parents=True)
@@ -57,19 +57,19 @@ def export(output, directories):
         shutil.copyfile(ROOT / 'Resources' / 'PhotoGallery' / name, output / name)
     shutil.copyfile(ROOT / 'Resources' / 'QQStickers' / 'neutral.png', output / 'favicon.png')
     records = [record for record, _ in selected]
-    credits = ['大肥鱼表情画廊 · 素材与署名', '', '代码许可不覆盖第三方图片。请按每张图片标注的许可使用。', 'Pysio Chibi：署名-非商业-相同方式共享 4.0，https://creativecommons.org/licenses/by-nc-sa/4.0/', '图片保留原文件，不裁剪、不去水印。仅为检索补充中文标题与情境说明。', '']
+    credits = ['大肥鱼表情画廊 · 素材与署名', '', '代码许可不覆盖第三方图片。请按每张图片标注的许可使用。', '社区鲸鱼娘作者：YunYueSama，https://github.com/YunYueSama/codex-deepseek-pet', '修改：从已署名的角色图集中拆分独立帧、裁掉透明留白并以无损 WebP 编码；未重绘角色。', '完整授权及第三方参考边界见 WHALE-LICENSE.txt。', '']
     for item, data in selected:
         (output / item['file']).write_bytes(data)
         credits.extend([item['title'], '作者：' + item['author'], '许可：' + item['license'], item['source'], ''])
     (output / 'stickers.json').write_text(json.dumps(records, ensure_ascii=False, indent=2) + '\n')
     (output / 'CREDITS.txt').write_text('\n'.join(credits))
-    license_file = ROOT / 'Resources' / 'QQStickers' / 'PYSIO-LICENSE.txt'
+    license_file = ROOT / 'Resources' / 'QQStickers' / 'WHALE-LICENSE.txt'
     if license_file.exists():
-        shutil.copyfile(license_file, output / 'PYSIO-LICENSE.txt')
+        shutil.copyfile(license_file, output / 'WHALE-LICENSE.txt')
     with zipfile.ZipFile(output / 'stickers.zip', 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         for item, _ in selected:
             archive.write(output / item['file'], item['file'])
-        for name in ('stickers.json', 'CREDITS.txt', 'PYSIO-LICENSE.txt'):
+        for name in ('stickers.json', 'CREDITS.txt', 'WHALE-LICENSE.txt'):
             if (output / name).exists():
                 archive.write(output / name, name)
     return len(records)

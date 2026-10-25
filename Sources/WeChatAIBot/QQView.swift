@@ -25,37 +25,153 @@ struct QQView: View {
             if engine.error == nil { editor.replyDraft.reset(QQReplyForm(engine.config)) }
         } catch { engine.error = error.localizedDescription }
     }
+    private var statusSummary: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(spacing: 10) {
+                Circle().fill(engine.connected ? Color.green : PanelTheme.muted.opacity(0.5)).frame(width: 7, height: 7)
+                Text(engine.status).font(.system(size: 13, weight: .medium))
+                Spacer()
+                Text(engine.running ? "自动回复中" : "已暂停")
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(PanelTheme.muted)
+                if let deadline = engine.runDeadline {
+                    Text("至 \(deadline.formatted(date: .omitted, time: .shortened))")
+                        .font(.caption).foregroundStyle(PanelTheme.muted)
+                        .help("自动暂停：\(deadline.formatted(date: .abbreviated, time: .standard))")
+                }
+            }
+            HStack(spacing: 0) {
+                metric("今日模型调用", value: engine.usage.calls)
+                Divider().frame(height: 38).padding(.horizontal, 24)
+                metric("已确认发送", value: engine.sends.confirmed)
+                Divider().frame(height: 38).padding(.horizontal, 24)
+                metric("结果未知", value: engine.sends.uncertain)
+                Divider().frame(height: 38).padding(.horizontal, 24)
+                metric("待处理消息", value: engine.queuedCount)
+            }
+        }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
+            .background(.white, in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(PanelTheme.line, lineWidth: 1))
+    }
+    private func metric(_ title: String, value: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(value, format: .number).font(.system(size: 27, weight: .semibold, design: .rounded)).monospacedDigit()
+            Text(title).font(.system(size: 11)).foregroundStyle(PanelTheme.muted)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private var connectionCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 20) {
+                if editor.connectionDraft.hasChanges || !editor.token.isEmpty || !editor.temporaryKey.isEmpty {
+                    if editor.connectionDraft.conflicts(with: QQConnectionForm(engine.config)) {
+                        Text("连接配置已在别处更新，请先载入最新设置").foregroundStyle(.orange)
+                    }
+                    Button("放弃连接草稿") { editor.connectionDraft.reset(QQConnectionForm(engine.config)); editor.token = ""; editor.temporaryKey = "" }
+                }
+                LabeledContent("OneBot 地址") {
+                    TextField("ws://127.0.0.1:3001", text: $editor.connectionDraft.value.endpoint)
+                }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                LabeledContent("机器人 QQ 号") {
+                    TextField("预期登录 QQ 号", text: $editor.connectionDraft.value.expectedSelfID)
+                }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                LabeledContent("OneBot 令牌") {
+                    SecureField("留空保留已保存值", text: $editor.token)
+                }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                HStack(spacing: 10) {
+                    Button("保存连接设置") {
+                        guard !editor.connectionDraft.conflicts(with: QQConnectionForm(engine.config)) else { engine.error = "连接配置已更新，请先载入最新设置"; return }
+                        let saved = engine.save(token: editor.token, endpoint: editor.connectionDraft.value.endpoint, expectedSelfID: editor.connectionDraft.value.expectedSelfID)
+                        if saved { editor.connectionDraft.reset(QQConnectionForm(engine.config)) }
+                        if engine.error == nil { editor.token = "" }
+                    }
+                    Button("连接并核对账号") { Task { await engine.connect() } }
+                        .buttonStyle(PanelButtonStyle(kind: .primary))
+                        .disabled(editor.connectionDraft.hasChanges || !editor.token.isEmpty)
+                    if engine.busy || engine.runtimeBusy { ProgressView().controlSize(.small) }
+                }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                DisclosureGroup("临时凭证") {
+                    VStack(alignment: .leading, spacing: 14) {
+                        SecureField("仅本次运行的 DeepSeek Key", text: $editor.temporaryKey)
+                            .disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                        Button("使用临时凭证连接") {
+                            guard !editor.connectionDraft.conflicts(with: QQConnectionForm(engine.config)) else { engine.error = "连接配置已更新，请先载入最新设置"; return }
+                            engine.save(endpoint: editor.connectionDraft.value.endpoint, expectedSelfID: editor.connectionDraft.value.expectedSelfID)
+                            guard engine.error == nil else { return }
+                            editor.connectionDraft.reset(QQConnectionForm(engine.config))
+                            guard engine.useTemporaryCredentials(token: editor.token, key: editor.temporaryKey) else { return }
+                            editor.token = ""; editor.temporaryKey = ""
+                            Task { await engine.connect() }
+                        }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                    }.padding(.top, 12)
+                }.font(.system(size: 12)).foregroundStyle(PanelTheme.muted)
+                if engine.usesTemporaryCredentials {
+                    HStack {
+                        Label("使用临时凭证", systemImage: "clock").font(.caption)
+                        Button("清除并断开") { engine.clearTemporaryCredentials() }
+                    }
+                }
+            }
+        } label: {
+            HStack { Text("连接账号"); HelpHint("通过 NapCat / OneBot 11 接入。保存后连接并核对账号；凭证保存到钥匙串，临时凭证只在本次运行有效。") }
+        }
+    }
+    private var runCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 22) {
+                HStack(spacing: 8) {
+                    Image(systemName: engine.running ? "waveform" : "pause.circle").foregroundStyle(PanelTheme.accent)
+                    Text(engine.running ? "回复运行中" : "等待开始").font(.system(size: 14, weight: .medium))
+                }
+                Text("已启用 \(engine.config.targets.filter(\.enabled).count) 个会话").font(.system(size: 12)).foregroundStyle(PanelTheme.muted)
+                LabeledContent("运行时长") {
+                    Picker("运行时长", selection: $editor.durationMinutes) {
+                        Text("15 分钟").tag(15); Text("30 分钟").tag(30); Text("2 小时").tag(120)
+                        Text("3 天（72 小时）").tag(4320); Text("持续运行").tag(0)
+                    }.labelsHidden().frame(maxWidth: .infinity)
+                }.disabled(engine.running || engine.busy || engine.runtimeBusy)
+                VStack(spacing: 10) {
+                    Button { engine.start(duration: editor.durationMinutes == 0 ? nil : Double(editor.durationMinutes * 60)) } label: {
+                        Label("开始回复", systemImage: "play.fill").frame(maxWidth: .infinity)
+                    }.buttonStyle(PanelButtonStyle(kind: .primary))
+                        .disabled(!engine.connected || engine.running || engine.busy || engine.runtimeBusy)
+                    Button { engine.start(singleReply: true, duration: 15 * 60) } label: { Text("试运行一次").frame(maxWidth: .infinity) }
+                        .help("最多回复 1 条，15 分钟后自动暂停")
+                        .disabled(!engine.connected || engine.running || engine.busy || engine.runtimeBusy)
+                    Button { engine.pause() } label: { Text("暂停 QQ").frame(maxWidth: .infinity) }
+                        .buttonStyle(PanelButtonStyle(kind: .quiet))
+                }
+                Button("断开 QQ") { engine.disconnect() }
+                    .buttonStyle(PanelButtonStyle(kind: .quiet))
+                    .disabled(!engine.connected && !engine.busy && !engine.runtimeBusy)
+            }
+        } label: { HStack { Text("运行"); Spacer(); HelpHint("连接账号、勾选会话并保存后开始。单次验收最多回复 1 条；运行时长只在下一次开始时生效。") } }
+    }
+    private var runtimeCard: some View {
+        GroupBox {
+            DisclosureGroup("登录与环境管理") {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(spacing: 10) {
+                        Button("启动 QQ 环境") { Task { await engine.setRuntime(start: true) } }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                        Button("停止 QQ 环境") { Task { await engine.setRuntime(start: false) } }.disabled(engine.busy || engine.runtimeBusy)
+                        Link("QQ 登录页 ↗", destination: URL(string: "http://127.0.0.1:6099/webui")!)
+                        Button("打开原版 QQ") { NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/QQ.app")) }
+                    }
+                    HStack(spacing: 12) {
+                        SecureField("NapCat 管理令牌（已保存可留空）", text: $editor.webToken)
+                        Button("获取／刷新登录码") {
+                            Task { await engine.refreshLoginCode(token: editor.webToken); if engine.error == nil { editor.webToken = "" } }
+                        }
+                    }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
+                    if let code = engine.loginCode {
+                        Image(nsImage: code).interpolation(.none).resizable().frame(width: 240, height: 240)
+                    }
+                    Link("社区接入说明 ↗", destination: URL(string: "https://github.com/NapNeko/NapCat-Docker")!).font(.caption)
+                }.padding(.top, 18)
+            }.font(.system(size: 13)).foregroundStyle(PanelTheme.muted)
+        } label: { Text("QQ 环境") }
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("QQ", systemImage: "bubble.left.and.bubble.right.fill").font(.title2.bold())
-                        Text(engine.status).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    PanelLogo(size: 68)
-                    Button("暂停全部 QQ 回复") { engine.pause() }.tint(.red)
-                }
-                HStack(spacing: 20) {
-                    Label(engine.connected ? "账号已核对" : "等待连接", systemImage: engine.connected ? "checkmark.circle.fill" : "circle")
-                    Text("已选范围 \(engine.config.targets.filter(\.enabled).count) 个会话")
-                    Text(engine.running ? "正在自动回复" : "已暂停")
-                }.font(.callout)
-                HStack(spacing: 20) {
-                    Text("今日调用 \(engine.usage.calls)")
-                    Text("发送确认 \(engine.sends.confirmed)")
-                    Text("结果未知 \(engine.sends.uncertain)")
-                    Text("队列 \(engine.queuedCount) / \(QQEngine.queueCapacity)")
-                }.font(.caption).foregroundStyle(.secondary)
-                if let deadline = engine.runDeadline {
-                    Text("自动暂停：\(deadline.formatted(date: .abbreviated, time: .standard))").font(.callout)
-                } else if engine.running {
-                    Text("当前持续运行，需手动暂停").font(.callout)
-                }
-
-            }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(red: 0.89, green: 0.94, blue: 0.82), in: RoundedRectangle(cornerRadius: 16))
+            statusSummary
             if let error = engine.error {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange).textSelection(.enabled)
@@ -83,85 +199,11 @@ struct QQView: View {
                 }
             }
             if editor.section == "连接与运行" {
-            GroupBox {
-                VStack(alignment: .leading, spacing: 12) {
-                    if editor.connectionDraft.hasChanges || !editor.token.isEmpty || !editor.temporaryKey.isEmpty {
-                        if editor.connectionDraft.conflicts(with: QQConnectionForm(engine.config)) { Text("连接配置已在别处更新，请先载入最新设置").foregroundStyle(.orange) }
-                        Button("放弃连接草稿，载入最新设置") { editor.connectionDraft.reset(QQConnectionForm(engine.config)); editor.token = ""; editor.temporaryKey = "" }
-                    }
-                    LabeledContent("OneBot 地址") {
-                        TextField("ws://127.0.0.1:3001", text: $editor.connectionDraft.value.endpoint)
-                    }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
-                    LabeledContent("机器人 QQ 号") {
-                        TextField("预期登录 QQ 号", text: $editor.connectionDraft.value.expectedSelfID)
-                    }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
-                    LabeledContent("OneBot 令牌") {
-                        SecureField("留空保留已保存值", text: $editor.token)
-                    }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
-                    HStack {
-                        Button("保存连接设置") {
-                            guard !editor.connectionDraft.conflicts(with: QQConnectionForm(engine.config)) else { engine.error = "连接配置已更新，请先载入最新设置"; return }
-                            let saved = engine.save(token: editor.token, endpoint: editor.connectionDraft.value.endpoint, expectedSelfID: editor.connectionDraft.value.expectedSelfID)
-                            if saved { editor.connectionDraft.reset(QQConnectionForm(engine.config)) }
-                            if engine.error == nil { editor.token = "" }
-                        }
-                        Button("连接并核对账号") { Task { await engine.connect() } }.disabled(editor.connectionDraft.hasChanges || !editor.token.isEmpty)
-                        if (engine.busy || engine.runtimeBusy) { ProgressView().controlSize(.small) }
-                    }.disabled(engine.connected || (engine.busy || engine.runtimeBusy))
-                    DisclosureGroup("临时凭证（本次运行）") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            SecureField("仅本次运行的 DeepSeek Key", text: $editor.temporaryKey)
-                                .disabled(engine.connected || engine.busy || engine.runtimeBusy)
-                            Button("使用临时凭证连接") {
-                                guard !editor.connectionDraft.conflicts(with: QQConnectionForm(engine.config)) else { engine.error = "连接配置已更新，请先载入最新设置"; return }
-                                engine.save(endpoint: editor.connectionDraft.value.endpoint, expectedSelfID: editor.connectionDraft.value.expectedSelfID)
-                                guard engine.error == nil else { return }
-                                editor.connectionDraft.reset(QQConnectionForm(engine.config))
-                                guard engine.useTemporaryCredentials(token: editor.token, key: editor.temporaryKey) else { return }
-                                editor.token = ""; editor.temporaryKey = ""
-                                Task { await engine.connect() }
-                            }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
-                        }
-                    }
-                    if engine.usesTemporaryCredentials {
-                        HStack {
-                            Label("当前使用临时凭证，未保存到钥匙串", systemImage: "clock")
-                            Button("清除临时凭证并断开") { engine.clearTemporaryCredentials() }
-                        }.font(.caption)
-                    }
-                    Picker("下次启动的运行时长", selection: $editor.durationMinutes) {
-                        Text("15 分钟").tag(15)
-                        Text("30 分钟").tag(30)
-                        Text("2 小时").tag(120)
-                        Text("3 天（72 小时）").tag(4320)
-                        Text("持续运行，手动暂停").tag(0)
-                    }.disabled(engine.running || engine.busy || engine.runtimeBusy)
-                    HStack {
-                        Button("开始回复") { engine.start(duration: editor.durationMinutes == 0 ? nil : Double(editor.durationMinutes * 60)) }
-                            .disabled(!engine.connected || engine.running || engine.busy || engine.runtimeBusy).buttonStyle(.borderedProminent)
-                        Button("试运行一次") { engine.start(singleReply: true, duration: 15 * 60) }
-                            .help("最多回复 1 条，15 分钟后自动暂停")
-                            .disabled(!engine.connected || engine.running || engine.busy || engine.runtimeBusy)
-                        Button("断开 QQ") { engine.disconnect() }.disabled(!engine.connected && !(engine.busy || engine.runtimeBusy))
-                    }
-                    HStack {
-                        Button("启动 QQ 环境") { Task { await engine.setRuntime(start: true) } }.disabled(engine.connected || (engine.busy || engine.runtimeBusy))
-                        Button("停止 QQ 环境") { Task { await engine.setRuntime(start: false) } }.disabled((engine.busy || engine.runtimeBusy))
-                        Link("QQ 登录页", destination: URL(string: "http://127.0.0.1:6099/webui")!)
-                        Button("打开原版 QQ") { NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/QQ.app")) }
-                        Link("社区接入说明", destination: URL(string: "https://github.com/NapNeko/NapCat-Docker")!)
-                    }
-                    HStack {
-                        SecureField("NapCat 管理令牌（已保存可留空）", text: $editor.webToken)
-                        Button("获取／刷新登录码") {
-                            Task { await engine.refreshLoginCode(token: editor.webToken); if engine.error == nil { editor.webToken = "" } }
-                        }
-                    }.disabled(engine.connected || engine.busy || engine.runtimeBusy)
-                    if let code = engine.loginCode {
-                        Image(nsImage: code).interpolation(.none).resizable().frame(width: 280, height: 280)
-                    }
-                }.padding(8)
-            } label: { HStack { Text("QQ 连接 · NapCat / OneBot 11"); HelpHint("QQ 在独立环境运行。保存后连接并核对账号，再手动开始回复。凭证保存到钥匙串；临时凭证退出失效。断线或账号不一致会暂停，停止环境会先暂停回复。") } }
+                HStack(alignment: .top, spacing: 20) {
+                    connectionCard.frame(maxWidth: .infinity)
+                    runCard.frame(width: 270)
+                }
+                runtimeCard
             }
             if editor.section == "范围与回复" {
             GroupBox {
@@ -348,7 +390,7 @@ struct QQView: View {
                     }
                     if engine.rejectedScopedEvents > 0 { Text("规则跳过 \(engine.rejectedScopedEvents) 条").font(.callout) }
                     Button("保存范围与回复") { saveReplyDraft() }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(PanelButtonStyle(kind: .primary))
                     QQPanelOperationError(message: engine.error)
                 }.padding(8).disabled(engine.running || engine.busy || engine.runtimeBusy)
             } label: { HStack { Text("QQ AI 与限额"); HelpHint("每条通常包含生成与语义校对两次模型调用。性格按会话独立覆盖；配图结合语境，同会话 24 小时不重复，无合适图不硬配。主动接话按群独立计数，包含主人手动发言，@ 不重置计数。修改额度不重置今日用量，保存不会自动启动。") } }
@@ -392,7 +434,8 @@ struct QQView: View {
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
             } label: { HStack { Text("近期运行结果"); HelpHint("最近 30 条，新记录在前。发送确认不代表对方已读，规则跳过不等于故障。记录不包含所有入站消息，也不代表回复质量。") } }
             }
-        }.textFieldStyle(.roundedBorder).groupBoxStyle(PanelGroupBoxStyle())
+        }.textFieldStyle(PanelTextFieldStyle()).groupBoxStyle(PanelGroupBoxStyle())
+            .buttonStyle(PanelButtonStyle()).controlSize(.large).labeledContentStyle(PanelLabeledContentStyle())
         .onAppear { editor.refresh(engine.config) }
         .onChange(of: engine.config) { _, current in editor.refresh(current) }
         .sheet(isPresented: $showingCustomPersona) {
@@ -418,18 +461,5 @@ struct QQPanelOperationError: View {
                 .frame(maxWidth: .infinity, alignment: .leading).padding(10)
                 .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
         }
-    }
-}
-
-struct PanelGroupBoxStyle: GroupBoxStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            configuration.label.font(.system(size: 14, weight: .semibold))
-            Divider().overlay(Color.gray.opacity(0.08))
-            configuration.content
-        }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gray.opacity(0.12), lineWidth: 1))
     }
 }

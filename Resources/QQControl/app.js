@@ -64,6 +64,7 @@ const formNames = {connection:'连接配置',reply:'范围与回复',artwork:'�
 const actionForms = {saveConnection:'connection',connect:'connection',save:'reply',start:'reply',saveArtwork:'artwork',saveImageGeneration:'image',saveVisualTools:'visual'};
 let customPersonaBase='';
 let stickerSignature='', stickerRenderSequence=0, importingStickers=false;
+let stickerOffset=0, stickerLoading=false;
 const credentialFields = {connection:['token','key'],image:['imageGenZhipuKey','imageGenCloudflareToken'],visual:['googleVisionKey']};
 function renderDraftControls() {
   const replyDirty=dirtyForms.has('reply'), page=document.body.dataset.page;
@@ -357,7 +358,7 @@ function render() {
     if(state.runDeadline && state.runDeadline*1000-Date.now()>24*60*60*1000) $('duration').value='4320';
     initial=false;
   }
-  const catalogSignature=JSON.stringify(state.stickers);
+  const catalogSignature=JSON.stringify(state.stickers.map(item=>[item.id,item.title,item.source,item.context,item.emotion,item.author,item.license,item.local,item.publicSharing]));
   if(catalogSignature!==stickerSignature) {stickerSignature=catalogSignature;text('stickerCount',state.stickers.length);if($('stickerGallery').open)renderStickers(state.stickers);}
   for(const id of ['stickerTrigger','stickerEmotions','stickerKeywords','stickerRepeatHours','stickerFiles','importEmotion','importContext','importAuthor','importLicense','importSource','importPublic','importStickers']) $(id).disabled=state.running||state.busy||pending||importingStickers;
   syncForms();
@@ -476,25 +477,34 @@ selectPanelPage(sessionStorage.getItem('panel-page')||'connection');
 request().catch(()=>{});
 setInterval(()=>{renderFreshness();if(!pending && !statusRequestPending)request().catch(()=>{});},3000);
 
-async function renderStickers(items) {
-  const sequence=++stickerRenderSequence;
-  $('stickers').replaceChildren();
-  for(const item of items) {
-    if(sequence!==stickerRenderSequence)return;
-    const card=document.createElement('div'), image=document.createElement('img'), link=document.createElement('a');
-    image.width=120;image.height=120;image.style.objectFit='contain';image.alt=item.title;
-    link.textContent=item.title+(item.source?' · 来源':' · 本机');if(item.source)link.href=item.source;link.target='_blank';link.rel='noreferrer';link.style.display='block';
-    const caption=document.createElement('small');caption.textContent=[item.context,item.author,item.license,item.local?(item.publicSharing?'待手动发布':'仅本机'):null].filter(Boolean).join(' · ');caption.style.display='block';
-    card.style.width='160px';card.append(image,link,caption);$('stickers').append(card);
-    try {
-      const r=await fetch('/api/sticker/'+encodeURIComponent(item.id),{headers:{'X-QQ-Control':controlToken}});
-      if(!r.ok)throw new Error('图片不可用');
-      const blob=await r.blob();if(sequence!==stickerRenderSequence)return;
-      const url=URL.createObjectURL(blob);image.onload=image.onerror=()=>URL.revokeObjectURL(url);image.src=url;
-    } catch {image.alt=item.title+'（不可用）';}
+async function renderStickers(items,reset=true) {
+  if(!reset&&stickerLoading)return;
+  const sequence=reset?++stickerRenderSequence:stickerRenderSequence;
+  if(reset){stickerOffset=0;$('stickers').replaceChildren();}
+  const end=Math.min(stickerOffset+12,items.length);
+  stickerLoading=true;$('loadMoreStickers').disabled=true;
+  try {
+    for(const item of items.slice(stickerOffset,end)) {
+      if(sequence!==stickerRenderSequence)return;
+      const card=document.createElement('div'), image=document.createElement('img'), link=document.createElement('a');
+      image.width=120;image.height=120;image.style.objectFit='contain';image.alt=item.title;
+      link.textContent=item.title+(item.source?' · 来源':' · 本机');if(item.source)link.href=item.source;link.target='_blank';link.rel='noreferrer';link.style.display='block';
+      const caption=document.createElement('small');caption.textContent=[item.context,item.author,item.license,item.local?(item.publicSharing?'待手动发布':'仅本机'):null].filter(Boolean).join(' · ');caption.style.display='block';
+      card.style.width='160px';card.append(image,link,caption);$('stickers').append(card);
+      try {
+        const r=await fetch('/api/sticker/'+encodeURIComponent(item.id),{headers:{'X-QQ-Control':controlToken}});
+        if(!r.ok)throw new Error('图片不可用');
+        const blob=await r.blob();if(sequence!==stickerRenderSequence)return;
+        const url=URL.createObjectURL(blob);image.onload=image.onerror=()=>URL.revokeObjectURL(url);image.src=url;
+      } catch {image.alt=item.title+'（不可用）';}
+    }
+    stickerOffset=end;
+  }finally{
+    if(sequence===stickerRenderSequence){stickerLoading=false;$('loadMoreStickers').disabled=false;$('loadMoreStickers').hidden=stickerOffset>=items.length;}
   }
 }
 $('stickerGallery').addEventListener('toggle',()=>{if($('stickerGallery').open&&state)renderStickers(state.stickers);});
+$('loadMoreStickers').addEventListener('click',()=>{if(state)renderStickers(state.stickers,false);});
 $('importStickers').addEventListener('click',async()=>{
   const files=[...$('stickerFiles').files];
   if(!files.length||files.length>50){text('stickerImportStatus','每次选择 1–50 张图片。');return;}

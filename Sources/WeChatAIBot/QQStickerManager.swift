@@ -58,7 +58,7 @@ struct QQStickerManager: View {
                     }
                 }
             }
-        }.padding(24).frame(width: 720, height: 650).textFieldStyle(.roundedBorder)
+        }.padding(24).frame(width: 720, height: 650).textFieldStyle(PanelTextFieldStyle())
         .fileImporter(isPresented: $importing, allowedContentTypes: [.png, .jpeg, .webP], allowsMultipleSelection: true) { result in
             do {
                 let urls = try result.get()

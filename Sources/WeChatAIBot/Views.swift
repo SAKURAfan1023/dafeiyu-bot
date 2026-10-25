@@ -7,15 +7,24 @@ import BotCore
 private typealias ViewState<Value> = SwiftUI.State<Value>
 
 struct BotApp: App {
-    @StateObject private var engine = BotEngine()
-    @StateObject private var qq = QQEngine()
+    @StateObject private var engine: BotEngine
+    @StateObject private var qq: QQEngine
     @ViewState private var qqWebPanel: QQControlServer?
+    private let preview = CommandLine.arguments.contains("--preview-panel")
+    init() {
+        let preview = CommandLine.arguments.contains("--preview-panel")
+        _engine = StateObject(wrappedValue: BotEngine(preview: preview))
+        _qq = StateObject(wrappedValue: QQEngine(preview: preview, allowAuthenticationUI: !preview))
+    }
     var body: some Scene {
-        WindowGroup("大肥鱼 · 控制台", id: "dashboard", content: {
+        WindowGroup(preview ? "大肥鱼 · 面板预览" : "大肥鱼 · 控制台", id: "dashboard", content: {
             Dashboard(engine: engine, qq: qq, openQQWebPanel: { openQQWebPanel() },
                       closeQQWebPanel: { closeQQWebPanel() }, webPanelOpen: qqWebPanel != nil)
                 .frame(minWidth: 980, minHeight: 700)
-                .onAppear { if let image = PanelLogo.image { NSApp.applicationIconImage = image } }
+                .onAppear {
+                    if let image = PanelLogo.image { NSApp.applicationIconImage = image }
+                    if preview { NSApp.activate(ignoringOtherApps: true) }
+                }
         })
             .defaultSize(width: 1120, height: 780)
             .commands { PanelNavigationCommands() }
@@ -108,7 +117,7 @@ struct Dashboard: View {
     private let openQQWebPanel: (() -> Void)?
     private let closeQQWebPanel: (() -> Void)?
     private let webPanelOpen: Bool
-    private let accent = Color(red: 0.27, green: 0.38, blue: 0.91)
+    private let accent = PanelTheme.accent
     private let ink = Color(red: 0.125, green: 0.145, blue: 0.12)
     private let mint = Color(red: 0.82, green: 0.95, blue: 0.60)
     init(engine: BotEngine, qq: QQEngine? = nil, initialPage: Page = .qq,
@@ -157,17 +166,25 @@ struct Dashboard: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(page.rawValue).font(.system(size: 35, weight: .bold, design: .rounded))
+                        Text(page.rawValue).font(.system(size: 30, weight: .semibold)).tracking(-0.6)
                     }
                     Spacer()
                     if engine.isBusy { ProgressView().controlSize(.small) }
+                    if page.qqSection != nil, let openQQWebPanel {
+                        Menu {
+                            Button("打开 QQ 网页版", action: openQQWebPanel)
+                            if webPanelOpen, let closeQQWebPanel { Button("关闭网页控制入口", action: closeQQWebPanel) }
+                        } label: { Label("网页版", systemImage: "arrow.up.right.square") }
+                            .menuStyle(.borderlessButton).fixedSize()
+                            .help("网页与客户端共用 QQ 引擎；关闭网页入口不会暂停回复。")
+                    }
                     Button { engine.stop(); qq.pause() } label: {
-                        Label("暂停微信与 QQ", systemImage: "pause.fill").padding(.vertical, 5)
-                    }.buttonStyle(.borderedProminent).tint(engine.isRunning ? .orange : accent)
+                        Label("暂停全部", systemImage: "pause.fill")
+                    }.buttonStyle(PanelButtonStyle()).help("暂停微信与 QQ 自动回复")
 
                     if page.qqSection == nil { Button("开始微信托管") { engine.start() }.disabled(engine.isRunning || engine.isBusy || engine.safetyReason != nil) }
-                }.padding(28)
-                Divider()
+                }.padding(.horizontal, 32).padding(.vertical, 24)
+                Rectangle().fill(PanelTheme.line).frame(height: 1)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         if page.qqSection == nil, let reason = engine.safetyReason {
@@ -190,20 +207,14 @@ struct Dashboard: View {
                         case .rules: rules
                         case .logs: logs
                         case .qq, .qqReply, .qqTools, .qqMemory:
-                            if let openQQWebPanel {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack {
-                                        Button("在浏览器打开 QQ 面板", action: openQQWebPanel)
-                                        if webPanelOpen, let closeQQWebPanel { Button("关闭网页控制入口", action: closeQQWebPanel) }
-                                        HelpHint("网页与本窗口共用同一 QQ 引擎。关闭网页入口不会暂停回复；需要停止时请使用暂停按钮。")
-                                    }
-                                }
-                            }
                             QQView(engine: qq, wechat: engine, editor: $qqEditor)
                         }
-                    }.padding(28)
+                    }.padding(32)
                 }
-            }.background(Color(red: 0.965, green: 0.965, blue: 0.94)).environment(\.colorScheme, .light)
+            }.background(PanelTheme.canvas).foregroundStyle(PanelTheme.ink)
+                .buttonStyle(PanelButtonStyle()).textFieldStyle(PanelTextFieldStyle())
+                .labeledContentStyle(PanelLabeledContentStyle()).controlSize(.large)
+                .environment(\.colorScheme, .light)
         }.tint(accent)
             .onChange(of: page) { _, current in
                 if let section = current.qqSection { qqEditor.section = section }
@@ -291,7 +302,7 @@ struct Dashboard: View {
                     TextField("专属角色提示词（留空沿用全局）", text: $rule.prompt, axis: .vertical).lineLimit(2...5).disabled(engine.isRunning)
                 }
             }
-            HStack { Button("保存配置") { engine.save() }.buttonStyle(.borderedProminent); HelpHint("修改配置会暂停托管，重新开始后生效。未经验证的导入会话不会启用。") }
+            HStack { Button("保存配置") { engine.save() }.buttonStyle(PanelButtonStyle(kind: .primary)); HelpHint("修改配置会暂停托管，重新开始后生效。未经验证的导入会话不会启用。") }
         }
     }
     private var ai: some View {
@@ -308,7 +319,7 @@ struct Dashboard: View {
                 TextEditor(text: $engine.config.prompt).font(.body).frame(height: 150).scrollContentBackground(.hidden)
                 Stepper("最大输出：\(engine.config.maxTokens) tokens", value: $engine.config.maxTokens, in: 100...2000, step: 100)
             }
-            HStack { Button("保存配置") { engine.save() }.buttonStyle(.borderedProminent); Button("清空会话上下文") { engine.clearContext() } }
+            HStack { Button("保存配置") { engine.save() }.buttonStyle(PanelButtonStyle(kind: .primary)); Button("清空会话上下文") { engine.clearContext() } }
         }
     }
     private var rules: some View {
@@ -337,7 +348,7 @@ struct Dashboard: View {
                     Button("导入配置") { importing = true }.disabled(engine.isRunning)
                 }
             }
-            Button("保存配置") { engine.save() }.buttonStyle(.borderedProminent)
+            Button("保存配置") { engine.save() }.buttonStyle(PanelButtonStyle(kind: .primary))
         }
     }
     private var logs: some View {
@@ -360,11 +371,11 @@ struct Dashboard: View {
     }
     private func stat(_ label: String, _ value: String, _ detail: String, _ icon: String) -> some View {
         VStack(alignment: .leading, spacing: 12) { Label(label, systemImage: icon).foregroundStyle(.secondary); Text(value).font(.system(size: 32, weight: .semibold, design: .rounded)); Text(detail).font(.caption).foregroundStyle(.secondary) }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(20).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+            .frame(maxWidth: .infinity, alignment: .leading).padding(20).background(.white, in: RoundedRectangle(cornerRadius: 18))
     }
     private func card<Content: View>(_ title: String, icon: String, help: String? = nil, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 16) { HStack { Label(title, systemImage: icon).font(.headline); if let help { HelpHint(help) } }; content() }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(20).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+            .frame(maxWidth: .infinity, alignment: .leading).padding(20).background(.white, in: RoundedRectangle(cornerRadius: 18))
     }
 }
 
@@ -409,9 +420,9 @@ struct QQCustomPersonaEditor: View {
                         value.customPrompt = value.customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
                         try value.validate(); try apply(value); dismiss()
                     } catch { self.error = error.localizedDescription }
-                }.buttonStyle(.borderedProminent)
+                }.buttonStyle(PanelButtonStyle(kind: .primary))
             }
-        }.padding(26).frame(width: 620).textFieldStyle(.roundedBorder)
+        }.padding(26).frame(width: 620).textFieldStyle(PanelTextFieldStyle())
             .background(Color(red: 0.965, green: 0.965, blue: 0.94))
     }
 }

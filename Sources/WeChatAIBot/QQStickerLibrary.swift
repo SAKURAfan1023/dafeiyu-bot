@@ -22,6 +22,7 @@ struct QQStickerLibrary {
         var author: String? = nil
         var license: String? = nil
         var publicSharing: Bool? = nil
+        var character: String? = nil
     }
     let directory: URL?
     let localDirectory: URL?

@@ -26,7 +26,7 @@
 <label for="importSource">公开来源网页</label><input id="importSource" type="url" placeholder="https://">
 <label><input id="importPublic" type="checkbox">已确认可公开分享</label></div></div>
 <button id="importStickers" type="button">导入所选图片</button><p id="stickerImportStatus" role="status"></p></details>
-<details id="stickerGallery"><summary>查看表情库与来源（<span id="stickerCount">—</span> 张）</summary><div id="stickers" style="display:flex;flex-wrap:wrap;gap:16px"></div></details></section>
+<details id="stickerGallery"><summary>查看表情库与来源（<span id="stickerCount">—</span> 张）</summary><div id="stickers" style="display:flex;flex-wrap:wrap;gap:16px"></div><button id="loadMoreStickers" type="button" hidden>加载更多</button></details></section>
 <section data-pages="reply" hidden id="groupPanel" class="card span"><h2>群聊主动接话<span class="help-wrap"><button type="button" class="help-button" aria-label="群聊主动接话说明" aria-describedby="help-groupPanel" aria-expanded="false">?</button><span class="help-tip" id="help-groupPanel" role="tooltip">每群独立计数，包含主人手动发言，自动回复、重复、历史和系统消息不计入。真实 @ 独立回复，不重置计数。达到条数只评估，适合时才接话；暂停清空进度。</span></span></h2>
 
 <label><input id="groupParticipationEnabled" type="checkbox"> 启用主动接话</label>
