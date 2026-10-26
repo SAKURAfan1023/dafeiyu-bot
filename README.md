@@ -8,13 +8,36 @@
 
 QQ 可用 · 微信测试中 · macOS 原生 / Windows WSL2 本机 Web 面板 · 持续更新、完善与迭代中
 
-[Mac 快速开始](docs/QUICKSTART.md) · [Windows 安装](docs/WINDOWS.md) · [真实案例](docs/CASES.md) · [操作指南](docs/USER_GUIDE.md) · [全部命令](docs/COMMANDS.md) · [架构与开发](docs/ARCHITECTURE.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
+[Mac 快速开始](docs/QUICKSTART.md) · [Windows 安装](docs/WINDOWS.md) · [界面预览](#界面预览) · [在线表情库](https://photos.lifanhu.me/) · [真实案例](docs/CASES.md) · [操作指南](docs/USER_GUIDE.md) · [全部命令](docs/COMMANDS.md) · [架构与开发](docs/ARCHITECTURE.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
 
 </div>
 
 大肥鱼是一个独立、非官方的成年蓝色鲸鱼娘 AI 角色。以 **DeepSeek** 为对话核心，通过 **NapCat + OneBot 11** 接入 QQ，支持独立会话记忆、十种内置性格与自定义 prompt、短句聊天、表情包、引用理解、图片/GIF 观察、联网检索、主备生图，以及 Pixiv 搜图与定时分享。
 
 > **项目状态：持续更新、完善与迭代中。** QQ 私聊与群真实 @ 回复已有真人接收确认，可用于个人测试和部署；不代表所有新功能、所有账号或连续运行时长均已验收。微信适配仍在测试，尚未完成可靠自动回复验收，请勿按成熟功能使用。macOS 提供原生界面，Windows 提供 WSL2 + 本机 Web 面板部署方式（Linux 自动化验证通过，Windows 实机待验收，见验证记录）；QQ 桥接可在独立 Linux 环境运行。当前没有 Windows 原生 exe 安装包。
+
+## 近期更新 · 2026 年 10 月
+
+- **两端面板重构**：QQ / 微信分区导航，卡片式布局与统一数字控件；说明收进问号，首次使用可按面板内五步教程操作。
+- **角色自己定义**：十种内置性格之外，可以填写角色名和 prompt，套用闲聊、陪伴或吐槽模板，同时调整字数与配图。先应用到草稿，再保存生效。
+- **表情自己挑**：[Photos](https://photos.lifanhu.me/) 已上线 125 张 DeepSeek 娘表情，包括文字梗、搞怪与可爱图集；按台词、情绪筛选，勾选后导出资源包，再导入本机。
+- **按需加载与配图**：网页首批 16 张、本机 Web 表情库首批 12 张；按语境、指定情绪或关键词设置配图。网页图库与客户端默认 37 张表情相互独立，不自动安装整站资源。
+
+## 界面预览
+
+### macOS 客户端
+
+左侧切换 QQ 与微信分区；在同一面板管理连接、运行时长、回复范围、图片工具与记忆。下图是 SwiftUI 实际渲染的演示界面，未连接 QQ。
+
+![macOS 客户端：QQ 连接与运行，左侧独立划分 QQ 和微信](docs/assets/panel-sidebar-native.png)
+
+### Web 面板
+
+用浏览器管理 QQ，共享同一套引擎与配置规则；提供 Windows WSL2 的操作入口。下图取自 macOS 上的隔离本机面板，不是 Windows 实机验收截图。
+
+![Web 面板：连接状态、调用计数、连接设置与运行控制](docs/assets/panel-web-connection.jpg)
+
+[查看性格编辑、Photos 与截图说明 →](docs/SCREENSHOTS.md) · [按步骤配置面板 →](docs/USER_GUIDE.md)
 
 ## 能做什么
 
