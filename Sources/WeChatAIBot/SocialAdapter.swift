@@ -45,6 +45,11 @@ struct SocialWriteResult: Codable { var state: String; var externalID: String?; 
         process.environment = ["PATH": "/usr/bin:/bin", "HOME": home.path,
             "DAFEIYU_XHS_TOKEN": token, "DAFEIYU_XHS_PROFILE": directory.appendingPathComponent("browser-profile").path,
             "DAFEIYU_XHS_DEPENDENCIES": dependencies.path]
+        #if os(Linux)
+        for name in ["DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "XAUTHORITY"] {
+            if let value = ProcessInfo.processInfo.environment[name] { process.environment?[name] = value }
+        }
+        #endif
         process.standardOutput = stdout; process.standardError = FileHandle.nullDevice; process.standardInput = stdin
         try process.run(); child = process; input = stdin
         try? stdout.fileHandleForWriting.close()
