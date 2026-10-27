@@ -1,6 +1,7 @@
-#if os(Linux)
 import Foundation
+#if canImport(FoundationNetworking)
 import FoundationNetworking
+#endif
 
 // FoundationNetworking lacks AsyncBytes in the supported toolchain. The delegate
 // enforces the same limit while receiving, not after allocating an unbounded body.
@@ -57,4 +58,3 @@ extension URLSession {
         } onCancel: { download.cancel() }
     }
 }
-#endif

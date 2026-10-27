@@ -9,21 +9,26 @@ private typealias ViewState<Value> = SwiftUI.State<Value>
 struct BotApp: App {
     @StateObject private var engine: BotEngine
     @StateObject private var qq: QQEngine
+    @StateObject private var social: SocialEngine
     @ViewState private var qqWebPanel: QQControlServer?
     private let preview = CommandLine.arguments.contains("--preview-panel")
     init() {
         let preview = CommandLine.arguments.contains("--preview-panel")
         _engine = StateObject(wrappedValue: BotEngine(preview: preview))
         _qq = StateObject(wrappedValue: QQEngine(preview: preview, allowAuthenticationUI: !preview))
+        _social = StateObject(wrappedValue: SocialEngine(directory: preview ? FileManager.default.temporaryDirectory.appendingPathComponent("dafeiyu-social-preview-" + UUID().uuidString) : nil))
     }
     var body: some Scene {
         WindowGroup(preview ? "大肥鱼 · 面板预览" : "大肥鱼 · 控制台", id: "dashboard", content: {
-            Dashboard(engine: engine, qq: qq, openQQWebPanel: { openQQWebPanel() },
+            Dashboard(engine: engine, qq: qq, social: social, initialPage: CommandLine.arguments.contains("--xiaohongshu-view") ? .xhsConnect : .qq, openQQWebPanel: { openQQWebPanel() },
                       closeQQWebPanel: { closeQQWebPanel() }, webPanelOpen: qqWebPanel != nil)
                 .frame(minWidth: 980, minHeight: 700)
                 .onAppear {
                     if let image = PanelLogo.image { NSApp.applicationIconImage = image }
                     if preview { NSApp.activate(ignoringOtherApps: true) }
+                    if CommandLine.arguments.contains("--xiaohongshu-view"), let panel = try? social.panel() {
+                        print("XHS_CONTROL_URL=\(panel.controlURL.absoluteString)")
+                    }
                 }
         })
             .defaultSize(width: 1120, height: 780)
@@ -37,8 +42,9 @@ struct BotApp: App {
             ShowDashboardButton()
             Button("在浏览器打开 QQ 面板") { openQQWebPanel() }
             if qqWebPanel != nil { Button("关闭网页控制入口（不暂停 QQ）") { closeQQWebPanel() } }
-            Button("暂停微信与 QQ") { engine.stop(); qq.pause() }
-            Button("退出") { engine.stop(); qq.disconnect(); NSApp.terminate(nil) }
+            Text("小红书：\(social.status)")
+            Button("暂停全部") { engine.stop(); qq.pause(); social.pause() }
+            Button("退出") { engine.stop(); qq.disconnect(); social.shutdown(); NSApp.terminate(nil) }
         }
     }
     @MainActor private func openQQWebPanel() {
@@ -71,15 +77,19 @@ private struct ShowDashboardButton: View {
 enum Page: String, CaseIterable, Identifiable {
     case overview = "总览", chats = "托管会话", ai = "AI 配置", rules = "回复规则", logs = "运行记录"
     case qq = "连接与运行", qqReply = "范围与回复", qqTools = "图片与工具", qqMemory = "记忆与记录"
+    case xhsConnect = "账号与连接", xhsBrowse = "浏览与回复", xhsRecords = "草稿与记录"
     var id: String { rawValue }
     var qqSection: String? {
         switch self { case .qq, .qqReply, .qqTools, .qqMemory: return rawValue; default: return nil }
     }
+    var xhsSection: String? {
+        switch self { case .xhsConnect: return "connect"; case .xhsBrowse: return "browse"; case .xhsRecords: return "records"; default: return nil }
+    }
     var icon: String {
-        switch self { case .overview: return "square.grid.2x2"; case .chats: return "bubble.left.and.bubble.right"; case .ai: return "sparkles"; case .rules: return "slider.horizontal.3"; case .logs: return "list.bullet.rectangle"; case .qq: return "link"; case .qqReply: return "slider.horizontal.3"; case .qqTools: return "photo.on.rectangle"; case .qqMemory: return "clock.arrow.circlepath" }
+        switch self { case .overview: return "square.grid.2x2"; case .chats: return "bubble.left.and.bubble.right"; case .ai: return "sparkles"; case .rules: return "slider.horizontal.3"; case .logs: return "list.bullet.rectangle"; case .qq: return "link"; case .qqReply: return "slider.horizontal.3"; case .qqTools: return "photo.on.rectangle"; case .qqMemory: return "clock.arrow.circlepath"; case .xhsConnect: return "person.crop.circle.badge.checkmark"; case .xhsBrowse: return "safari"; case .xhsRecords: return "square.and.pencil" }
     }
     var shortcut: KeyEquivalent {
-        switch self { case .overview: return "1"; case .chats: return "2"; case .ai: return "3"; case .rules: return "4"; case .logs: return "5"; case .qq: return "6"; case .qqReply: return "7"; case .qqTools: return "8"; case .qqMemory: return "9" }
+        switch self { case .overview: return "1"; case .chats: return "2"; case .ai: return "3"; case .rules: return "4"; case .logs: return "5"; case .qq: return "6"; case .qqReply: return "7"; case .qqTools: return "8"; case .qqMemory: return "9"; case .xhsConnect: return "0"; case .xhsBrowse: return "b"; case .xhsRecords: return "d" }
     }
 }
 private struct PanelPageKey: FocusedValueKey { typealias Value = Binding<Page> }
@@ -104,10 +114,12 @@ private struct PanelNavigationCommands: Commands {
 struct Dashboard: View {
     @ObservedObject var engine: BotEngine
     @ObservedObject var qq: QQEngine
+    @ObservedObject var social: SocialEngine
     @ViewState private var page: Page = .qq
     @ViewState private var qqEditor = QQPanelState()
     @ViewState private var qqExpanded = true
     @ViewState private var wechatExpanded = true
+    @ViewState private var xhsExpanded = true
     @ViewState private var key = ""
     @ViewState private var name = ""
     @ViewState private var kind: ChatKind = .direct
@@ -120,9 +132,10 @@ struct Dashboard: View {
     private let accent = PanelTheme.accent
     private let ink = Color(red: 0.125, green: 0.145, blue: 0.12)
     private let mint = Color(red: 0.82, green: 0.95, blue: 0.60)
-    init(engine: BotEngine, qq: QQEngine? = nil, initialPage: Page = .qq,
+    init(engine: BotEngine, qq: QQEngine? = nil, social: SocialEngine? = nil, initialPage: Page = .qq,
          openQQWebPanel: (() -> Void)? = nil, closeQQWebPanel: (() -> Void)? = nil, webPanelOpen: Bool = false) {
         self.engine = engine; self.qq = qq ?? QQEngine(preview: true)
+        self.social = social ?? SocialEngine(directory: FileManager.default.temporaryDirectory.appendingPathComponent("dafeiyu-social-preview-" + UUID().uuidString))
         self.openQQWebPanel = openQQWebPanel; self.closeQQWebPanel = closeQQWebPanel
         self.webPanelOpen = webPanelOpen
         _page = ViewState(initialValue: initialPage)
@@ -146,9 +159,12 @@ struct Dashboard: View {
                         }
                     }
                     DisclosureGroup("微信 · 测试中", isExpanded: $wechatExpanded) {
-                        ForEach(Page.allCases.filter { $0.qqSection == nil }) { item in
+                        ForEach(Page.allCases.filter { $0.qqSection == nil && $0.xhsSection == nil }) { item in
                             navigationRow(item)
                         }
+                    }
+                    DisclosureGroup("小红书", isExpanded: $xhsExpanded) {
+                        ForEach(Page.allCases.filter { $0.xhsSection != nil }) { item in navigationRow(item) }
                     }
                 }.font(.caption).foregroundStyle(.white.opacity(0.72)).tint(.white.opacity(0.65))
                     .padding(.horizontal, 16).padding(.vertical, 10)
@@ -161,6 +177,8 @@ struct Dashboard: View {
                         .foregroundStyle(engine.isRunning ? mint : .white.opacity(0.65))
                     Label(qq.running ? "QQ 托管中" : "QQ 已暂停", systemImage: qq.running ? "circle.fill" : "pause.circle")
                         .foregroundStyle(qq.running ? mint : .white.opacity(0.65))
+                    Label(social.running ? "小红书浏览中" : "小红书已暂停", systemImage: social.running ? "circle.fill" : "pause.circle")
+                        .foregroundStyle(social.running ? mint : .white.opacity(0.65))
                 }.font(.caption2).padding(22)
             }.background(ink).navigationSplitViewColumnWidth(240)
         } detail: {
@@ -179,14 +197,15 @@ struct Dashboard: View {
                             .menuStyle(.borderlessButton).fixedSize()
                             .help("网页与客户端共用 QQ 引擎；关闭网页入口不会暂停回复。")
                     }
-                    Button { engine.stop(); qq.pause() } label: {
+                    Button { engine.stop(); qq.pause(); social.pause() } label: {
                         Label("暂停全部", systemImage: "pause.fill")
-                    }.buttonStyle(PanelButtonStyle()).help("暂停微信与 QQ 自动回复")
+                    }.buttonStyle(PanelButtonStyle()).help("暂停微信、QQ 与小红书任务")
 
-                    if page.qqSection == nil { Button("开始微信托管") { engine.start() }.disabled(engine.isRunning || engine.isBusy || engine.safetyReason != nil) }
+                    if page.qqSection == nil && page.xhsSection == nil { Button("开始微信托管") { engine.start() }.disabled(engine.isRunning || engine.isBusy || engine.safetyReason != nil) }
                 }.padding(.horizontal, 32).padding(.vertical, 24)
                 Rectangle().fill(PanelTheme.line).frame(height: 1)
-                ScrollView {
+                if let section = page.xhsSection { SocialView(engine: social, section: section) }
+                else { ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         if page.qqSection == nil, let reason = engine.safetyReason {
                             VStack(alignment: .leading, spacing: 10) {
@@ -209,9 +228,10 @@ struct Dashboard: View {
                         case .logs: logs
                         case .qq, .qqReply, .qqTools, .qqMemory:
                             QQView(engine: qq, wechat: engine, editor: $qqEditor)
+                        case .xhsConnect, .xhsBrowse, .xhsRecords: EmptyView()
                         }
                     }.padding(32)
-                }
+                } }
             }.background(PanelTheme.canvas).foregroundStyle(PanelTheme.ink)
                 .buttonStyle(PanelButtonStyle()).textFieldStyle(PanelTextFieldStyle())
                 .controlSize(.large)

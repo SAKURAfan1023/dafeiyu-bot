@@ -7,6 +7,9 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - name: Privacy and public file check
         run: python3 scripts/check-public.py
       - name: Unit and simulated integration tests

@@ -21,6 +21,7 @@ private func readQQCredentials() -> QQRuntimeCredentials? {
     return credentials
 }
 private var controlServer: QQControlServer?
+private var socialServer: SocialControlServer?
 
 if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.arguments.contains("--qq-sticker-check") || CommandLine.arguments.contains("--qq-personalities-check") {
     let credentials = readQQCredentials()
@@ -76,6 +77,15 @@ if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.argument
             print("合成对话模型实测完成：\(calls) 个模型场景（联网场景可有两轮 API 请求）；未连接 QQ、未发送聊天、未读取或修改运行配置。")
             exit(0)
         } catch { print(error.localizedDescription); exit(1) }
+    }
+    RunLoop.main.run()
+} else if CommandLine.arguments.contains("--xiaohongshu-panel") {
+    Task { @MainActor in
+        do {
+            let engine = SocialEngine()
+            let server = try SocialControlServer(engine: engine)
+            socialServer = server; server.start(announce: true)
+        } catch { print("小红书控制台启动失败"); exit(1) }
     }
     RunLoop.main.run()
 } else if CommandLine.arguments.contains("--qq-control-panel") {

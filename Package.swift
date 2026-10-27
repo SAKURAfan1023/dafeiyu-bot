@@ -9,7 +9,7 @@ let dependencies: [Package.Dependency] = [
 ]
 let crypto: [Target.Dependency] = [.product(name: "Crypto", package: "swift-crypto")]
 let transport: [Target.Dependency] = [.product(name: "WebSocketKit", package: "websocket-kit"), .product(name: "NIOCore", package: "swift-nio"), .product(name: "NIOPosix", package: "swift-nio")]
-let desktopFiles = ["main.swift", "Views.swift", "QQView.swift", "QQArtworkSettingsView.swift", "BotEngine.swift", "WeChatBridge.swift"]
+let desktopFiles = ["main.swift", "Views.swift", "QQView.swift", "QQArtworkSettingsView.swift", "BotEngine.swift", "WeChatBridge.swift", "SocialView.swift"]
 #else
 let dependencies: [Package.Dependency] = []
 let crypto: [Target.Dependency] = []

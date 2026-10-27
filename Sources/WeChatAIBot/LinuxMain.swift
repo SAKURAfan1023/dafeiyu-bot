@@ -8,6 +8,13 @@ import BotCore
         setbuf(stdout, nil)
         umask(0o077)
         do {
+            if CommandLine.arguments.contains("--xiaohongshu-panel") {
+                let engine = SocialEngine()
+                let server = try SocialControlServer(engine: engine); server.start(announce: true)
+                defer { withExtendedLifetime(server) {} }
+                while !Task.isCancelled { try await Task.sleep(nanoseconds: 60_000_000_000) }
+                return
+            }
             if let index = CommandLine.arguments.firstIndex(of: "--qq-check") {
                 guard CommandLine.arguments.indices.contains(index + 2) else {
                     throw AppFailure.message("用法：--qq-check 本机端点 预期账号；令牌由标准输入提供")

@@ -6,6 +6,7 @@ python3 scripts/test-photo-gallery.py
 if command -v node >/dev/null 2>&1; then
   node scripts/test-storage-retention.mjs
   node scripts/test-sticker-pack.mjs
+  node scripts/test-xiaohongshu.mjs
 fi
 PLUGIN=""
 if command -v xcode-select >/dev/null 2>&1; then

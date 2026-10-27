@@ -6,8 +6,8 @@
 <key>CFBundleIdentifier</key><string>org.dafeiyu.bot</string>
 <key>CFBundleExecutable</key><string>WeChatAIBot</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSAccessibilityUsageDescription</key><string>读取你指定的微信聊天并自动输入回复。</string>
