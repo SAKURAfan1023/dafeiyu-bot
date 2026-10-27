@@ -177,7 +177,8 @@ import Glibc
                 guard !running, let post = currentPost else { throw AppFailure.message("请暂停并选择一篇笔记") }
                 try await requireIdentity()
                 if command.action == "forgetMemory" {
-                    stored.memories?.removeAll { $0.accountID == stored.boundUID && $0.postID == post.id }
+                    let accountID = stored.boundUID
+                    stored.memories?.removeAll { $0.accountID == accountID && $0.postID == post.id }
                     status = "已清除此话题摘要与补充背景；发送记录仍保留"
                 } else {
                     guard let note = command.content, note.count <= 1000 else { throw AppFailure.message("补充记忆最多 1000 字") }

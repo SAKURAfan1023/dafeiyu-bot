@@ -51,8 +51,11 @@ import Glibc
                     }
                 }
             }
+            if Date() >= deadline { break }
+            // Recheck TCP after resuming, even if other MainActor fixtures delayed
+            // this task beyond the deadline. A stale successful probe is not current state.
             try await Task.sleep(nanoseconds: 20_000_000)
-        } while Date() < deadline
+        } while true
         Issue.record("Closed control port did not refuse TCP connections within one second")
     }
 

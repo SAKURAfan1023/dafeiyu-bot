@@ -11,9 +11,9 @@ jobs:
       DAFEIYU_BUILD_JOBS: 2
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '20'
+          node-version: '24'
       - name: Resolve the checked-out container workspace
         run: |
           git config --global --add safe.directory "$(pwd -P)"
