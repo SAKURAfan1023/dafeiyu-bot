@@ -5,6 +5,25 @@ import CryptoKit
 import Crypto
 #endif
 
+enum SocialPlatform: String, Codable, CaseIterable {
+    case xiaohongshu, bilibili
+    var name: String { self == .xiaohongshu ? "小红书" : "B站" }
+    var contentName: String { self == .xiaohongshu ? "笔记" : "视频" }
+    var canWrite: Bool { true }
+    var hosts: Set<String> { self == .xiaohongshu ? ["www.xiaohongshu.com"] : ["www.bilibili.com", "search.bilibili.com"] }
+    func postURL(_ id: String) -> URL {
+        let base = self == .xiaohongshu ? "https://www.xiaohongshu.com/explore/" : "https://www.bilibili.com/video/"
+        return URL(string: base + id.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!)!
+    }
+}
+enum SocialAccessFailure: Error, LocalizedError {
+    case restricted
+    var errorDescription: String? { "平台出现警告、验证或访问限制，已暂停自动访问；请在官方客户端核对" }
+}
+/// Shared only by engines in the same local application. Keys never enter platform executors.
+@MainActor final class SocialModelAccess {
+    var temporary: [String: String] = [:]
+}
 enum SocialMode: String, Codable, CaseIterable { case browse, review, auto }
 enum SocialPersonality: String, Codable, CaseIterable {
     case natural, gentle, teasing, tsundere, energetic, calm, catgirl, witty, custom
@@ -37,19 +56,20 @@ enum SocialPersonality: String, Codable, CaseIterable {
 }
 struct SocialSettings: Codable, Equatable {
     var keyword = "独立游戏"
-    var mode: SocialMode = .review
+    var mode: SocialMode = .auto
     var persona = ""
     // Missing optional fields preserve older locally saved settings.
     var personality: SocialPersonality? = .natural
     var memoryEnabled: Bool? = true
     var baseURL = "https://api.deepseek.com"
     var model = "deepseek-flash"
-    var durationMinutes = 30
-    var maxPosts = 10
-    var maxModelCalls = 20
-    var dailyWriteLimit = 10
-    var intervalSeconds = 120
-    var maxCharacters = 100
+    var durationMinutes = 15
+    var maxPosts = 5
+    var maxModelCalls = 5
+    var dailyWriteLimit = 3
+    var intervalSeconds = 300
+    var readIntervalSeconds: Int? = 60
+    var maxCharacters = 80
     var credentialAccount: String {
         baseURL == "https://api.deepseek.com" ? "api-key" : "social-" + socialHash(baseURL)
     }
@@ -58,6 +78,7 @@ struct SocialSettings: Codable, Equatable {
               personality != .custom || !persona.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               (5...120).contains(durationMinutes), (1...20).contains(maxPosts), (1...100).contains(maxModelCalls),
               (0...100).contains(dailyWriteLimit), (30...3600).contains(intervalSeconds), (20...300).contains(maxCharacters),
+              (5...3600).contains(readIntervalSeconds ?? 30),
               !model.isEmpty, model.count <= 100, let url = URL(string: baseURL), url.user == nil, url.password == nil,
               url.query == nil, url.fragment == nil, url.host != nil,
               url.scheme == "https" || (url.scheme == "http" && url.host == "127.0.0.1") else {
@@ -80,7 +101,8 @@ struct SocialComment: Codable, Identifiable, Equatable {
 struct SocialPost: Codable, Identifiable, Equatable {
     var id: String; var title: String; var text: String; var author: String; var authorID: String
     var kind: String; var imageCount: Int; var comments: [SocialComment]; var coverage: String
-    var url: URL { URL(string: "https://www.xiaohongshu.com/explore/" + id)! }
+    var platform: SocialPlatform?
+    var url: URL { (platform ?? .xiaohongshu).postURL(id) }
     func fingerprint(parentID: String?) -> String {
         socialHash(id + "\n" + title + "\n" + text + "\n" + (parentID.flatMap { id in comments.first { $0.id == id } }.map { $0.id + $0.authorID + $0.text } ?? ""))
     }
@@ -107,6 +129,8 @@ struct SocialStored: Codable {
     var modelAttempts = 0
     var modelTokens = 0
     var memories: [SocialThreadMemory]?
+    var warningAt: Date?
+    var nextReadAt: Date?
 }
 func socialHash(_ text: String) -> String { SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined() }
 
@@ -122,4 +146,5 @@ struct SocialCommand: Codable {
     var key: String?
     var persistKey: Bool?
     var acknowledge: Bool?
+    var platform: SocialPlatform?
 }

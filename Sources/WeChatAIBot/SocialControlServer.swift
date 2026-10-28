@@ -1,8 +1,8 @@
 import Foundation
 
-/// A peer control surface; its token, engine, jobs and browser belong only to Xiaohongshu.
+/// One shared surface routes explicit platform requests to separately owned engines.
 @MainActor final class SocialControlServer {
-    private let engine: SocialEngine
+    private let engines: [SocialPlatform: SocialEngine]
     private let listener: LoopbackListener
     private let token = UUID().uuidString + UUID().uuidString
     private var clients: [UUID: LoopbackConnection] = [:]
@@ -11,10 +11,11 @@ import Foundation
     private var running = false
     private var origin: String { "http://127.0.0.1:\(listener.port)" }
     var controlURL: URL { URL(string: origin + "/#" + token)! }
-    init(engine: SocialEngine) throws { self.engine = engine; listener = try LoopbackListener() }
+    init(engines: [SocialPlatform: SocialEngine]) throws { self.engines = engines; listener = try LoopbackListener() }
+    convenience init(engine: SocialEngine) throws { try self.init(engines: [engine.platform: engine]) }
     func start(announce: Bool = false) {
         guard !running else { return }; running = true
-        if announce { print("XHS_CONTROL_URL=\(controlURL.absoluteString)") }
+        if announce { print("SOCIAL_CONTROL_URL=\(controlURL.absoluteString)"); print("XHS_CONTROL_URL=\(controlURL.absoluteString)") }
         listener.start { [weak self] connection in
             Task { @MainActor in
                 guard let self, self.running else { connection.cancel(); return }
@@ -63,32 +64,39 @@ import Foundation
             reply(connection, id: id, code: 200, data: bytes, type: type); return
         }
         guard fields["x-social-control"] == token, fields["origin"] == nil || fields["origin"] == origin else { reply(connection, id: id, code: 403); return }
-        if method == "GET", path == "/api/status" { json(connection, id: id, object: engine.snapshot); return }
-        if method == "GET", path.hasPrefix("/api/job/") {
-            let key = UUID(uuidString: String(path.dropFirst(9)))?.uuidString ?? ""
+        let queries = URLComponents(string: path)?.queryItems?.filter { $0.name == "platform" } ?? []
+        guard queries.count <= 1, let platform = SocialPlatform(rawValue: queries.first?.value ?? "xiaohongshu"), let engine = engines[platform] else { reply(connection, id: id, code: 400); return }
+        if method == "GET", assetPath == "/api/status" {
+            var state = engine.snapshot
+            state["platforms"] = SocialPlatform.allCases.filter { engines[$0] != nil }.map { ["id": $0.rawValue, "name": $0.name, "canWrite": $0.canWrite] as [String: Any] }
+            json(connection, id: id, object: state); return
+        }
+        if method == "GET", assetPath.hasPrefix("/api/job/") {
+            let key = platform.rawValue + "/" + (UUID(uuidString: String(assetPath.dropFirst(9)))?.uuidString ?? "")
             json(connection, id: id, object: jobs[key] ?? ["state":"unknown"]); return
         }
-        guard method == "POST", path == "/api/action", fields["origin"] == origin,
+        guard method == "POST", assetPath == "/api/action", fields["origin"] == origin,
               fields["content-type"]?.hasPrefix("application/json") == true,
-              let command = try? JSONDecoder().decode(SocialCommand.self, from: body) else { reply(connection, id: id, code: 400); return }
-        let key = command.requestID.uuidString
+              let command = try? JSONDecoder().decode(SocialCommand.self, from: body), command.platform == nil || command.platform == platform else { reply(connection, id: id, code: 400); return }
+        let key = platform.rawValue + "/" + command.requestID.uuidString
+        let requestKey = command.requestID.uuidString
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-        let hash = socialHash(String(decoding: (try? encoder.encode(command)) ?? Data(), as: UTF8.self))
-        if let old = jobHashes[key] {
+        let hash = socialHash(platform.rawValue + String(decoding: (try? encoder.encode(command)) ?? Data(), as: UTF8.self))
+        if let old = jobHashes[requestKey] {
             guard old == hash else { reply(connection, id: id, code: 409); return }
         } else {
             if jobs.count >= 200 {
-                for key in jobs.keys.filter({ jobs[$0]?["state"] != "pending" }).prefix(100) { jobs.removeValue(forKey: key); jobHashes.removeValue(forKey: key) }
+                for key in jobs.keys.filter({ jobs[$0]?["state"] != "pending" }).prefix(100) { jobs.removeValue(forKey: key); jobHashes.removeValue(forKey: String(key.split(separator: "/").last ?? "")) }
             }
             guard jobs.count < 200 else { reply(connection, id: id, code: 429); return }
-            jobs[key] = ["state":"pending"]; jobHashes[key] = hash
+            jobs[key] = ["state":"pending"]; jobHashes[requestKey] = hash
             Task { [weak self] in
                 guard let self else { return }
                 do { try await engine.perform(command); jobs[key] = ["state":"complete"] }
                 catch { jobs[key] = ["state":"failed", "error": error.localizedDescription] }
             }
         }
-        json(connection, id: id, code: 202, object: ["requestID": key, "state": jobs[key]?["state"] ?? "pending"])
+        json(connection, id: id, code: 202, object: ["requestID": command.requestID.uuidString, "state": jobs[key]?["state"] ?? "pending"])
     }
     private func json(_ connection: LoopbackConnection, id: UUID, code: Int = 200, object: [String: Any]) {
         reply(connection, id: id, code: code, data: (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])) ?? Data())

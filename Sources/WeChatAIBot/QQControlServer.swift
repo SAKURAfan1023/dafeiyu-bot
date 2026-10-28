@@ -4,6 +4,7 @@ import BotCore
 /// An opt-in, loopback-only control surface for the same engine as the native panel.
 @MainActor final class QQControlServer {
     private let engine: QQEngine
+    private var social: SocialPlatforms?
     private let listener: LoopbackListener
     private let token = UUID().uuidString + UUID().uuidString
     private var origin = ""
@@ -20,8 +21,8 @@ import BotCore
         }
         return configurationRevision
     }
-    init(engine: QQEngine) throws {
-        self.engine = engine
+    init(engine: QQEngine, social: SocialPlatforms? = nil) throws {
+        self.engine = engine; self.social = social
         listener = try LoopbackListener()
     }
     func start(announce: Bool = true) {
@@ -101,6 +102,19 @@ import BotCore
         }
         guard headers["x-qq-control"] == token,
               headers["origin"] == nil || headers["origin"] == origin else { reply(connection, id: id, code: 403); return }
+        if method == "POST", path == "/api/social-panel" {
+            guard headers["origin"] == origin, headers["content-type"]?.hasPrefix("application/json") == true,
+                  let value = try? JSONSerialization.jsonObject(with: body) as? [String: String],
+                  let platform = value["platform"].flatMap(SocialPlatform.init(rawValue:)) else { reply(connection, id: id, code: 400); return }
+            do {
+                if social == nil { social = SocialPlatforms() }
+                let panel = try social!.panel()
+                var url = URLComponents(url: panel.controlURL, resolvingAgainstBaseURL: false)!
+                url.queryItems = [URLQueryItem(name: "platform", value: platform.rawValue)]
+                reply(connection, id: id, code: 200, data: try JSONSerialization.data(withJSONObject: ["url": url.url!.absoluteString]))
+            } catch { reply(connection, id: id, code: 503) }
+            return
+        }
         if method == "GET", path.hasPrefix("/api/sticker/") {
             let stickerID = String(path.dropFirst("/api/sticker/".count))
             guard let item = engine.stickerLibrary.items.first(where: { $0.id == stickerID }),

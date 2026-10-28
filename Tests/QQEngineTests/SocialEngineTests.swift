@@ -38,20 +38,29 @@ private final class SocialModelFixture: URLProtocol {
     var writes = 0
     var dropResponse = false
     var holdIdentity = false
+    var reads = 0
+    var identityCalls = 0
+    var restricted = false
+    var receiptWarning = false
+    var duringSubmit: (() async -> Void)?
     var identityGate: CheckedContinuation<Void, Never>?
     var post = SocialPost(id: "synthetic-note", title: "游戏关卡", text: "这个游戏关卡使用了一种很有意思的谜题设计，欢迎讨论。", author: "测试作者", authorID: "synthetic-author", kind: "normal", imageCount: 0,
         comments: [SocialComment(id: "comment-a", authorID: "synthetic-member", author: "测试成员", text: "关卡之间的衔接可以怎么做？")], coverage: "合成文字夹具")
     func login() async throws -> String { "" }
     func identity() async throws -> SocialIdentity {
+        identityCalls += 1
         if holdIdentity { await withCheckedContinuation { identityGate = $0 } }
         return SocialIdentity(id: uid, name: "合成测试账号")
     }
-    func search(_ keyword: String) async throws -> [SocialCandidate] { [SocialCandidate(id: post.id, title: post.title, author: post.author, kind: post.kind)] }
-    func read(_ id: String) async throws -> SocialPost { post }
+    func search(_ keyword: String) async throws -> [SocialCandidate] {
+        if restricted { throw SocialAccessFailure.restricted }
+        return [SocialCandidate(id: post.id, title: post.title, author: post.author, kind: post.kind)] }
+    func read(_ id: String) async throws -> SocialPost { reads += 1; return post }
     func submit(_ record: SocialRecord) async throws -> SocialWriteResult {
         writes += 1
+        await duringSubmit?()
         if dropResponse { throw AppFailure.message("合成提交后断线") }
-        return SocialWriteResult(state: "accepted", externalID: "synthetic-reply", authorID: uid)
+        return SocialWriteResult(state: "accepted", externalID: "synthetic-reply", authorID: uid, restricted: receiptWarning)
     }
     func verify(_ record: SocialRecord) async throws -> SocialWriteResult { SocialWriteResult(state: "confirmed", externalID: "synthetic-reply", authorID: uid) }
     func close() {}
@@ -62,9 +71,10 @@ private final class SocialModelFixture: URLProtocol {
     private func command(_ e: SocialEngine, _ action: String, record: SocialRecord? = nil, content: String? = nil) -> SocialCommand {
         SocialCommand(requestID: UUID(), action: action, revision: e.stored.revision, recordID: record?.id, hash: record?.hash, content: content)
     }
-    private func prepare(_ dir: URL, site: SocialSiteFixture, modelPath: String = "") async throws -> SocialEngine {
+    private func prepare(_ dir: URL, site: SocialSiteFixture, modelPath: String = "", platform: SocialPlatform = .xiaohongshu) async throws -> SocialEngine {
         let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [SocialModelFixture.self]
-        let engine = SocialEngine(directory: dir, adapter: site, session: URLSession(configuration: config))
+        var clock = Date()
+        let engine = SocialEngine(platform: platform, directory: dir, adapter: site, session: URLSession(configuration: config), readClock: { clock = clock.addingTimeInterval(3601); return clock })
         var settings = engine.stored.settings; settings.baseURL = "https://model.invalid" + modelPath; settings.model = "synthetic"
         var save = command(engine, "save"); save.settings = settings; try await engine.perform(save)
         var key = command(engine, "credentials"); key.key = "synthetic-model-key"; try await engine.perform(key)
@@ -93,6 +103,26 @@ private final class SocialModelFixture: URLProtocol {
         #expect(!disk.contains("synthetic-model-key"))
         let mode = try FileManager.default.attributesOfItem(atPath: dir.appendingPathComponent("social-state.json").path)[.posixPermissions] as? NSNumber
         #expect(mode?.intValue == 0o600)
+    }
+    @Test func browseAndReviewHaveDistinctModelParticipationContracts() async throws {
+        for mode in [SocialMode.browse, .review, .auto] {
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let path = "/mode-" + UUID().uuidString
+            let site = SocialSiteFixture(), engine = try await prepare(dir, site: site, modelPath: path)
+            var settings = engine.stored.settings; settings.mode = mode
+            var save = command(engine, "save"); save.settings = settings; try await engine.perform(save)
+            try await engine.perform(command(engine, "draft"))
+            let body = try SocialModelFixture.body(for: path + "/chat/completions")
+            let object = try #require(JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any])
+            let messages = try #require(object["messages"] as? [[String: String]])
+            let system = try #require(messages.first?["content"])
+            #expect(system.contains("decision 必须为 skip") == (mode == .browse))
+            #expect(system.contains("允许生成待审核草稿（decision=draft）") == (mode != .browse))
+            #expect(engine.stored.records.last?.state == (mode == .browse ? .skipped : .draft))
+            #expect(site.writes == 0)
+            engine.shutdown()
+        }
     }
     @Test func unknownDeliveryConsumesQuotaAndSurvivesRestart() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -185,8 +215,10 @@ private final class SocialModelFixture: URLProtocol {
         var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(state)) as? [String: Any])
         var settings = try #require(json["settings"] as? [String: Any]); settings.removeValue(forKey: "personality"); settings.removeValue(forKey: "memoryEnabled"); json["settings"] = settings
         try JSONSerialization.data(withJSONObject: json).write(to: dir.appendingPathComponent("social-state.json"))
+        try Data("synthetic warning upgrade".utf8).write(to: dir.appendingPathComponent(".platform-warning"))
         let e = SocialEngine(directory: dir, adapter: SocialSiteFixture())
         #expect(e.error.isEmpty && e.stored.settings.personality == nil && e.stored.settings.persona == "旧的自定义表达")
+        #expect(e.stored.warningAt != nil)
         #expect(e.stored.memories?.count == 200 && e.stored.memories?.contains { $0.postID == "expired-note" } == false)
         var invalid = SocialSettings(); invalid.personality = .custom
         #expect(throws: (any Error).self) { try invalid.validate() }
@@ -263,5 +295,163 @@ private final class SocialModelFixture: URLProtocol {
         }
         #expect(outcome == "complete" && e.stored.settings.keyword == settings.keyword)
         #expect(!e.running && e.stored.modelAttempts == 0)
+    }
+
+    @Test func warningBlocksReadsAndModelUntilExplicitlyClearedAndSurvivesRestart() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let site = SocialSiteFixture()
+        var e: SocialEngine? = try await prepare(dir, site: site)
+        try await e!.perform(command(e!, "draft"))
+        try await e!.perform(command(e!, "reportWarning"))
+        let calls = site.identityCalls, reads = site.reads, models = e!.stored.modelAttempts
+        for action in ["login", "identity", "search", "read", "draft", "start", "rebase", "reconcile"] {
+            await #expect(throws: (any Error).self) { try await e!.perform(command(e!, action, content: site.post.id)) }
+        }
+        // Local background corrections remain available without querying the platform.
+        try await e!.perform(command(e!, "memoryNote", content: "合成本地背景"))
+        #expect(site.identityCalls == calls && site.reads == reads && e!.stored.modelAttempts == models)
+        #expect(e!.stored.warningAt != nil && !e!.running && site.writes == 0)
+        e = nil
+        let reopened = SocialEngine(directory: dir, adapter: site)
+        #expect(reopened.stored.warningAt != nil)
+        await #expect(throws: (any Error).self) { try await reopened.perform(command(reopened, "acknowledgeWarning")) }
+        var ack = command(reopened, "acknowledgeWarning"); ack.acknowledge = true
+        try await reopened.perform(ack)
+        #expect(reopened.stored.warningAt == nil && !reopened.running && reopened.stored.modelAttempts == models)
+    }
+
+    @Test func readCooldownPersistsAndAdapterRestrictionsLatch() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let site = SocialSiteFixture(); var now = Date()
+        var e: SocialEngine? = SocialEngine(directory: dir, adapter: site, readClock: { now })
+        try await e!.perform(command(e!, "identity"))
+        var bind = command(e!, "bind"); bind.expectedUID = site.uid; try await e!.perform(bind)
+        try await e!.perform(command(e!, "search"))
+        await #expect(throws: (any Error).self) { try await e!.perform(command(e!, "read", content: site.post.id)) }
+        #expect(site.reads == 0 && e!.stored.warningAt == nil)
+        let deadline = e!.stored.nextReadAt
+        e = nil
+        let restored = SocialEngine(directory: dir, adapter: site, readClock: { now })
+        #expect(restored.stored.nextReadAt == deadline)
+        await #expect(throws: (any Error).self) { try await restored.perform(command(restored, "search")) }
+        now = now.addingTimeInterval(Double(restored.stored.settings.readIntervalSeconds ?? 30) + 1); site.restricted = true
+        await #expect(throws: (any Error).self) { try await restored.perform(command(restored, "search")) }
+        #expect(restored.stored.warningAt != nil && !restored.running)
+    }
+
+    @Test func warningDuringSubmitPreservesReceiptAndNeverStartsReadback() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let site = SocialSiteFixture(), e = try await prepare(dir, site: site)
+        try await e.perform(command(e, "draft"))
+        let draft = try #require(e.stored.records.last)
+        site.duringSubmit = { try? await e.perform(self.command(e, "reportWarning")) }
+        try await e.perform(command(e, "approve", record: draft))
+        #expect(e.stored.records.last?.state == .accepted && e.attemptsToday == 1 && !e.running && e.stored.warningAt != nil)
+    }
+
+    @Test func platformAndTemporaryCredentialsAreScopedAndBilibiliSupportsWrite() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let access = SocialModelAccess(), site = SocialSiteFixture()
+        site.post.platform = .bilibili
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [SocialModelFixture.self]
+        var clock = Date()
+        let e = SocialEngine(platform: .bilibili, directory: dir, adapter: site, session: URLSession(configuration: config), modelAccess: access, readClock: { clock = clock.addingTimeInterval(3601); return clock })
+        var settings = e.stored.settings; settings.baseURL = "https://model.invalid/bilibili"; settings.model = "synthetic"
+        var save = command(e, "save"); save.settings = settings; try await e.perform(save)
+        var key = command(e, "credentials"); key.key = "synthetic-shared-key"; try await e.perform(key)
+        #expect(access.temporary[settings.baseURL] == "synthetic-shared-key" && access.temporary["https://another.invalid"] == nil)
+        try await e.perform(command(e, "identity")); var bind = command(e, "bind"); bind.expectedUID = site.uid; try await e.perform(bind)
+        try await e.perform(command(e, "search")); try await e.perform(command(e, "read", content: site.post.id)); try await e.perform(command(e, "draft"))
+        let draft = try #require(e.stored.records.last)
+        try await e.perform(command(e, "approve", record: draft))
+        #expect(site.writes == 1 && e.attemptsToday == 1 && e.stored.records.last?.state == .confirmed && draft.post.platform == .bilibili)
+        var mismatch = command(e, "pause"); mismatch.platform = .xiaohongshu
+        await #expect(throws: (any Error).self) { try await e.perform(mismatch) }
+        #expect(draft.post.url.host == "www.bilibili.com")
+    }
+
+    @Test func platformRoutingAndJobReplayCannotCrossEngines() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let xhs = SocialEngine(directory: dir, adapter: SocialSiteFixture())
+        let bili = SocialEngine(platform: .bilibili, directory: dir.appendingPathComponent("bilibili"), adapter: SocialSiteFixture())
+        let server = try SocialControlServer(engines: [.xiaohongshu:xhs,.bilibili:bili]); server.start(); defer { server.stop() }
+        let base = "http://127.0.0.1:\(server.controlURL.port!)"
+        func request(_ path: String, command: SocialCommand? = nil) async throws -> (Data, Int) {
+            var r = URLRequest(url: URL(string: base + path)!)
+            r.setValue(server.controlURL.fragment!, forHTTPHeaderField: "X-Social-Control")
+            if let command {
+                r.httpMethod = "POST"; r.httpBody = try JSONEncoder().encode(command)
+                r.setValue(base, forHTTPHeaderField: "Origin"); r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            }
+            let (data,response) = try await URLSession.shared.data(for: r)
+            return (data,(response as! HTTPURLResponse).statusCode)
+        }
+        let (data,code) = try await request("/api/status?platform=bilibili")
+        let snapshot = try #require(JSONSerialization.jsonObject(with: data) as? [String:Any])
+        #expect(code == 200 && snapshot["platform"] as? String == "bilibili" && snapshot["canWrite"] as? Bool == true)
+        let (_,unknown) = try await request("/api/status?platform=unknown"); #expect(unknown == 400)
+        var save = command(xhs, "save"); var settings = xhs.stored.settings; settings.keyword = "小红书独立任务"; save.settings = settings; save.platform = .xiaohongshu
+        let (_,queued) = try await request("/api/action?platform=xiaohongshu", command: save); #expect(queued == 202)
+        var crossed = save; crossed.platform = .bilibili
+        let (_,denied) = try await request("/api/action?platform=bilibili", command: crossed); #expect(denied == 409)
+        let (wrongJob,_) = try await request("/api/job/\(save.requestID.uuidString.lowercased())?platform=bilibili")
+        #expect(String(decoding: wrongJob, as: UTF8.self).contains("unknown"))
+        for _ in 0..<30 {
+            if xhs.stored.settings.keyword == settings.keyword { break }; await Task.yield()
+        }
+        #expect(xhs.stored.settings.keyword == settings.keyword && bili.stored.settings.keyword != settings.keyword)
+        try await xhs.perform(command(xhs, "reportWarning"))
+        #expect(xhs.stored.warningAt != nil && bili.stored.warningAt == nil)
+    }
+
+    @Test func bothPlatformsAutoRunWithBoundedDefaultsAndKeepSavedModes() async throws {
+        let defaults = SocialSettings()
+        try defaults.validate()
+        #expect(defaults.mode == .auto && defaults.personality == .natural && defaults.memoryEnabled == true)
+        #expect(defaults.durationMinutes == 15 && defaults.maxPosts == 5 && defaults.maxModelCalls == 5)
+        #expect(defaults.dailyWriteLimit == 3 && defaults.intervalSeconds == 300 && defaults.readIntervalSeconds == 60 && defaults.maxCharacters == 80)
+        for platform in SocialPlatform.allCases {
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let site = SocialSiteFixture(); site.post.platform = platform
+            var e: SocialEngine? = try await prepare(dir, site: site, platform: platform)
+            #expect(e!.stored.settings.mode == .auto && !e!.running && site.writes == 0)
+            var settings = e!.stored.settings; settings.dailyWriteLimit = 1
+            var save = command(e!, "save"); save.settings = settings; try await e!.perform(save)
+            try await e!.perform(command(e!, "start"))
+            for _ in 0..<500 {
+                if !e!.running && !e!.busy { break }
+                try await Task.sleep(nanoseconds: 10_000_000)
+            }
+            #expect(!e!.running && !e!.busy && site.writes == 1 && e!.attemptsToday == 1)
+            #expect(e!.stored.records.last?.state == .confirmed && e!.stored.modelAttempts == 1)
+            let reads = site.reads
+            await #expect(throws: (any Error).self) { try await e!.perform(command(e!, "start")) }
+            #expect(site.writes == 1 && site.reads == reads && !e!.running)
+            settings.mode = .review; settings.keyword = "保留自定义主题"
+            save = command(e!, "save"); save.settings = settings; try await e!.perform(save)
+            e!.shutdown(); e = nil
+            let reopened = SocialEngine(platform: platform, directory: dir, adapter: site)
+            #expect(reopened.stored.settings.mode == .review && reopened.stored.settings.keyword == settings.keyword)
+            #expect(!reopened.running && reopened.attemptsToday == 1)
+            reopened.shutdown()
+        }
+    }
+
+    @Test func receiptWarningPausesWithoutErasingAcceptance() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let site = SocialSiteFixture(); site.receiptWarning = true; site.post.platform = .bilibili
+        let e = try await prepare(dir, site: site, platform: .bilibili)
+        try await e.perform(command(e, "draft"))
+        let draft = try #require(e.stored.records.last)
+        try await e.perform(command(e, "approve", record: draft))
+        #expect(e.stored.records.last?.state == .accepted && e.stored.warningAt != nil && !e.running)
+        #expect(site.writes == 1 && e.attemptsToday == 1 && e.blockingCount == 0)
     }
 }

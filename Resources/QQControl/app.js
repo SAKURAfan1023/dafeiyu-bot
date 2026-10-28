@@ -642,3 +642,15 @@ $('artArtistAdd').addEventListener('click',async()=>{
   if(await act({action:'addArtworkArtist',artistInput:input})) $('artArtistInput').value='';
 });
 $('artFrequency').addEventListener('change',()=>renderArtwork(false));
+
+// Opening a sibling panel starts no platform login, browsing or posting.
+document.querySelectorAll('[data-social]').forEach(button=>button.addEventListener('click',async()=>{
+  const tab=window.open('about:blank','_blank');
+  try{
+    const r=await fetch('/api/social-panel',{method:'POST',headers:{'X-QQ-Control':controlToken,'Content-Type':'application/json'},body:JSON.stringify({platform:button.dataset.social})});
+    if(!r.ok)throw new Error('社交平台面板未能打开，请检查客户端状态。');
+    const value=await r.json(),url=new URL(value.url);
+    if(url.protocol!=='http:'||url.hostname!=='127.0.0.1')throw new Error('控制页地址无效');
+    if(tab){tab.opener=null;tab.location.replace(url.href);}else location.assign(url.href);
+  }catch(e){tab?.close();$('error').textContent=e.message;}
+}));

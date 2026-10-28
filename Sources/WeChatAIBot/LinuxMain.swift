@@ -8,9 +8,9 @@ import BotCore
         setbuf(stdout, nil)
         umask(0o077)
         do {
-            if CommandLine.arguments.contains("--xiaohongshu-panel") {
-                let engine = SocialEngine()
-                let server = try SocialControlServer(engine: engine); server.start(announce: true)
+            if CommandLine.arguments.contains("--xiaohongshu-panel") || CommandLine.arguments.contains("--social-panel") {
+                let workspace = SocialPlatforms()
+                let server = try workspace.panel(); print("SOCIAL_CONTROL_URL=\(server.controlURL.absoluteString)"); print("XHS_CONTROL_URL=\(server.controlURL.absoluteString)")
                 defer { withExtendedLifetime(server) {} }
                 while !Task.isCancelled { try await Task.sleep(nanoseconds: 60_000_000_000) }
                 return

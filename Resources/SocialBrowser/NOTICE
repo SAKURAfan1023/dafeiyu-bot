@@ -1,0 +1,15 @@
+Da Fei Yu social browser adapters
+
+Independent implementation using Playwright (Microsoft, Apache-2.0).
+The Playwright package and its license are installed by npm using package-lock.json.
+
+Page schema, sidebar and comment selectors were studied from:
+xpzouying/xiaohongshu-mcp (Apache-2.0)
+https://github.com/xpzouying/xiaohongshu-mcp/tree/7797fd375aba02dcd33afe143f6bee13e5870859
+No upstream executable, browser profile, cookies or user content is distributed here.
+
+Bilibili adapter is independently implemented using page-visible video metadata, bounded public comment responses and an exact-once, target-checked comment POST in its own login profile. Community research references (no source code copied):
+https://github.com/jackwener/OpenCLI/blob/main/docs/adapters/browser/bilibili.md
+https://github.com/XZXZZX-Ai/bilibili-mcp/issues/84
+https://github.com/pskdje/bilibili-API-collect/blob/main/docs/comment/action.md
+https://github.com/pskdje/bilibili-API-collect/blob/main/docs/comment/list.md

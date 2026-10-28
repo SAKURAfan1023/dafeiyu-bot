@@ -6,7 +6,7 @@
 - NapCat Docker：https://github.com/NapNeko/NapCat-Docker
 - Lima：https://github.com/lima-vm/lima
 - OneBot 11：https://github.com/botuniverse/onebot-11
-- 小红书本机执行器使用 Playwright（Microsoft，Apache-2.0），由 npm 按锁文件安装，不打包登录资料。页面结构与选择器参考 `xpzouying/xiaohongshu-mcp` 固定版本；实现与来源说明见 [NOTICE](Resources/Xiaohongshu/NOTICE)。
+- 社交平台本机执行器使用 Playwright（Microsoft，Apache-2.0），由 npm 按锁文件安装，不打包登录资料。页面结构与选择器参考 `xpzouying/xiaohongshu-mcp` 固定版本；实现与来源说明见 [NOTICE](Resources/SocialBrowser/NOTICE)。
 - README 封面与 `Resources/QQStickers/` 四张示例图由本项目为公开版原创 AI 生成，按 CC0 1.0 提供（https://creativecommons.org/publicdomain/zero/1.0/）。生成记录日期：2026-09-28。商标或平台名称不在此授权范围内。
 - 公开版表情库含 4 张原创示例及 33 张 [YunYueSama 蓝发鲸鱼娘](https://github.com/YunYueSama/codex-deepseek-pet/tree/7661c8b304c5400701f91da01b1a643a207331de/assets/whale) 社区素材。固定版本 `7661c8b304c5400701f91da01b1a643a207331de`；修改为图集独立帧拆分、透明留白裁剪与无损 WebP 编码，未重绘角色。按上游大肥鱼项目署名许可 1.0 保留作者、逐图来源与[完整许可及素材边界](Resources/QQStickers/WHALE-LICENSE.txt)。许可不额外授予底层角色及第三方参考权利，本项目 MIT 不覆盖图片许可。公开 Photos 画廊及下载包保留署名。
 - `Resources/PhotoStickers/` 为 Photos 网页独立素材：29 张取自 [ZipZipPipe 的 B站原帖](https://www.bilibili.com/opus/1238946461156114455)，按作者原帖声明的 CC BY-NC-SA 4.0；另 59 张来自中文社区「蓝色大肥鱼」明确标为自己创作、CC0 的投稿，署名 1cyberlangke1 / MX1951，仍保留底层角色的 CC BY-NC-SA 4.0 边界。角色原作上善无形，女仆版二次设计 ZipZipPipe。图片保留原始文件，未重绘或加字；逐图链接、固定版本、完整许可及排除范围见[来源记录](Resources/PhotoStickers/licenses/SOURCES.txt)。这些网页素材不随机器人默认安装包加载，仅由用户选择导入。网站、公开构建与图库筛选均限定 DeepSeek 娘，不收录其他角色充数。

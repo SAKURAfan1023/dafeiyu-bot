@@ -7,7 +7,7 @@ import Security
 setbuf(stdout, nil)
 if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.arguments.contains("--qq-sticker-check") || CommandLine.arguments.contains("--qq-personalities-check") { SecKeychainSetUserInteractionAllowed(false) }
 // Legacy macOS keychain items can otherwise wait indefinitely for an invisible prompt.
-if (CommandLine.arguments.contains("--qq-persona-check") || CommandLine.arguments.contains("--qq-online-check") || CommandLine.arguments.contains("--qq-memory-vision-check")) || CommandLine.arguments.contains("--qq-connect-check") || CommandLine.arguments.contains("--qq-accept-one") || CommandLine.arguments.contains("--qq-control-check") || CommandLine.arguments.contains("--qq-control-panel") || CommandLine.arguments.contains("--test-api") {
+if (CommandLine.arguments.contains("--qq-persona-check") || CommandLine.arguments.contains("--qq-online-check") || CommandLine.arguments.contains("--qq-memory-vision-check")) || CommandLine.arguments.contains("--qq-connect-check") || CommandLine.arguments.contains("--qq-accept-one") || CommandLine.arguments.contains("--qq-control-check") || CommandLine.arguments.contains("--qq-control-panel") || CommandLine.arguments.contains("--social-panel") || CommandLine.arguments.contains("--xiaohongshu-panel") || CommandLine.arguments.contains("--test-api") {
     SecKeychainSetUserInteractionAllowed(false)
 }
 
@@ -79,12 +79,12 @@ if CommandLine.arguments.contains("--qq-semantic-check") || CommandLine.argument
         } catch { print(error.localizedDescription); exit(1) }
     }
     RunLoop.main.run()
-} else if CommandLine.arguments.contains("--xiaohongshu-panel") {
+} else if CommandLine.arguments.contains("--xiaohongshu-panel") || CommandLine.arguments.contains("--social-panel") {
     Task { @MainActor in
         do {
-            let engine = SocialEngine()
-            let server = try SocialControlServer(engine: engine)
-            socialServer = server; server.start(announce: true)
+            let workspace = SocialPlatforms()
+            let server = try workspace.panel()
+            socialServer = server; print("SOCIAL_CONTROL_URL=\(server.controlURL.absoluteString)"); print("XHS_CONTROL_URL=\(server.controlURL.absoluteString)")
         } catch { print("小红书控制台启动失败"); exit(1) }
     }
     RunLoop.main.run()

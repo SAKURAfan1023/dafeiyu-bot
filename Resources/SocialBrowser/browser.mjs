@@ -5,12 +5,18 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { claimWrite, commentEvidence } from './page-contract.mjs';
 import { createHash } from 'node:crypto';
+import { executeBilibili, claimBilibiliWrite } from './bilibili.mjs';
+import { restrictedResponse } from './access-contract.mjs';
 const require = createRequire(path.join(process.env.DAFEIYU_XHS_DEPENDENCIES, 'package.json'));
 process.umask(0o077);
 const { chromium } = require('playwright-core');
 const secret = process.env.DAFEIYU_XHS_TOKEN;
 if (!secret || !process.env.DAFEIYU_XHS_PROFILE) process.exit(1);
-const origin = 'https://www.xiaohongshu.com';
+const platform = process.env.DAFEIYU_SOCIAL_PLATFORM ?? 'xiaohongshu';
+if (!['xiaohongshu','bilibili'].includes(platform)) process.exit(1);
+const origin = platform === 'xiaohongshu' ? 'https://www.xiaohongshu.com' : 'https://www.bilibili.com';
+const allowedOrigins = platform === 'xiaohongshu' ? [origin] : [origin,'https://search.bilibili.com'];
+let restricted = false;
 let context, page, busy = false, shuttingDown = false;
 let writePermit = null, cancelled = false;
 const clean = v => String(v ?? '').trim();
@@ -22,14 +28,33 @@ function browserPath() {
   return candidates.find(p => fs.existsSync(p));
 }
 async function browser() {
+  if(cancelled)throw new Error('operation_cancelled');
   if (context) return;
   const executablePath = browserPath();
   if (!executablePath) throw new Error('browser_missing');
   context = await chromium.launchPersistentContext(process.env.DAFEIYU_XHS_PROFILE, {
     executablePath, headless: false, viewport: { width: 1180, height: 840 },
-    acceptDownloads: false, permissions: [],
+    acceptDownloads: false, permissions: [], serviceWorkers: 'block',
   });
   context.on('close', () => { context = undefined; page = undefined; });
+  if(platform==='bilibili')await context.route(/\/x\/(?:v2\/reply\/(?:add|del|action|hate|top|report)|relation\/modify|web-interface\/(?:archive\/like|coin\/add))/,async route=>{
+    const request=route.request(),url=new URL(request.url());
+    if(url.origin==='https://api.bilibili.com' && url.pathname==='/x/v2/reply/add' && !url.search && request.method()==='POST' && !cancelled && !restricted){
+      const fields=new URLSearchParams(request.postData()||'');
+      const payload=Object.fromEntries(fields);
+      if([...fields.keys()].length===Object.keys(payload).length && claimBilibiliWrite(writePermit,payload))return route.continue();
+    }
+    if(writePermit)writePermit.blocked=true;
+    return route.abort();
+  });
+  context.on('response', async response => {
+    if(!['fetch','xhr'].includes(response.request().resourceType()))return;
+    const url=response.url();
+    if(!url.includes('/api/sns/web/') && !url.startsWith('https://api.bilibili.com/'))return;
+    if(restrictedResponse(url,response.status()))restricted=true;
+    const body=await response.json().catch(()=>null);
+    if(restrictedResponse(url,response.status(),body?.code))restricted=true;
+  });
   // Keep this deny rule for the whole browser lifetime, including after an unknown result.
   await context.route(/\/api\/sns\/web\/[^/]+\/comment\/(post|reply|delete)/, async route => {
     const url = new URL(route.request().url());
@@ -48,10 +73,13 @@ async function browser() {
   context.on('page', p => { if (p !== page) p.close().catch(() => {}); });
 }
 async function navigate(url) {
-  if (new URL(url).origin !== origin) throw new Error('invalid_origin');
+  if(cancelled)throw new Error('operation_cancelled');
+  if(restricted)throw new Error('platform_restricted');
+  if (!allowedOrigins.includes(new URL(url).origin)) throw new Error('invalid_origin');
   await browser();
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
-  if (new URL(page.url()).origin !== origin) throw new Error('unexpected_origin');
+  const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
+  if ([403,412,429].includes(response?.status())) { restricted = true; throw new Error('platform_restricted'); }
+  if (!allowedOrigins.includes(new URL(page.url()).origin)) throw new Error('unexpected_origin');
 }
 async function identity() {
   await browser();
@@ -81,11 +109,11 @@ async function search(keyword) {
     kind: clean(f.noteCard?.type),
   })).filter(f => f.locator) };
 }
-async function read(input) {
+async function read(input, navigatePage = true) {
   if (!validID(input.id) || !input.locator || input.locator.length > 2048) throw new Error('invalid_target');
-  await navigate(origin + '/explore/' + input.id + '?xsec_token=' + encodeURIComponent(input.locator) + '&xsec_source=pc_search');
+  if(navigatePage)await navigate(origin + '/explore/' + input.id + '?xsec_token=' + encodeURIComponent(input.locator) + '&xsec_source=pc_search');
   await page.waitForFunction(id => !!window.__INITIAL_STATE__?.note?.noteDetailMap?.[id]?.note, input.id, { timeout: 15000 });
-  await page.locator('.comments-container').first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+  if(navigatePage)await page.locator('.comments-container').first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
   const commentsReady = await page.waitForFunction(id => {
     const detail = window.__INITIAL_STATE__?.note?.noteDetailMap?.[id];
     const count = detail?.note?.interactInfo?.commentCount;
@@ -137,7 +165,8 @@ async function verify(input) {
   return { state: 'accepted', externalID: input.externalID };
 }
 async function submit(input) {
-  const current = await read(input);
+  // Swift has just admitted and refreshed this page. Re-check without another navigation.
+  const current = await read(input, false);
   const parent = input.parentID ? current.comments.find(c => c.id === input.parentID) : null;
   const fingerprint = createHash('sha256').update(current.id + '\n' + current.title + '\n' + current.text + '\n' + (parent ? parent.id + parent.authorID + parent.text : '')).digest('hex');
   if (input.fingerprint !== fingerprint) throw new Error('target_changed');
@@ -176,6 +205,16 @@ async function submit(input) {
   } finally { writePermit = null; }
 }
 async function execute(input) {
+  if(input.action==='resetRestriction'){
+    await context?.close(); context=undefined;page=undefined;restricted=false;return {};
+  }
+  if(restricted)throw new Error('platform_restricted');
+  if(platform==='bilibili'){
+    await browser();
+    if(input.action==='submit')writePermit={expected:input,used:false,blocked:false};
+    try{return await executeBilibili(input,{page,navigate,browser,permit:writePermit});}
+    finally{writePermit=null;}
+  }
   switch (input.action) {
     case 'login': {
       await navigate(origin + '/explore');
@@ -210,14 +249,28 @@ const server = http.createServer(async (req, res) => {
     // On deadline close the owned context and await termination before releasing busy.
     const task = execute(input);
     const expired = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('operation_timeout')), 45000); });
-    try { reply(200, await Promise.race([task, expired])); }
+    try {
+      const value=await Promise.race([task, expired]);
+      const challenge=page?.locator('.r-captcha-modal,.captcha-verify-container,.geetest_panel_box').first();
+      if(restricted || await challenge?.isVisible().catch(()=>false)){
+        if(input.action==='submit' && value?.state==='accepted' && value.externalID)return reply(200,{...value,restricted:true});
+        throw new Error('platform_restricted');
+      }
+      reply(200,value);
+    }
     catch (error) {
+      // One overwritten local diagnostic; never send page HTML, cookies or credentials.
+      if (input.action === 'login' && page) {
+        const diagnostic=path.join(path.dirname(process.env.DAFEIYU_XHS_PROFILE),'login-diagnostic');
+        await page.screenshot({path:diagnostic+'.png'}).catch(()=>{});
+        try { fs.writeFileSync(diagnostic+'.json',JSON.stringify({code:/^login_[a-z_]+$/.test(error.message)?error.message:error.name,origin:new URL(page.url()).origin}),{mode:0o600}); } catch {}
+      }
       await context?.close(); context = undefined; page = undefined;
       await task.catch(() => {});
       throw error;
     }
   } catch (error) {
-    const known = /^(browser_missing|login_required|account_changed|target_changed|target_missing|invalid_[a-z_]+|operation_timeout|operation_cancelled|request_too_large|unknown_action)$/;
+    const known = /^(platform_restricted|read_only|browser_missing|login_required|login_button_missing|login_qr_missing|account_changed|target_changed|target_missing|invalid_[a-z_]+|operation_timeout|operation_cancelled|request_too_large|unknown_action)$/;
     reply(400, { error: known.test(error.message) ? error.message : 'page_unavailable' });
   } finally { clearTimeout(timer); busy = false; }
 });

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { requestMatchesTarget, claimWrite } from '../Resources/Xiaohongshu/page-contract.mjs';
+import { requestMatchesTarget, claimWrite } from '../Resources/SocialBrowser/page-contract.mjs';
 const target = {id:'note-a', parentID:'comment-a', content:'收到[笑哭R]'};
 assert(requestMatchesTarget({note_id:'note-a',target_comment_id:'comment-a',content:target.content},target));
 assert(!requestMatchesTarget({note_id:'note-b',target_comment_id:'comment-a',content:target.content},target));
@@ -23,7 +23,7 @@ const load = hash => vm.runInNewContext(bootstrap+'\ntoken;', {location:{hash,pa
 assert.equal(load('#synthetic-control-token'),'synthetic-control-token');
 assert.equal(load(''),'synthetic-control-token');
 // Exercise the production page readers against an asynchronously hydrated page.
-const adapterSource = fs.readFileSync(new URL('../Resources/Xiaohongshu/browser.mjs',import.meta.url),'utf8');
+const adapterSource = fs.readFileSync(new URL('../Resources/SocialBrowser/browser.mjs',import.meta.url),'utf8');
 let detail, readiness;
 const page = {
   locator:()=>({first:()=>({scrollIntoViewIfNeeded:async()=>{}})}),
