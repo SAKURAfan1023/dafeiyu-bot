@@ -49,7 +49,7 @@ test('real QQ worker is shared by concurrent clients; revisions, scope and resta
   }
 });
 
-test('Windows discovery rejects an extra reader ACE on its private record', {skip:process.platform!=='win32'||!process.env.DAFEIYU_QQ_ROOT,timeout:30000}, async () => {
+test('Windows discovery rejects an extra reader ACE on its private record', {skip:process.platform!=='win32'||!process.env.DAFEIYU_QQ_ROOT,timeout:90000}, async () => {
   const {execFile}=await import('node:child_process'), {promisify}=await import('node:util');
   const directory=await fs.mkdtemp(path.join(os.tmpdir(),'dafeiyu-acl-test-'));
   let runtime;

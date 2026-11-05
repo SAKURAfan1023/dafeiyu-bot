@@ -41,7 +41,7 @@ async function readRecord(directory) {
   }
   if (process.platform === 'win32') {
     // Get-Acl is read-only. Paths travel in the environment, never interpolated as PowerShell code.
-    const script = "$ErrorActionPreference='Stop'; $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; foreach($p in @($env:DAFEIYU_ACL_DIRECTORY,$env:DAFEIYU_ACL_FILE)) { $a=Get-Acl -LiteralPath $p; $owner=$a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; if(-not $a.AreAccessRulesProtected -or ($owner -ne $sid -and $owner -ne 'S-1-5-32-544')){exit 1}; foreach($r in $a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])) { if($r.AccessControlType -eq 'Allow' -and $r.IdentityReference.Value -ne $sid){exit 1} } }";
+    const script = "$ErrorActionPreference='Stop'; try { $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; foreach($p in @($env:DAFEIYU_ACL_DIRECTORY,$env:DAFEIYU_ACL_FILE)) { $a=Get-Acl -LiteralPath $p; $owner=$a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; if(-not $a.AreAccessRulesProtected){exit 21}; if($owner -ne $sid -and $owner -ne 'S-1-5-32-544'){exit 22}; foreach($r in $a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])) { if($r.AccessControlType -eq 'Allow' -and $r.IdentityReference.Value -ne $sid){exit 23} } } } catch { exit 24 }";
     await promisify(execFile)(path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
       ['-NoProfile','-NonInteractive','-Command',script], { windowsHide: true, timeout: 5000,
         env: { ...process.env, DAFEIYU_ACL_DIRECTORY: directory, DAFEIYU_ACL_FILE: file } });
@@ -124,7 +124,7 @@ export async function ensureRuntime({ directory = dataDirectory(), start = true 
     env: { ...process.env, DAFEIYU_DATA_DIR: directory, DAFEIYU_RESOURCES: path.join(root, 'Resources'),
       DAFEIYU_NODE: process.execPath, DAFEIYU_NODE_DEPENDENCIES: packageRoot }
   });
-  let spawnError;
+  let spawnError, discoveryCode = 'pending';
   child.on('error', error => { spawnError = error; }); child.unref();
   // Concurrent launchers race only for the Swift OS lease. The loser attaches to the winner.
   for (let i = 0; i < 100; i++) {
@@ -133,11 +133,15 @@ export async function ensureRuntime({ directory = dataDirectory(), start = true 
       const runtime = await readRecord(directory);
       await jsonRequest(runtime, '/api/status', undefined, 1000);
       return runtime;
-    } catch { await sleep(100); }
+    } catch (error) {
+      // Only non-sensitive status codes reach launcher errors; never paths, tokens or response bodies.
+      discoveryCode = Number.isInteger(error.code) || (typeof error.code === 'string' && /^[A-Z0-9_]{1,40}$/.test(error.code)) ? String(error.code) : 'validation';
+      await sleep(100);
+    }
   }
   // The child has never been connected or started automatically; terminate only our failed launch.
   if (child.exitCode === null) child.kill();
-  throw new Error('QQ worker startup timed out; check dependencies, version and runtime lock.');
+  throw new Error(`QQ worker startup timed out (exit=${child.exitCode ?? 'running'}, discovery=${discoveryCode}); check dependencies, version, permissions and runtime lock.`);
 }
 
 export async function status(runtime, { includeMemory = false } = {}) {
