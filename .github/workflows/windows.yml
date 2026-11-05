@@ -55,8 +55,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $testBinary = @(Get-ChildItem -LiteralPath $testDirectory -File | Where-Object { $_.Name -match 'PackageTests\.(exe|xctest)$' })
           if ($testBinary.Count -ne 1) { throw 'Expected exactly one native test runner' }
+          # Match SwiftPM 6.1.3 UserToolchain's x64 test runtime paths, scoped to this step.
+          $testRuntimes = @(Get-Item -Path "$env:SDKROOT/../../../Developer/Library/Testing-*/usr/bin64", "$env:SDKROOT/../../../Developer/Library/XCTest-*/usr/bin64" -ErrorAction Stop)
+          if ($testRuntimes.Count -ne 2) { throw 'Expected Swift Testing and XCTest runtime directories' }
+          $env:PATH = ($testRuntimes.FullName -join ';') + ';' + $env:PATH
           # SwiftPM buffers the whole test process output; run its generated binary directly for live diagnostics.
-          python -c "import subprocess,sys; subprocess.run([sys.argv[1], '--testing-library', 'swift-testing'], check=True, timeout=300)" $testBinary[0].FullName
+          python -c "import subprocess,sys; subprocess.run([sys.argv[1], '--testing-library', 'swift-testing'], check=True, timeout=300)" ($testBinary[0].FullName)
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/test-linux-images.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
