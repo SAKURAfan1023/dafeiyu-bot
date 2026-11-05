@@ -18,7 +18,7 @@ let transport: [Target.Dependency] = []
 let packageRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 let qqFiles = try! JSONDecoder().decode([String].self, from: Data(contentsOf: packageRoot.appendingPathComponent("qq-sources.json")))
 let allFiles = try! FileManager.default.contentsOfDirectory(atPath: packageRoot.appendingPathComponent("Sources/WeChatAIBot").path)
-let desktopFiles = allFiles.filter { $0.hasSuffix(".swift") && !qqFiles.contains($0) }
+let desktopFiles = allFiles.filter { $0.hasSuffix(".swift") && (!qqFiles.contains($0) || $0 == "QQWorkerMain.swift") }
 #else
 let dependencies: [Package.Dependency] = []
 let crypto: [Target.Dependency] = []
@@ -34,14 +34,24 @@ let settings: [SwiftSetting] = []
 let excludedTests = ["onebot_fixture.py", "synthetic-images.json"]
 #endif
 
+#if os(Windows)
+// SwiftPM's Windows test runner must link the engine without an executable main.
+// The distributable executable is built separately by scripts/build-qq.py.
+let appProducts: [Product] = []
+let appTarget: Target = .target(name: "WeChatAIBot", dependencies: [.target(name: "BotCore")] + crypto + transport, exclude: desktopFiles, swiftSettings: settings)
+#else
+let appProducts: [Product] = [.executable(name: "WeChatAIBot", targets: ["WeChatAIBot"])]
+let appTarget: Target = .executableTarget(name: "WeChatAIBot", dependencies: [.target(name: "BotCore")] + crypto + transport, exclude: desktopFiles, swiftSettings: settings)
+#endif
+
 let package = Package(
     name: "WeChatAIBot",
     platforms: [.macOS(.v14)],
-    products: [.executable(name: "WeChatAIBot", targets: ["WeChatAIBot"])],
+    products: appProducts,
     dependencies: dependencies,
     targets: [
         .target(name: "BotCore", dependencies: crypto),
-        .executableTarget(name: "WeChatAIBot", dependencies: [.target(name: "BotCore")] + crypto + transport, exclude: desktopFiles, swiftSettings: settings),
+        appTarget,
         .testTarget(name: "BotCoreTests", dependencies: ["BotCore"]),
         .testTarget(name: "QQEngineTests", dependencies: ["WeChatAIBot"], exclude: excludedTests)
     ]
