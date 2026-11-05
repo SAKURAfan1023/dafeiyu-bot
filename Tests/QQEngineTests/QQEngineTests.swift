@@ -226,6 +226,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
         await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" }))
+        try #require(!engine.config.targets.isEmpty)
         engine.config.targets[0].enabled = true; engine.start()
         var rows: [[String: Any]] = []
         for id in 1...2 {
@@ -276,6 +277,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
         await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" }))
+        try #require(!engine.config.targets.isEmpty)
         engine.config.targets[0].enabled = true; engine.start()
         func event(_ id: Int, _ text: String?, mention: Bool = false) -> [String: Any] {
             var segments: [[String: Any]] = text.map { [["type": "text", "data": ["text": $0]]] } ?? [["type": "image", "data": ["file": "synthetic.png"]]]
@@ -468,6 +470,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
         await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" && $0.group }))
+        try #require(!engine.config.targets.isEmpty)
         engine.config.targets[0].enabled = true; engine.start(); try #require(engine.running)
         if mode != "timed" {
             let events: [[String: Any]] = (1...4).map { id in
@@ -605,6 +608,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         otherPanel.save()
         #expect(otherPanel.error != nil) // Even an unchanged snapshot cannot write through the live engine's lock.
         engine.add(try #require(engine.contacts.first(where: { $0.group == group })))
+        try #require(!engine.config.targets.isEmpty)
         engine.config.targets[0].enabled = true
         if control == "longRunQueue" {
             engine.start(duration: 259201)
@@ -780,6 +784,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(DelayedModelProtocol.counts.cancelled == 1)
         DelayedModelProtocol.completePending()
         if engine.connected {
+            try #require(!engine.config.targets.isEmpty)
             engine.config.targets[0].enabled = true
             engine.start() // Resume must not replay the previously queued second message.
             #expect(engine.running)

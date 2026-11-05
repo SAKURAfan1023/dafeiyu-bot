@@ -1255,8 +1255,7 @@ struct QQRuntimeCredentials: Decodable {
             // QQ uses authenticated network events and may run while the desktop is locked.
             // User-enabled structured memories and bounded/redacted pending excerpts; never image bytes or credentials.
             let data = try JSONEncoder().encode(state)
-            try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-            try protectPrivateFile(file)
+            try writePrivateData(data, to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
             persistedData = data
         } catch {
             storageOK = false; self.error = "QQ 状态保存失败：\(error.localizedDescription)"

@@ -25,8 +25,7 @@ final class QQRuntimeRegistration {
         lease = try PlatformFileLock(url: directory.appendingPathComponent("qq-worker.lock"), message: "已有 QQ 后台，请连接现有实例")
         file = directory.appendingPathComponent("qq-worker.json"); generation = server.generation
         let record = Record(generation: generation, pid: ProcessInfo.processInfo.processIdentifier, controlURL: server.controlURL.absoluteString)
-        try JSONEncoder().encode(record).write(to: file, options: .atomic)
-        try protectPrivateFile(file)
+        try writePrivateData(JSONEncoder().encode(record), to: file)
     }
     static func existingURL(directory: URL) -> URL? {
         let file = directory.appendingPathComponent("qq-worker.json")

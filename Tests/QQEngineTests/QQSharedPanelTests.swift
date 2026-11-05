@@ -20,8 +20,23 @@ import Glibc
         #if os(Windows)
         let probe = Process()
         probe.executableURL = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"]))
-        probe.arguments = ["-c", "import socket,sys; s=socket.socket(); s.settimeout(1); sys.exit(0 if s.connect_ex(('127.0.0.1',int(sys.argv[1]))) == 10061 else 1)", String(port)]
-        try probe.run(); probe.waitUntilExit()
+        probe.arguments = ["-c", """
+        import socket,sys,time
+        deadline=time.monotonic()+3
+        while True:
+            with socket.socket() as s:
+                s.settimeout(2)
+                code=s.connect_ex(('127.0.0.1',int(sys.argv[1])))
+            if code==10061: sys.exit(0)
+            if time.monotonic()>=deadline: break
+            time.sleep(.02)
+        print('Closed port did not refuse TCP; result:',code,file=sys.stderr)
+        sys.exit(1)
+        """, String(port)]
+        try probe.run()
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async { probe.waitUntilExit(); continuation.resume() }
+        }
         #expect(probe.terminationStatus == 0)
         #else
         let deadline = Date().addingTimeInterval(1)

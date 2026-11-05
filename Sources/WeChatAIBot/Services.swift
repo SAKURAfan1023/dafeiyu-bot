@@ -100,8 +100,7 @@ final class LocalStore {
         var copy = state
         copy.logs = Array(copy.logs.filter { $0.date > Date().addingTimeInterval(-7 * 86400) }.suffix(5000))
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(copy).write(to: url, options: [.atomic, .completeFileProtection])
-        try protectPrivateFile(url)
+        try writePrivateData(encoder.encode(copy), to: url, options: [.atomic, .completeFileProtection])
     }
 }
 

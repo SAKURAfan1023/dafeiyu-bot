@@ -7,6 +7,35 @@ import Darwin
 import Glibc
 #endif
 
+/// Keep replacement atomic and private when Windows readers briefly deny delete sharing.
+func writePrivateData(_ data: Data, to file: URL, options: Data.WritingOptions = .atomic) throws {
+    #if os(Windows)
+    let temporary = file.deletingLastPathComponent().appendingPathComponent(".dafeiyu-" + UUID().uuidString + ".tmp")
+    defer { try? FileManager.default.removeItem(at: temporary) }
+    try data.write(to: temporary, options: .withoutOverwriting)
+    try protectWindowsFile(temporary)
+    let deadline = DispatchTime.now() + .seconds(1)
+    while true {
+        let result = temporary.path.withCString(encodedAs: UTF16.self) { source in
+            file.path.withCString(encodedAs: UTF16.self) { destination in
+                let success = MoveFileExW(source, destination, DWORD(MOVEFILE_REPLACE_EXISTING) | DWORD(MOVEFILE_WRITE_THROUGH))
+                return (success: success, error: success ? DWORD(ERROR_SUCCESS) : GetLastError())
+            }
+        }
+        if result.success { return }
+        let code = result.error
+        guard (code == DWORD(ERROR_SHARING_VIOLATION) || code == DWORD(ERROR_LOCK_VIOLATION)), DispatchTime.now() < deadline else {
+            throw AppFailure.message("无法原子更新本机数据（Windows \(code)）")
+        }
+        // Retry only the same local rename, never a QQ submission or model request.
+        Thread.sleep(forTimeInterval: 0.02)
+    }
+    #else
+    try data.write(to: file, options: options)
+    try protectPrivateFile(file)
+    #endif
+}
+
 /// The OS owns the lock: process exit releases it without deleting another owner's lock file.
 final class PlatformFileLock {
     #if os(Windows)

@@ -109,14 +109,12 @@ struct QQStickerLibrary {
         try createPrivateDirectory(localDirectory)
         guard try localDirectory.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true else { throw AppFailure.message("表情目录不能是符号链接") }
         let file = hash + ".png", target = localDirectory.appendingPathComponent(file)
-        try normalized.write(to: target, options: .atomic)
-        try protectPrivateFile(target)
+        try writePrivateData(normalized, to: target)
         let item = Item(id: "local-" + hash, title: title, emotion: emotion, file: file, sha256: hash, source: source,
                         context: context, author: author, license: license, publicSharing: publicSharing)
         let catalog = items.filter { $0.id.hasPrefix("local-") } + [item]
         let manifest = localDirectory.appendingPathComponent("manifest.json")
-        try JSONEncoder().encode(catalog).write(to: manifest, options: .atomic)
-        try protectPrivateFile(manifest)
+        try writePrivateData(JSONEncoder().encode(catalog), to: manifest)
         items.append(item)
     }
 }
