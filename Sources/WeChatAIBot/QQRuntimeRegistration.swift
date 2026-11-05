@@ -90,7 +90,7 @@ func protectWindowsFile(_ file: URL) throws {
     }
     defer { _ = LocalFree(descriptor) }
     let protected = file.path.withCString(encodedAs: UTF16.self) {
-        SetFileSecurityW($0, DWORD(DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION), descriptor)
+        SetFileSecurityW($0, DWORD(DACL_SECURITY_INFORMATION) | DWORD(PROTECTED_DACL_SECURITY_INFORMATION), descriptor)
     }
     guard protected else { throw AppFailure.message("无法保护本机数据，已停止操作") }
 }

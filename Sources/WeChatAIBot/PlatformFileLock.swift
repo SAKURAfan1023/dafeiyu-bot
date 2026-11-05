@@ -18,7 +18,7 @@ final class PlatformFileLock {
     init(url: URL, message: String) throws {
         #if os(Windows)
         let handle = url.path.withCString(encodedAs: UTF16.self) {
-            CreateFileW($0, DWORD(GENERIC_READ | GENERIC_WRITE), 0, nil, DWORD(OPEN_ALWAYS), DWORD(FILE_ATTRIBUTE_NORMAL), nil)
+            CreateFileW($0, DWORD(GENERIC_READ) | DWORD(GENERIC_WRITE), 0, nil, DWORD(OPEN_ALWAYS), DWORD(FILE_ATTRIBUTE_NORMAL), nil)
         }
         guard let handle, handle != INVALID_HANDLE_VALUE else { throw AppFailure.message(message) }
         self.handle = handle
