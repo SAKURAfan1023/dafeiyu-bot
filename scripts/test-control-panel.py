@@ -5,6 +5,22 @@ import json, os, pathlib, queue, select, socket, subprocess, sys, tempfile, urll
 
 transport = runpy.run_path(str(pathlib.Path(__file__).with_name('test-onebot-transport.py')))
 
+# Python 3.12's Windows wall clock ticks more coarsely than Swift Date.
+clock_slack = 2 * time.get_clock_info('time').resolution if os.name == 'nt' else 0
+
+def stop_worker(process):
+    if process.poll() is None:
+        if os.name == 'nt':
+            # Kill only this test-owned worker tree before the parent exits, so its
+            # Node transport cannot retain the temporary working directory.
+            result = subprocess.run([str(pathlib.Path(os.environ['SystemRoot'])/'System32/taskkill.exe'),
+                '/PID', str(process.pid), '/T', '/F'], capture_output=True, timeout=10)
+            assert result.returncode == 0 or process.poll() is not None, 'Test worker tree did not stop'
+        else:
+            process.terminate()
+    try: process.wait(timeout=5)
+    except subprocess.TimeoutExpired: process.kill(); process.wait()
+
 @contextlib.contextmanager
 def onebot(mode='success', queue_control=None):
     """Local synthetic roster; optional events stop at held history requests, before models."""
@@ -241,7 +257,8 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
                 assert invalid['error'] and not invalid['running']
                 started = action({'action':'start','durationMinutes':1})
                 assert not started['error'] and started['running'] and started['config'] == saved['config']
-                assert 50 < started['runDeadline'] - time.time() <= 60
+                remaining = started['runDeadline'] - time.time()
+                assert 50 < remaining <= 60 + clock_slack, {'remaining':remaining, 'clockSlack':clock_slack}
                 failed_save = action({'action':'save','enabled':[]})
                 assert failed_save['error'] and failed_save['running'] and failed_save['config'] == saved['config']
                 if '--wait-for-expiry' in sys.argv:
@@ -256,7 +273,9 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
                 paused = action({'action':'pause'})
                 assert not paused['running'] and paused['queued'] == 0 and not paused['runDeadline']
                 once = action({'action':'start','singleReply':True,'durationMinutes':4320})
-                assert once['running'] and 890 < once['runDeadline'] - time.time() <= 900
+                remaining = once['runDeadline'] - time.time() if once['runDeadline'] else None
+                assert once['running'] and remaining is not None and 890 < remaining <= 900 + clock_slack, {
+                    'running':once['running'], 'remaining':remaining, 'clockSlack':clock_slack, 'error':once['error']}
                 paused = action({'action':'pause'})
                 unlimited = action({'action':'start','durationMinutes':0})
                 assert unlimited['running'] and not unlimited['runDeadline']
@@ -305,9 +324,7 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
         assert request('/api/status', headers)[0] == 200
         print('PASS: assets, authentication, Origin/Host, malformed requests, connection/reply persistence, stale editor rejection, stale pause, unknown scope rejection, independent image/vision/artwork persistence, invalid tool configuration rollback, identity/online rejection, saved-config start, pause/clear lifecycle, isolated zero-send state')
     finally:
-        process.terminate()
-        try: process.wait(timeout=5)
-        except subprocess.TimeoutExpired: process.kill(); process.wait()
+        stop_worker(process)
     # Reopen only this temporary state with synthetic historical outcomes. No
     # messages, model calls, or send actions are needed to verify the API display.
     file = pathlib.Path(folder) / 'qq-state.json'
@@ -331,6 +348,4 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
         assert state['calls']==0 and state['confirmed']==0 and not state['running']
         print('PASS: restored runtime records are bounded, newest first, redacted, and do not alter counters')
     finally:
-        process.terminate()
-        try: process.wait(timeout=5)
-        except subprocess.TimeoutExpired: process.kill(); process.wait()
+        stop_worker(process)
