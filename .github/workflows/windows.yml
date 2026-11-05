@@ -59,8 +59,9 @@ jobs:
           $testRuntimes = @(Get-Item -Path "$env:SDKROOT/../../../Developer/Library/Testing-*/usr/bin64", "$env:SDKROOT/../../../Developer/Library/XCTest-*/usr/bin64" -ErrorAction Stop)
           if ($testRuntimes.Count -ne 2) { throw 'Expected Swift Testing and XCTest runtime directories' }
           $env:PATH = ($testRuntimes.FullName -join ';') + ';' + $env:PATH
-          # SwiftPM buffers the whole test process output; run its generated binary directly for live diagnostics.
-          python -c "import subprocess,sys; subprocess.run([sys.argv[1], '--testing-library', 'swift-testing'], check=True, timeout=300)" ($testBinary[0].FullName)
+          # Integration fixtures share MainActor and block during child startup; isolate suites, retaining each test's own concurrency checks.
+          # Run SwiftPM's generated binary directly so diagnostics are streamed.
+          python -c "import subprocess,sys; subprocess.run([sys.argv[1], '--testing-library', 'swift-testing', '--no-parallel'], check=True, timeout=300)" ($testBinary[0].FullName)
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/test-linux-images.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
