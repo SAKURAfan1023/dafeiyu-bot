@@ -630,7 +630,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         var admitted = 0
         while Date() < deadline {
             let data = try Data(contentsOf: directory.appendingPathComponent("qq-state.json"))
-            let state = try #require((try? JSONSerialization.jsonObject(with: data)) as? [String: Any], "Invalid synthetic state snapshot: \(String(decoding: data.prefix(512), as: UTF8.self))")
+            let state = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
             admitted = (state["seen"] as? [String: Any])?.count ?? 0
             let started = DelayedModelProtocol.counts.started
             if started >= 1 && admitted == expectedMessages && engine.usage.calls == started { break }
@@ -723,7 +723,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             }
             #expect(actions.components(separatedBy: expectedAction).count - 1 == desired)
             if control == "periodicStickers" {
-                let lines = try String(contentsOf: directory.appendingPathComponent("payloads"), encoding: .utf8).split(separator: "\n")
+                let lines = try String(contentsOf: directory.appendingPathComponent("payloads"), encoding: .utf8).split(whereSeparator: \.isNewline)
                 let counts = try lines.map { line -> Int in
                     let payload = try JSONSerialization.jsonObject(with: Data(line.utf8)) as! [String: Any]
                     return (payload["message"] as! [[String: Any]]).count
