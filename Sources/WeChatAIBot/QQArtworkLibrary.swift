@@ -415,7 +415,7 @@ struct QQArtworkPrepared: Sendable {
         var request = URLRequest(url: url); request.timeoutInterval = 15
         request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
         if host.hasSuffix("pixiv.net") || host == "i.pximg.net" { request.setValue("https://www.pixiv.net/", forHTTPHeaderField: "Referer") }
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         // Corelibs download tasks do not provide a file for URLProtocol responses.
         // The shared Linux receiver bounds bytes while receiving and rejects redirects.
         let (data, response) = try await session.boundedData(for: request, limit: limit)
@@ -437,7 +437,7 @@ struct QQArtworkPrepared: Sendable {
         if host == "i.pximg.net", [404, 410].contains(http.statusCode) { throw ArtworkAssetMissing() }
         guard http.statusCode == 200, response.expectedContentLength <= limit else { throw AppFailure.message("插画来源暂不可用（HTTP \(http.statusCode)），未绕过限制或自动重试") }
         try Task.checkCancellation()
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         return data
         #else
         guard let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= limit else { throw AppFailure.message("插画响应过大，已停止") }
@@ -445,7 +445,7 @@ struct QQArtworkPrepared: Sendable {
         #endif
     }
     static func normalized(_ data: Data, config: QQArtworkConfig) throws -> Data {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         return try LinuxImages.process(data, mode: "artwork", options: ["minLongEdge": config.minLongEdge, "minShortEdge": config.minShortEdge])[0]
         #else
         guard data.count <= 20_000_000, let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) == 1,

@@ -37,3 +37,11 @@ result = Image.open(io.BytesIO(base64.b64decode(run(static, 'frames')[0])))
 assert result.getpixel((0, 0))[0] > 240  # Transparency was composited on white.
 assert not result.getexif()
 print('PASS: static, GIF sampling/budget, transparency, resolution, oversized dimensions, malformed data, metadata')
+
+# Also execute the Windows subprocess entry: this exercises the native memory Job, not only the image function.
+if __import__('sys').platform == 'win32':
+    import json, subprocess, sys
+    child = subprocess.run([sys.executable, str(root/'Resources/Linux/image-helper.py')],
+        input=json.dumps({'image': static, 'mode': 'sticker-import', 'options': {}}).encode(), capture_output=True, timeout=20)
+    assert child.returncode == 0 and len(json.loads(child.stdout)) == 1
+    print('PASS: Windows image subprocess memory Job and output')

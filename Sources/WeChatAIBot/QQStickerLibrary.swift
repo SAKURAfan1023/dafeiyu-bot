@@ -67,7 +67,7 @@ struct QQStickerLibrary {
               size.isSymbolicLink == false, let bytes = size.fileSize, (1...3_000_000).contains(bytes),
               let data = try? Data(contentsOf: directory.appendingPathComponent(item.file)), data.count == bytes,
               SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == item.sha256 else { return nil }
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         guard (try? LinuxImages.process(data, mode: "sticker")) != nil else { return nil }
         #else
         guard let image = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(image) == 1,
@@ -88,7 +88,7 @@ struct QQStickerLibrary {
         let originalHash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
         guard !items.contains(where: { $0.sha256 == originalHash }) else { throw AppFailure.message("这张图片已存在，未重复导入") }
         let normalized: Data
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         normalized = try LinuxImages.process(bytes, mode: "sticker-import")[0]
         #else
         guard let imageSource = CGImageSourceCreateWithData(bytes as CFData, nil), CGImageSourceGetCount(imageSource) == 1,
@@ -106,17 +106,17 @@ struct QQStickerLibrary {
         let hash = SHA256.hash(data: normalized).map { String(format: "%02x", $0) }.joined()
         guard !items.contains(where: { $0.sha256 == hash }) else { throw AppFailure.message("这张图片已存在，未重复导入") }
         guard items.count < 500 else { throw AppFailure.message("表情库最多 500 张") }
-        try FileManager.default.createDirectory(at: localDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try createPrivateDirectory(localDirectory)
         guard try localDirectory.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true else { throw AppFailure.message("表情目录不能是符号链接") }
         let file = hash + ".png", target = localDirectory.appendingPathComponent(file)
         try normalized.write(to: target, options: .atomic)
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path)
+        try protectPrivateFile(target)
         let item = Item(id: "local-" + hash, title: title, emotion: emotion, file: file, sha256: hash, source: source,
                         context: context, author: author, license: license, publicSharing: publicSharing)
         let catalog = items.filter { $0.id.hasPrefix("local-") } + [item]
         let manifest = localDirectory.appendingPathComponent("manifest.json")
         try JSONEncoder().encode(catalog).write(to: manifest, options: .atomic)
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: manifest.path)
+        try protectPrivateFile(manifest)
         items.append(item)
     }
 }

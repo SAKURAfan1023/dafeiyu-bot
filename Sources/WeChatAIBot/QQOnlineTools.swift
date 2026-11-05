@@ -94,7 +94,7 @@ struct QQOnlineTools {
                   ["Public domain", "CC0", "CC BY 2.0", "CC BY 3.0", "CC BY 4.0", "CC BY-SA 2.0", "CC BY-SA 2.5", "CC BY-SA 3.0", "CC BY-SA 4.0"].contains(license) else { continue }
             do {
                 let bytes = try await fetch(imageURL, limit: 3_000_000)
-                #if os(Linux)
+                #if os(Linux) || os(Windows)
                 let output = try LinuxImages.process(bytes, mode: "search")[0]
                 #else
                 guard let image = CGImageSourceCreateWithData(bytes as CFData, nil), CGImageSourceGetCount(image) == 1,
@@ -122,14 +122,14 @@ struct QQOnlineTools {
               ["www.bing.com", "en.wikipedia.org", "zh.wikipedia.org", "commons.wikimedia.org", "upload.wikimedia.org", "thumb.wikimedia.org"].contains(url.host ?? "") else { throw URLError(.badURL) }
         var request = URLRequest(url: url); request.timeoutInterval = 15
         request.setValue("DaFeiYuBot/1.0 (personal QQ assistant)", forHTTPHeaderField: "User-Agent")
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         let (linuxData, response) = try await session.boundedData(for: request, limit: limit)
         #else
         let (bytes, response) = try await session.bytes(for: request, delegate: NoSearchRedirect())
         #endif
         guard let http = response as? HTTPURLResponse, http.statusCode == 200, response.expectedContentLength <= limit else { throw URLError(.badServerResponse) }
         var result = Data()
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         result = linuxData
         #else
         for try await byte in bytes {

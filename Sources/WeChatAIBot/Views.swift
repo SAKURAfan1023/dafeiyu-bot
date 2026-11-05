@@ -11,19 +11,26 @@ struct BotApp: App {
     @StateObject private var qq: QQEngine
     @StateObject private var social: SocialPlatforms
     @ViewState private var qqWebPanel: QQControlServer?
+    @ViewState private var qqRegistration: QQRuntimeRegistration?
+    @ViewState private var qqSharedServer: QQControlServer?
+    private let externalQQURL: URL?
     private let preview = CommandLine.arguments.contains("--preview-panel")
     init() {
         let preview = CommandLine.arguments.contains("--preview-panel")
+        let sharedURL = preview ? nil : (try? LocalStore()).flatMap { QQRuntimeRegistration.existingURL(directory: $0.directory) }
+        externalQQURL = sharedURL
         _engine = StateObject(wrappedValue: BotEngine(preview: preview))
-        _qq = StateObject(wrappedValue: QQEngine(preview: preview, allowAuthenticationUI: !preview))
+        _qq = StateObject(wrappedValue: QQEngine(preview: preview || sharedURL != nil, allowAuthenticationUI: !preview))
         _social = StateObject(wrappedValue: SocialPlatforms(directory: preview ? FileManager.default.temporaryDirectory.appendingPathComponent("dafeiyu-social-preview-" + UUID().uuidString) : nil))
     }
     var body: some Scene {
         WindowGroup(preview ? "大肥鱼 · 面板预览" : "大肥鱼 · 控制台", id: "dashboard", content: {
             Dashboard(engine: engine, qq: qq, social: social, initialPage: CommandLine.arguments.contains("--xiaohongshu-view") ? .xhsConnect : .qq, openQQWebPanel: { openQQWebPanel() },
-                      closeQQWebPanel: { closeQQWebPanel() }, webPanelOpen: qqWebPanel != nil)
+                      closeQQWebPanel: { closeQQWebPanel() }, webPanelOpen: qqWebPanel != nil, externalQQURL: externalQQURL,
+                      qqAvailable: preview || externalQQURL != nil || qqSharedServer != nil)
                 .frame(minWidth: 980, minHeight: 700)
                 .onAppear {
+                    if !preview, externalQQURL == nil, qqSharedServer == nil { registerQQRuntime() }
                     if let image = PanelLogo.image { NSApp.applicationIconImage = image }
                     if preview { NSApp.activate(ignoringOtherApps: true) }
                     if CommandLine.arguments.contains("--xiaohongshu-view"), let panel = try? social.panel() {
@@ -35,19 +42,31 @@ struct BotApp: App {
             .commands { PanelNavigationCommands() }
         MenuBarExtra("大肥鱼", systemImage: "bubble.left.and.text.bubble.right") {
             Text("微信：\(engine.status)")
-            Text("QQ：\(qq.status)")
+            Text(externalQQURL == nil ? "QQ：\(qq.status)" : "QQ：已连接共享控制入口")
             Button(engine.isRunning || engine.isBusy ? "暂停微信操作" : "开始微信托管") { engine.isRunning || engine.isBusy ? engine.stop() : engine.start() }
                 .disabled(!engine.isRunning && !engine.isBusy && engine.safetyReason != nil)
             Divider()
             ShowDashboardButton()
             Button("在浏览器打开 QQ 面板") { openQQWebPanel() }
+                .disabled(externalQQURL == nil && qqSharedServer == nil)
             if qqWebPanel != nil { Button("关闭网页控制入口（不暂停 QQ）") { closeQQWebPanel() } }
             ForEach(SocialPlatform.allCases, id: \.self) { platform in Text("\(platform.name)：\(social[platform].status)") }
-            Button("暂停全部") { engine.stop(); qq.pause(); social.pause() }
+            Button("暂停全部") { engine.stop(); if let externalQQURL { pauseSharedQQ(externalQQURL) } else { qq.pause() }; social.pause() }
             Button("退出") { engine.stop(); qq.disconnect(); social.shutdown(); NSApp.terminate(nil) }
         }
     }
+    @MainActor private func registerQQRuntime() {
+        do {
+            let server = try QQControlServer(engine: qq, social: social)
+            qqRegistration = try QQRuntimeRegistration(server: server, directory: LocalStore().directory)
+            server.start(announce: false); qqSharedServer = server
+        } catch { qq.error = "QQ 共享控制入口不可用，请使用现有后台或重新打开客户端" }
+    }
     @MainActor private func openQQWebPanel() {
+        if let externalQQURL { NSWorkspace.shared.open(externalQQURL); return }
+        guard qqSharedServer != nil else {
+            qq.error = "共享后台尚未就绪，请重新打开客户端连接已有后台"; return
+        }
         do {
             let server: QQControlServer
             if let existing = qqWebPanel { server = existing }
@@ -131,16 +150,20 @@ struct Dashboard: View {
     private let openQQWebPanel: (() -> Void)?
     private let closeQQWebPanel: (() -> Void)?
     private let webPanelOpen: Bool
+    private let externalQQURL: URL?
+    private let qqAvailable: Bool
     private let accent = PanelTheme.accent
     private let ink = Color(red: 0.125, green: 0.145, blue: 0.12)
     private let mint = Color(red: 0.82, green: 0.95, blue: 0.60)
     init(engine: BotEngine, qq: QQEngine? = nil, social: SocialPlatforms? = nil, initialPage: Page = .qq,
-         openQQWebPanel: (() -> Void)? = nil, closeQQWebPanel: (() -> Void)? = nil, webPanelOpen: Bool = false) {
+         openQQWebPanel: (() -> Void)? = nil, closeQQWebPanel: (() -> Void)? = nil, webPanelOpen: Bool = false, externalQQURL: URL? = nil,
+         qqAvailable: Bool = true) {
         self.engine = engine; self.qq = qq ?? QQEngine(preview: true)
         self.social = social ?? SocialPlatforms(directory: FileManager.default.temporaryDirectory.appendingPathComponent("dafeiyu-social-preview-" + UUID().uuidString))
         self.xhs = self.social[.xiaohongshu]; self.bili = self.social[.bilibili]
         self.openQQWebPanel = openQQWebPanel; self.closeQQWebPanel = closeQQWebPanel
-        self.webPanelOpen = webPanelOpen
+        self.webPanelOpen = webPanelOpen; self.externalQQURL = externalQQURL
+        self.qqAvailable = qqAvailable
         _page = ViewState(initialValue: initialPage)
         var editor = QQPanelState(); editor.section = initialPage.qqSection ?? "连接与运行"
         _qqEditor = ViewState(initialValue: editor)
@@ -176,8 +199,9 @@ struct Dashboard: View {
                     }.buttonStyle(.plain).foregroundStyle(.white).padding(.bottom, 12)
                     Label(engine.isRunning ? "微信托管中" : "微信已暂停", systemImage: engine.isRunning ? "circle.fill" : "pause.circle")
                         .foregroundStyle(engine.isRunning ? mint : .white.opacity(0.65))
-                    Label(qq.running ? "QQ 托管中" : "QQ 已暂停", systemImage: qq.running ? "circle.fill" : "pause.circle")
-                        .foregroundStyle(qq.running ? mint : .white.opacity(0.65))
+                    Label(externalQQURL == nil ? (qq.running ? "QQ 托管中" : "QQ 已暂停") : "QQ 状态请看共享面板",
+                          systemImage: externalQQURL == nil && qq.running ? "circle.fill" : "link")
+                        .foregroundStyle(externalQQURL == nil && qq.running ? mint : .white.opacity(0.65))
                     Label(xhs.running || bili.running ? "社交平台运行中" : "社交平台已暂停", systemImage: xhs.running || bili.running ? "circle.fill" : "pause.circle")
                         .foregroundStyle(xhs.running || bili.running ? mint : .white.opacity(0.65))
                 }.font(.caption2).padding(22)
@@ -192,13 +216,13 @@ struct Dashboard: View {
                     if engine.isBusy { ProgressView().controlSize(.small) }
                     if page.qqSection != nil, let openQQWebPanel {
                         Menu {
-                            Button("打开 QQ 网页版", action: openQQWebPanel)
+                            Button("打开 QQ 网页版", action: openQQWebPanel).disabled(!qqAvailable)
                             if webPanelOpen, let closeQQWebPanel { Button("关闭网页控制入口", action: closeQQWebPanel) }
                         } label: { Label("网页版", systemImage: "arrow.up.right.square") }
                             .menuStyle(.borderlessButton).fixedSize()
                             .help("网页与客户端共用 QQ 引擎；关闭网页入口不会暂停回复。")
                     }
-                    Button { engine.stop(); qq.pause(); social.pause() } label: {
+                    Button { engine.stop(); if let externalQQURL { pauseSharedQQ(externalQQURL) } else { qq.pause() }; social.pause() } label: {
                         Label("暂停全部", systemImage: "pause.fill")
                     }.buttonStyle(PanelButtonStyle()).help("暂停 QQ、社交平台与微信任务")
 
@@ -228,7 +252,8 @@ struct Dashboard: View {
                         case .rules: rules
                         case .logs: logs
                         case .qq, .qqReply, .qqTools, .qqMemory:
-                            QQView(engine: qq, wechat: engine, editor: $qqEditor)
+                            if let externalQQURL { QQSharedPanel(url: externalQQURL).frame(minHeight: 720) }
+                            else { QQView(engine: qq, wechat: engine, editor: $qqEditor).disabled(!qqAvailable) }
                         case .xhsConnect, .bilibili: EmptyView()
                         }
                     }.padding(32)

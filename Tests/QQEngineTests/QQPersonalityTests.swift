@@ -75,7 +75,7 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         try Data("groupParticipation".utf8).write(to: directory.appendingPathComponent("message-shape"))
         if mode == "unknown" { try Data().write(to: directory.appendingPathComponent("drop-send")) }
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }

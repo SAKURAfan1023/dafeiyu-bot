@@ -27,14 +27,14 @@ struct QQIncomingImages {
     func load(_ value: String?, maxFrames: Int = 6) async throws -> [Data] {
         guard let url = Self.allowedURL(value) else { throw AppFailure.message("图片下载地址不受支持") }
         var request = URLRequest(url: url); request.timeoutInterval = 15
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         let (linuxData, response) = try await session.boundedData(for: request, limit: 8_000_000)
         #else
         let (bytes, response) = try await session.bytes(for: request, delegate: QQImageNoRedirect())
         #endif
         guard let http = response as? HTTPURLResponse, http.statusCode == 200, response.expectedContentLength <= 8_000_000 else { throw AppFailure.message("图片暂时无法下载") }
         var data = Data()
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         data = linuxData
         #else
         for try await byte in bytes {
@@ -46,7 +46,7 @@ struct QQIncomingImages {
         return try Self.frames(data, maxFrames: maxFrames)
     }
     static func frames(_ data: Data, maxFrames: Int = 6) throws -> [Data] {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         return try LinuxImages.process(data, mode: "frames", options: ["maxFrames": maxFrames])
         #else
         guard data.count <= 8_000_000, let source = CGImageSourceCreateWithData(data as CFData, nil),

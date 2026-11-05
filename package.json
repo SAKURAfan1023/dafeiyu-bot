@@ -1,0 +1,22 @@
+{
+  "name": "dafeiyu-workspace",
+  "private": true,
+  "version": "0.3.0-preview.2",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test packages/qq/test/*.test.mjs packages/mcp/test/*.test.mjs",
+    "build:qq": "python3 scripts/build-qq.py",
+    "pack:qq": "node scripts/pack-qq.mjs",
+    "test:distribution": "node scripts/test-qq-distribution.mjs",
+    "build:macos-mcp": "node scripts/build-macos-mcp.mjs",
+    "test:macos-mcp": "node scripts/test-macos-mcp.mjs",
+    "check:npm-release": "node scripts/check-npm-release.mjs",
+    "test:npm-install": "node scripts/test-npm-install.mjs"
+  }
+}

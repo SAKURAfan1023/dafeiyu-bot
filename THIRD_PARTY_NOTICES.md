@@ -26,3 +26,9 @@
 - 参考文件：`assets/whale/portrait.png`、`design/character-standard.png`
 - 保留上游[完整素材署名许可](Resources/QQControl/LOGO-LICENSE.txt)，以及其底层第三方角色、标志不被额外授权的说明。本项目 MIT 不取消这些素材义务，不暗示上游或 DeepSeek 官方认可。
 - 改编内容：头肩头像、表情与线条简化、透明背景。生成提示与设计来源见 [面板设计](docs/PANEL_DESIGN.md)。
+
+## QQ 分包与 MCP 预览
+
+- Windows OneBot 传输使用 ws（MIT），依赖版本锁定于 npm lockfile；MCP 使用官方 TypeScript SDK（MIT），输入校验使用 Zod（MIT），其许可证由 npm 依赖包一并保留。
+- 独立后台包含 Swift 运行库时保留 [Swift Apache 2.0 with Runtime Library Exception](docs/licenses/Swift-LICENSE.txt)；构建脚本收集链接依赖的 LICENSE / NOTICE 至分包 licenses 目录。Microsoft Visual C++ x64 运行库使用官方运行时安装渠道，不从开发机 System32 复制到公开包。
+- Windows 原生 QQ 和 NapCat 继续由用户单独安装，本项目不分发它们或其登录资料。Pillow 按用户需要自行安装，用于图片解码和转换。

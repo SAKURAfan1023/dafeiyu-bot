@@ -1,3 +1,4 @@
+#if !os(Windows)
 import Foundation
 #if canImport(Darwin)
 import Darwin
@@ -122,3 +123,5 @@ final class LoopbackConnection {
     }
     deinit { close(descriptor); release() }
 }
+
+#endif

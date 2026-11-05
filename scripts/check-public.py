@@ -6,7 +6,9 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--staged', action='store_true', help='scan the Git index, exactly as prepared for commit')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
-result = subprocess.run(['git', '-C', str(root), 'ls-files', '-z'], capture_output=True)
+listing = ['git', '-C', str(root), 'ls-files', '-z']
+if not args.staged: listing += ['--cached', '--others', '--exclude-standard']
+result = subprocess.run(listing, capture_output=True)
 if result.returncode:
     sys.exit('Unable to inspect tracked files; run inside the Git repository.')
 paths = [root / name.decode() for name in result.stdout.split(b'\0') if name]

@@ -1,0 +1,19 @@
+{
+  "$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name":"dafeiyu-qq-macos-test",
+  "version":"0.3.0-preview.2",
+  "description":"大肥鱼 macOS QQ/MCP 独立测试版，使用隔离数据和同一份 QQ 后台。",
+  "author":{"name":"SAKURAfan1023"},
+  "license":"MIT",
+  "extensions":{"com.openai":{
+    "requires_local_executor":true,
+    "interface":{
+      "displayName":"大肥鱼 QQ · Mac 测试版",
+      "shortDescription":"本机 QQ 客户端与 MCP 双入口测试",
+      "developerName":"SAKURAfan1023",
+      "category":"Productivity",
+      "capabilities":["Read","Write"],
+      "defaultPrompt":["查看大肥鱼测试后台状态，不连接 QQ，不启动回复。"]
+    }
+  }}
+}

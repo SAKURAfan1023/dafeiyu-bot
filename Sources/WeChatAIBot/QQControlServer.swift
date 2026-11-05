@@ -3,14 +3,18 @@ import BotCore
 
 /// An opt-in, loopback-only control surface for the same engine as the native panel.
 @MainActor final class QQControlServer {
+    let generation = UUID().uuidString
     private let engine: QQEngine
+    #if !DAFEIYU_QQ_ONLY
     private var social: SocialPlatforms?
+    #endif
     private let listener: LoopbackListener
     private let token = UUID().uuidString + UUID().uuidString
     private var origin = ""
     private var clients: [UUID: LoopbackConnection] = [:]
     private var started = false
     private(set) var isRunning = false
+    private(set) var workerStopRequested = false
     var controlURL: URL { URL(string: "http://127.0.0.1:\(listener.port)/#\(token)")! }
     private var observedConfiguration: QQConfig?
     private var configurationRevision = UUID().uuidString
@@ -21,10 +25,14 @@ import BotCore
         }
         return configurationRevision
     }
+    #if !DAFEIYU_QQ_ONLY
     init(engine: QQEngine, social: SocialPlatforms? = nil) throws {
         self.engine = engine; self.social = social
         listener = try LoopbackListener()
     }
+    #else
+    init(engine: QQEngine) throws { self.engine = engine; listener = try LoopbackListener() }
+    #endif
     func start(announce: Bool = true) {
         guard !started else { return }; started = true; isRunning = true
         origin = "http://127.0.0.1:\(listener.port)"
@@ -87,6 +95,7 @@ import BotCore
         }
     }
     private func handle(_ connection: LoopbackConnection, id: UUID, method: String, path: String, headers: [String: String], body: Data) async {
+        guard !workerStopRequested else { reply(connection, id: id, code: 503); return }
         if method == "GET", ["/", "/app.js", "/sticker-pack.js", "/style.css", "/logo.png"].contains(path) {
             let name: String, ext: String, type: String
             switch path {
@@ -102,6 +111,7 @@ import BotCore
         }
         guard headers["x-qq-control"] == token,
               headers["origin"] == nil || headers["origin"] == origin else { reply(connection, id: id, code: 403); return }
+        #if !DAFEIYU_QQ_ONLY
         if method == "POST", path == "/api/social-panel" {
             guard headers["origin"] == origin, headers["content-type"]?.hasPrefix("application/json") == true,
                   let value = try? JSONSerialization.jsonObject(with: body) as? [String: String],
@@ -115,6 +125,7 @@ import BotCore
             } catch { reply(connection, id: id, code: 503) }
             return
         }
+        #endif
         if method == "GET", path.hasPrefix("/api/sticker/") {
             let stickerID = String(path.dropFirst("/api/sticker/".count))
             guard let item = engine.stickerLibrary.items.first(where: { $0.id == stickerID }),
@@ -139,6 +150,13 @@ import BotCore
                     }
                 }
                 switch request.action {
+                #if DAFEIYU_QQ_ONLY
+                case "shutdown":
+                    guard !engine.connected, !engine.running, !engine.busy, !engine.runtimeBusy, !engine.memoryBusy else {
+                        throw AppFailure.message("请先暂停、断开并等待当前操作完成，再退出后台")
+                    }
+                    workerStopRequested = true
+                #endif
                 case "importSticker":
                     guard let image = request.stickerImage, let data = Data(base64Encoded: image), let item = request.sticker else { throw AppFailure.message("缺少图片或表情信息") }
                     try engine.importSticker(data: data, title: item.title, emotion: item.emotion, context: item.context,
@@ -220,7 +238,7 @@ import BotCore
         } else if !(method == "GET" && path == "/api/status") { reply(connection, id: id, code: 404); return }
         do {
             let config = try JSONSerialization.jsonObject(with: JSONEncoder().encode(engine.config))
-            let object: [String: Any] = ["config": config, "configurationSaved": configurationSaved, "configurationRevision": currentConfigurationRevision(), "connected": engine.connected, "running": engine.running,
+            let object: [String: Any] = ["runtime": ["module": "qq", "version": QQRuntimeRegistration.version, "generation": generation, "pid": ProcessInfo.processInfo.processIdentifier], "config": config, "configurationSaved": configurationSaved, "configurationRevision": currentConfigurationRevision(), "connected": engine.connected, "running": engine.running,
                 "busy": engine.busy || engine.runtimeBusy, "status": engine.status, "error": engine.error ?? "",
                 "temporaryCredentials": engine.usesTemporaryCredentials,
                 "supportsKeychain": RuntimeResources.supportsKeychain,

@@ -1,5 +1,8 @@
 # Windows 安装与使用（WSL2 + Web 面板）
 
+> 新增 Windows 原生 QQ 分包预览实现，源码和安装说明见 [QQ 分包与双入口](QQ_MODULES.md)。该路线的 Windows 原生 CI / 实机验收尚未完成；以下保留已有 WSL 安装流程。
+
+
 Windows 版采用 WSL2 运行与 Mac 相同的 QQ 回复引擎，在 Windows 的 Edge / Chrome 中打开本机面板。WSL2 是 Windows 的 Linux 子系统；不需要拥有 Mac。当前提供源码构建方式，尚无原生 `.exe` / MSI 安装包。微信桌面自动化仍仅在 Mac 上测试，Windows 这条链路只接入 QQ。
 
 > 2026-09-29：Ubuntu 24.04 x86_64 / Swift 6.1.3 的 128 项测试、发布构建、打包面板与 OneBot 传输检查已通过。Windows 实机 WSL 安装、浏览器访问与扫码/收发仍待验收；Linux CI 不能代替这些步骤。详见 [验证记录](VALIDATION.md)。

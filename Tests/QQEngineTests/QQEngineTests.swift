@@ -7,7 +7,7 @@ import BotCore
 @testable import WeChatAIBot
 #if canImport(Darwin)
 import Darwin
-#else
+#elseif os(Linux)
 import Glibc
 #endif
 
@@ -97,7 +97,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -111,6 +111,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         other.save(endpoint: "ws://127.0.0.1:3102")
         #expect(other.error != nil) // An active owner must still exclude other writers.
 
+        #if !os(Windows)
         let attributes = try FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent("qq-engine.lock").path)
         let inode = try #require(attributes[.systemFileNumber] as? NSNumber)
         let device = try #require(attributes[.systemNumber] as? NSNumber)
@@ -127,6 +128,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         // without forking a multithreaded Swift test process.
         let inherited = dup(descriptor); try #require(inherited >= 0)
         defer { close(inherited) }
+        #endif
         engine.disconnect()
         let reopened = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
         reopened.save(endpoint: "ws://127.0.0.1:3102")
@@ -207,7 +209,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: directory) }
         try Data("groupParticipation".utf8).write(to: directory.appendingPathComponent("message-shape"))
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -255,7 +257,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: directory) }
         try Data("groupParticipation".utf8).write(to: directory.appendingPathComponent("message-shape"))
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -319,7 +321,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: directory) }
         try Data("groupParticipation".utf8).write(to: directory.appendingPathComponent("message-shape"))
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -449,7 +451,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             try JSONSerialization.data(withJSONObject: stored).write(to: file)
         }
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -557,7 +559,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         if group || control.hasPrefix("private") { try Data(control.utf8).write(to: directory.appendingPathComponent("message-shape")) }
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py")
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [fixture.path, directory.path]
         server.standardOutput = output
         try server.run()

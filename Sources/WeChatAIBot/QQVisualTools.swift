@@ -93,14 +93,14 @@ struct QQVisualTools {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(google ? key : "Bearer " + key, forHTTPHeaderField: google ? "X-Goog-Api-Key" : "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         let (linuxData, response) = try await session.boundedData(for: request, limit: 1_000_000)
         #else
         let (bytes, response) = try await session.bytes(for: request, delegate: NoVisualRedirect())
         #endif
         guard let response = response as? HTTPURLResponse, response.expectedContentLength <= 1_000_000 else { throw AppFailure.message("识图响应无效或过大") }
         var data = Data()
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         data = linuxData
         #else
         for try await byte in bytes {

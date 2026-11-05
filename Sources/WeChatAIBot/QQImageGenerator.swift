@@ -110,7 +110,7 @@ struct QQImageGenerator {
             }
             bytes = decoded
         }
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         guard (try? LinuxImages.process(bytes, mode: "generated")) != nil else {
             throw GenerationFailure(message: "图片解码或尺寸校验失败", allowsFallback: true)
         }
@@ -133,7 +133,7 @@ struct QQImageGenerator {
     }
     private func fetch(_ request: URLRequest, limit: Int) async throws -> (Data, Int) {
         try Task.checkCancellation()
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         let (linuxData, response) = try await session.boundedData(for: request, limit: limit)
         #else
         let (bytes, response) = try await session.bytes(for: request, delegate: NoGenerationRedirect())
@@ -143,7 +143,7 @@ struct QQImageGenerator {
         }
         guard !(300...399).contains(response.statusCode) else { throw GenerationFailure(message: "接口重定向被拒绝", allowsFallback: false) }
         var data = Data()
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         data = linuxData
         #else
         for try await byte in bytes {

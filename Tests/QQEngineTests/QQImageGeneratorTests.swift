@@ -178,7 +178,7 @@ private final class ImageProviderFixture: URLProtocol, @unchecked Sendable {
         try Data("1".utf8).write(to: directory.appendingPathComponent("message-count"))
         try Data((mode == "proactive" ? "groupImagePrompt" : "imagePrompt").utf8).write(to: directory.appendingPathComponent("message-shape"))
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py")
-        let server = Process(), output = Pipe(); server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        let server = Process(), output = Pipe(); server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [fixture.path, directory.path]; server.standardOutput = output
         try server.run(); defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
         let port = try #require(Int(String(decoding: output.fileHandleForReading.availableData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)))

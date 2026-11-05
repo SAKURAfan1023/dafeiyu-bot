@@ -6,7 +6,9 @@ import FoundationNetworking
 /// One local, authenticated connection. A broken connection cancels all outstanding actions;
 /// sends are never retried because a missing acknowledgement is an unknown outcome.
 @MainActor final class OneBotConnection {
-    #if os(Linux)
+    #if os(Windows) || DAFEIYU_NODE_TRANSPORT
+    private var socket: NodeOneBotTransport?
+    #elseif os(Linux)
     private var socket: LinuxOneBotTransport?
     #else
     private var socket: URLSessionWebSocketTask?
@@ -19,8 +21,12 @@ import FoundationNetworking
     func connect(endpoint: String, token: String) async throws {
         close()
         guard let url = URL(string: endpoint), !token.isEmpty else { throw AppFailure.message("请先配置 OneBot 令牌") }
-        #if os(Linux)
+        #if os(Linux) || os(Windows) || DAFEIYU_NODE_TRANSPORT
+        #if os(Windows) || DAFEIYU_NODE_TRANSPORT
+        let socket = NodeOneBotTransport()
+        #else
         let socket = LinuxOneBotTransport()
+        #endif
         self.socket = socket
         do { try await socket.connect(url: url, token: token) }
         catch { if self.socket === socket { close(error: error) }; throw error }
@@ -34,7 +40,7 @@ import FoundationNetworking
         #endif
         receiver = Task { [weak self] in
             do {
-                #if os(Linux)
+                #if os(Linux) || os(Windows) || DAFEIYU_NODE_TRANSPORT
                 for try await data in socket.messages {
                     guard let self, self.socket === socket else { return }
                     guard !socket.closed else { throw URLError(.networkConnectionLost) }
@@ -80,7 +86,7 @@ import FoundationNetworking
                 let completion: (Error?) -> Void = { [weak self] error in
                     if let error { Task { @MainActor in self?.fail(echo, error: error) } }
                 }
-                #if os(Linux)
+                #if os(Linux) || os(Windows) || DAFEIYU_NODE_TRANSPORT
                 socket.send(data, completion: completion)
                 #else
                 socket.send(.data(data), completionHandler: completion)
@@ -95,7 +101,7 @@ import FoundationNetworking
         pending.removeValue(forKey: echo)?.resume(throwing: error)
     }
     func close(error: Error? = nil) {
-        #if os(Linux)
+        #if os(Linux) || os(Windows) || DAFEIYU_NODE_TRANSPORT
         socket?.close()
         #else
         socket?.cancel(with: .goingAway, reason: nil)

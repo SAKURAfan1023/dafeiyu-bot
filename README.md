@@ -18,9 +18,41 @@ QQ 可用 · 社交平台测试中（小红书 / B站）· 微信测试中 · ma
 
 > **项目状态：持续更新、完善与迭代中。** QQ 私聊与群真实 @ 回复已有真人接收确认，可用于个人测试和部署；不代表所有新功能、所有账号或连续运行时长均已验收。微信适配仍在测试，尚未完成可靠自动回复验收，请勿按成熟功能使用。macOS 提供原生界面，Windows 提供 WSL2 + 本机 Web 面板部署方式（Linux 自动化验证通过，Windows 实机待验收，见验证记录）；QQ 桥接可在独立 Linux 环境运行。当前没有 Windows 原生 exe 安装包。
 
+## npm 按需安装 · 0.3 预览版
+
+`0.3.0-preview.1` 已发布到 npm。首批范围仅 macOS Apple Silicon（arm64，macOS 14+），需要 Node.js 22+ 和 npm；Windows 原生及其他架构继续验证，不包含在本次 npm 支持范围。
+
+先安装 QQ 模块，再选择客户端或 MCP：
+
+```sh
+npx --yes @sakurafan1023/cli@0.3.0-preview.1 setup qq
+npx --yes @sakurafan1023/cli@0.3.0-preview.1 qq panel
+```
+
+需要 Codex MCP 时，在装好 QQ 后注册：
+
+```sh
+codex mcp add dafeiyu -- npx --yes @sakurafan1023/mcp@0.3.0-preview.1 --modules qq
+```
+
+基础入口只安装选中的 QQ 模块和本机后台，不下载微信、社交浏览器、QQ、NapCat 或虚拟机。客户端与 MCP 共用后台、配置和运行状态；安装、打开面板和接入 MCP 都不会自动登录或开始回复。QQ / NapCat 桥接环境与模型凭证仍需自行配置。
+
+| npm 包 | 职责 |
+| --- | --- |
+| `@sakurafan1023/cli` | 按需安装、打开面板和管理后台 |
+| `@sakurafan1023/qq` | QQ 模块、固定操作接口和平台选择 |
+| `@sakurafan1023/qq-darwin-arm64` | Apple Silicon 原生后台与 QQ 资源 |
+| `@sakurafan1023/mcp` | 本地 stdio MCP 入口，7 个受限工具 |
+
+请使用完整的 scoped 包名；`npx dafeiyu` 会解析到另一个 npm 包。请按上文固定版本安装，也可显式选择 `@next`。本版仍为预览版；registry 首次发布同时自动添加了 `latest`，移除请求返回 E400，详细状态见发布记录。
+
+[npm CLI](https://www.npmjs.com/package/@sakurafan1023/cli) · [npm MCP](https://www.npmjs.com/package/@sakurafan1023/mcp) · [发布记录](docs/NPM_RELEASE.md) · [分包及使用说明](docs/QQ_MODULES.md) · [独立 Mac 测试包](docs/MACOS_MCP_TEST.md) · [测试证据](docs/VALIDATION.md)
+
 ## 近期更新 · 2026 年 10 月
 
 [v0.2.0-beta.1 更新公告与安装说明 →](docs/releases/v0.2.0-beta.1.md)
+
+QQ 独立包及客户端 / MCP 双入口已发布 macOS arm64 npm 预览版；Windows 原生后台继续开发，实机验证待完成。见 [分包与双入口说明](docs/QQ_MODULES.md)。
 
 - **出门有个统一入口**：QQ → 社交平台（小红书 / B站）→ 微信。人格、模型调用和面板共享代码，账号与记忆各自保管。B站已完成扫码、绑定、搜索、介绍与有限评论读取、DeepSeek 草稿和话题记忆的本机验收；本轮补齐两站默认自动模式，B站发送与回读按合成契约验证，真实评论发布尚未验收。[方案与范围 →](docs/SOCIAL_PLATFORMS.md)
 - **默认就会自己逛**：小红书和 B站新配置默认自动运行。扫码绑定、配置模型、保存主题，点开始后自行判断是否接话；每轮 15 分钟、读 5 条、模型 5 次，每个平台每日最多发 3 次，间隔 5 分钟，每条 80 字。旧配置可点「使用推荐设置」，不会自动启动或清空警告。
@@ -115,7 +147,7 @@ QQ 可用 · 社交平台测试中（小红书 / B站）· 微信测试中 · ma
 
 来自实际 QQ 群的匿名片段，**脱敏重排，非原始 QQ 截图**。保留选中文本，省略无关发言；[取材方法与证据边界](docs/CHAT_EXAMPLE.md)。
 
-## 五步开始
+## 从源码五步开始
 
 **Windows 用户先看 [Windows 完整安装教程](docs/WINDOWS.md)**；以下命令用于 Mac。
 

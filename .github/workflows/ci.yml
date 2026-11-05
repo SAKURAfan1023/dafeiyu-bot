@@ -18,3 +18,18 @@ jobs:
         run: bash scripts/build.sh
       - name: Real HTTP control boundary
         run: python3 scripts/test-control-panel.py 'dist/WeChat AI Bot.app/Contents/MacOS/WeChatAIBot'
+      - name: QQ isolated artifact and dual entrypoints
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix Resources/QQTransport --ignore-scripts --no-audit --no-fund
+          python3 scripts/build-qq.py --configuration debug --test-node-transport
+          DAFEIYU_NODE="$(command -v node)" DAFEIYU_RESOURCES="$PWD/dist/qq/Resources" python3 scripts/test-onebot-transport.py dist/qq/dafeiyu-qq
+          DAFEIYU_NODE="$(command -v node)" python3 scripts/test-control-panel.py dist/qq/dafeiyu-qq --qq-only
+          python3 scripts/build-qq.py --configuration debug
+          DAFEIYU_QQ_ROOT="$PWD/dist/qq" npm test
+          npm run pack:qq
+          npm run test:distribution
+      - name: Relocatable macOS MCP test bundle
+        run: |
+          npm run build:macos-mcp
+          npm run test:macos-mcp
