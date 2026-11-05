@@ -1,6 +1,6 @@
 # QQ 按需安装与客户端 / MCP 双入口
 
-本轮预览版本为 `0.3.0-preview.1`，macOS arm64 的四个 npm 包已公开发布，具体状态见[发布记录](NPM_RELEASE.md)。Windows 原生 NapCat 按用户确认的可用前提接入，不把社区使用情况写成这台机器的实测结果。原有 macOS 客户端、Linux/WSL 路线继续保留。
+本轮预览版本为 `0.3.0-preview.2`，Windows x64、macOS arm64 后台及 CLI、QQ、MCP 共五个 npm 包已公开发布，具体状态见[发布记录](NPM_RELEASE.md)。Windows 原生 NapCat 按用户确认的可用前提接入，不把社区使用情况写成这台机器的实测结果。原有 macOS 客户端、Linux/WSL 路线继续保留。
 
 ## 包的边界
 
@@ -11,7 +11,7 @@
 | `@sakurafan1023/qq-<平台>-<架构>` | QQ 专用 Swift 可执行文件、所需资源和运行库 | 不含微信、社交浏览器、NapCat、QQ 或虚拟机 |
 | `@sakurafan1023/mcp` | MCP SDK stdio 入口 | 只调用已安装 QQ；不自动装全套功能 |
 
-当前构建产物只对应构建机器的平台。已定义 macOS arm64/x64、Windows x64、Linux x64/arm64 的命名；不能据此声称所有架构都已构建或验收。首批 npm 候选仅提供 macOS arm64，使用 `@sakurafan1023` 作用域与 `next` 通道，详见[发布清单](NPM_RELEASE.md)。Windows ARM64 暂未开放。
+当前构建产物只对应构建机器的平台。已定义 macOS arm64/x64、Windows x64、Linux x64/arm64 的命名；不能据此声称所有架构都已构建或验收。本轮 npm 提供 macOS arm64 和 Windows x64，使用 `@sakurafan1023` 作用域与 `next` 通道，详见[发布清单](NPM_RELEASE.md)。Windows ARM64 暂未开放。
 
 QQ 包通过 `qq-sources.json` 从原始 Swift 文件生成独立构建目标，避免复制一套业务代码。原有文字、群真实 @ / 主动接话、工作时段、额度、记忆、表情、识图、生图、搜图、插画和定时发送仍使用原 QQ 引擎。QQ 资源中不包含 SocialBrowser、SocialControl 或微信执行代码。
 
@@ -21,8 +21,8 @@ QQ 包通过 `qq-sources.json` 从原始 Swift 文件生成独立构建目标，
 
 1. 自行安装匹配的 Windows QQ / NapCat，并启用本机 OneBot 11 正向 WebSocket。
 2. 安装 Node.js 22 以上。图片功能另需 Python 与 Pillow，把 `DAFEIYU_PYTHON` 设置为 python.exe 的完整路径。文本连接不依赖 Python。
-3. 准备与系统匹配的四个 npm tarball；本预览暂用本地构建或后续经过验证的 CI 产物。
-4. Windows 分包包含从 PE 导入表收集的 Swift DLL 依赖；Microsoft Visual C++ x64 运行库作为系统前置条件。Windows CI 会清除 Swift 工具链 PATH 后再安装和启动 tarball，此门槛尚未在当前 Mac 执行。
+3. 使用下方 npm 命令按需安装；向导自动选择 Windows x64 原生后台。无需安装 Swift 编译工具。
+4. Windows 分包包含从 PE 导入表收集的 Swift DLL 依赖；Microsoft Visual C++ x64 运行库作为系统前置条件。Windows CI 已清除 Swift 工具链 PATH 后实际安装和启动 tarball，并验证客户端 / MCP 共用后台。
 
 数据默认位于 `%LOCALAPPDATA%\DaFeiYu`。Windows 使用当前用户 SID 的受保护 ACL，控制记录不允许其他主体读取；自定义数据目录必须独占使用，不能指定公共共享目录。OneBot 和模型凭证只在后台进程内保留，不明文持久化。后台退出后需重新输入。
 
@@ -48,16 +48,16 @@ $env:DAFEIYU_MODULES_DIR = $modules
 node "$modules/node_modules/@sakurafan1023/cli/bin/dafeiyu.mjs" qq panel
 ```
 
-`--omit=optional` 只用于同时显式安装本机平台 tarball 的离线产物组合，避免请求尚未发布的其他平台包。新增 npm 平台前需逐平台验证并准备对应包；当前公共版本只提供 macOS arm64。
+`--omit=optional` 只用于同时显式安装本机平台 tarball 的离线产物组合，避免请求尚未发布的其他平台包。新增 npm 平台前需逐平台验证并准备对应包；本轮公共包覆盖 macOS arm64 和 Windows x64。
 
-在支持的 Mac 上运行：
+在 Windows x64 或支持的 Mac 上运行：
 
 ```sh
-npx --yes @sakurafan1023/cli@0.3.0-preview.1 setup qq
-npx --yes @sakurafan1023/cli@0.3.0-preview.1 qq panel
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 setup qq
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 qq panel
 ```
 
-向导固定版本、使用稳定用户模块目录并禁用安装脚本，不会安装 QQ、NapCat、虚拟机或自动开始回复。全局安装 CLI 时，可自行把 QQ 模块装入指定稳定目录；安装向导要求从 npm exec / npx 启动。Windows 原生仍通过本地产物验证，不使用这组 Mac 发布命令。
+向导固定版本、使用稳定用户模块目录并禁用安装脚本，不会安装 QQ、NapCat、虚拟机或自动开始回复。全局安装 CLI 时，可自行把 QQ 模块装入指定稳定目录；安装向导要求从 npm exec / npx 启动。这组命令适用于两个已支持平台；Windows 使用 PowerShell，Mac 使用终端。
 
 ## 客户端与后台生命周期
 
@@ -113,4 +113,4 @@ npm run test:distribution
 
 macOS 和 Linux CI 增加独立包验证；新增 Windows CI 执行原生构建、引擎/图片测试、QQ HTTP、OneBot 合成通信、npm 和 MCP、清除 Swift PATH 后的 tarball 安装。所有自动化使用临时数据和合成账号，不访问真实 QQ 或模型。
 
-当前已通过的本机测试记录见 `docs/VALIDATION.md`，npm 发布及公共下载验证见[发布记录](NPM_RELEASE.md)。Windows 原生 CI 已通过完整引擎、控制页、MCP 与清除 Swift PATH 后的安装验证，`0.3.0-preview.2` 正在上传；Windows QQ 真实账号收发未在本机验收；发布过程没有更改现有真实账号和服务。
+当前已通过的本机测试记录见 `docs/VALIDATION.md`，npm 发布及公共下载验证见[发布记录](NPM_RELEASE.md)。Windows 原生 CI 已通过完整引擎、控制页、MCP 与清除 Swift PATH 后的安装验证，`0.3.0-preview.2` 五包已公开发布，公共安装检查状态见发布记录；Windows QQ 真实账号收发未在本机验收；发布过程没有更改现有真实账号和服务。

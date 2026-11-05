@@ -1,13 +1,27 @@
-# Windows 安装与使用（WSL2 + Web 面板）
+# Windows 安装与使用
 
-> 新增 Windows 原生 QQ 分包预览实现，源码和安装说明见 [QQ 分包与双入口](QQ_MODULES.md)。该路线的 Windows 原生 CI / 实机验收尚未完成；以下保留已有 WSL 安装流程。
+Windows x64 原生 QQ 后台已通过 Windows Server 2022 上的编译和运行测试，包括本机 Web 客户端、MCP、私有文件权限及移除 Swift 工具链 PATH 后的安装。npm `0.3.0-preview.2` 发布进度与公共安装检查见[发布记录](NPM_RELEASE.md)。真实 Windows QQ / NapCat 账号的扫码和收发仍需在用户环境验收。
 
+原生路线不需要 WSL、虚拟机或 Swift 编译工具。需要 Node.js 22+、npm、Microsoft Visual C++ x64 运行库，以及自行配置的 Windows QQ / NapCat。图片功能另需 Python / Pillow，文本连接不依赖 Python。客户端使用本机浏览器，MCP 与它共享后台；目前未提供 Windows 原生图形界面或 MSI 安装器。具体操作见 [QQ 分包与双入口](QQ_MODULES.md)。
 
-Windows 版采用 WSL2 运行与 Mac 相同的 QQ 回复引擎，在 Windows 的 Edge / Chrome 中打开本机面板。WSL2 是 Windows 的 Linux 子系统；不需要拥有 Mac。当前提供源码构建方式，尚无原生 `.exe` / MSI 安装包。微信桌面自动化仍仅在 Mac 上测试，Windows 这条链路只接入 QQ。
+## npm 原生安装
+
+先安装选中的 QQ 模块，再打开本机 Web 客户端：
+
+```powershell
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 setup qq
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 qq panel
+```
+
+安装后按面板提示填写本机 OneBot WebSocket 地址、预期 QQ 账号和模型配置，再明确选择回复范围并启动。打开面板不会自动开始回复。MCP 的配置和后台停止方式见 [QQ 模块说明](QQ_MODULES.md)。
+
+## 既有 WSL2 路线
+
+以下流程采用 WSL2 运行 QQ 回复引擎，在 Windows 的 Edge / Chrome 中打开本机面板。WSL2 是 Windows 的 Linux 子系统；不需要拥有 Mac。这条路线保留源码构建方式。微信桌面自动化仍仅在 Mac 上测试，Windows 这条链路只接入 QQ。
 
 > 2026-09-29：Ubuntu 24.04 x86_64 / Swift 6.1.3 的 128 项测试、发布构建、打包面板与 OneBot 传输检查已通过。Windows 实机 WSL 安装、浏览器访问与扫码/收发仍待验收；Linux CI 不能代替这些步骤。详见 [验证记录](VALIDATION.md)。
 
-## 1. 准备 WSL2
+### 1. 准备 WSL2
 
 建议 Windows 11，至少 8 GB 内存、15 GB 可用磁盘。Windows 10 需要满足微软 WSL2 安装条件并保持系统更新。安装前保存工作；启用虚拟化可能需要重启。
 
@@ -31,7 +45,7 @@ wsl --set-version Ubuntu-24.04 2
 
 详细系统条件及安装故障见 [微软官方 WSL 安装说明](https://learn.microsoft.com/windows/wsl/install)。下面标为 Bash 的命令都在 **Ubuntu 终端**运行，不是在 PowerShell 中运行。
 
-## 2. 安装编译依赖
+### 2. 安装编译依赖
 
 ```bash
 sudo apt-get update
@@ -49,7 +63,7 @@ sudo docker version
 
 这里 Docker 只用于独立的 NapCat/QQ 环境；不需要另外购买或安装 Docker Desktop。初次下载 Swift、依赖和镜像较大，后续普通启动不需要重新编译。
 
-## 3. 下载、测试和构建
+### 3. 下载、测试和构建
 
 ```bash
 cd ~
@@ -64,7 +78,7 @@ python3 scripts/test-onebot-transport.py dist/dafeiyu-linux/dafeiyu
 
 源码放在 WSL 的 `~/dafeiyu-bot`，避免放在 `/mnt/c` 的同步目录中导致编译和文件权限问题。产物为 `dist/dafeiyu-linux/dafeiyu` 和旁边的 `Resources`，两者要一起保留。
 
-## 4. 安装独立 QQ 桥接并扫码
+### 4. 安装独立 QQ 桥接并扫码
 
 默认让 **QQ 桥接和回复引擎都在同一个 Ubuntu 中**，这样不需要开放 Windows 防火墙端口或猜测 WSL 地址。
 
@@ -96,7 +110,7 @@ sudo docker start qq-ai
 
 如果已经在 Windows 原生运行 NapCat：不要同时启动另一个相同 QQ 账号。Windows 11 22H2+ 的 WSL 镜像网络可让 WSL 访问 Windows 的回环服务，具体条件见 [微软网络说明](https://learn.microsoft.com/windows/wsl/networking)。默认 NAT 下不能直接假定 WSL 的 `127.0.0.1` 是 Windows；新用户优先采用本节同一 Ubuntu 的部署方式。
 
-## 5. 启动大肥鱼并验证
+### 5. 启动大肥鱼并验证
 
 ```bash
 cd ~/dafeiyu-bot
@@ -120,7 +134,7 @@ Windows/Linux 版凭证仅在进程内保存，重新启动必须重新输入；
 wsl -d Ubuntu-24.04 -- bash -lc 'cd ~/dafeiyu-bot && exec bash scripts/start-linux.sh'
 ```
 
-## 6. 日常操作、停止和升级
+### 6. 日常操作、停止和升级
 
 - `/help` 查看命令；`/hot`、`/search 关键词`、`/next`、画师和性格命令见 [全部命令](COMMANDS.md)。命令分发不调用大模型；普通对话和主动接话会消耗模型额度。
 - 生图、外置识图和 Google 搜图在同一个面板配置；账户开通条件和费用见 [操作指南](USER_GUIDE.md)。没有配置的可选服务保持关闭。
@@ -130,7 +144,7 @@ wsl -d Ubuntu-24.04 -- bash -lc 'cd ~/dafeiyu-bot && exec bash scripts/start-lin
 - 升级前先暂停并退出引擎，备份 `~/.local/share/dafeiyu`、`~/qq-runtime/config` 及 Docker 的 `qq-ai-data` 卷；备份含账号/聊天隐私，应保存在私人目录。然后 `git pull --ff-only`、重新测试/构建，再启动。升级不会自动重新登录、发送消息或重置额度。
 - NapCat 容器与回复引擎分开升级；容器冷备份、插件持久化与回退命令见 [桥接升级与回退](UPGRADING.md)。
 
-## 排障
+### WSL 排障
 
 | 问题 | 检查方法 |
 | --- | --- |

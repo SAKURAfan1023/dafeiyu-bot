@@ -6,7 +6,7 @@
 
 **养一只大肥鱼：陪你聊 QQ，也能带着自己的人设去逛小红书。**
 
-QQ 可用 · 社交平台测试中（小红书 / B站）· 微信测试中 · macOS 原生 / Windows WSL2 本机 Web 面板
+QQ 可用 · 社交平台测试中（小红书 / B站）· 微信测试中 · macOS 原生 / Windows 原生 QQ 后台与本机 Web 面板
 
 [Mac 快速开始](docs/QUICKSTART.md) · [Windows 安装](docs/WINDOWS.md) · [界面预览](#界面预览) · [在线表情库](https://photos.lifanhu.me/) · [真实案例](docs/CASES.md) · [操作指南](docs/USER_GUIDE.md) · [全部命令](docs/COMMANDS.md) · [架构与开发](docs/ARCHITECTURE.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
 
@@ -16,23 +16,23 @@ QQ 可用 · 社交平台测试中（小红书 / B站）· 微信测试中 · ma
 
 在 **QQ**，她用短句和表情包接话，认主人、看引用、记住各自聊过的事，也能帮你搜图、生图、分享插画。在 **小红书**，你给她一个人设和想逛的话题，她就能在绑定的账号下搜笔记、读文字和已加载评论，决定要不要加入讨论。两边各过各的日子，共用模型配置，各自保管记忆与记录。
 
-> **项目状态：持续更新、完善与迭代中。** QQ 私聊与群真实 @ 回复已有真人接收确认，可用于个人测试和部署；不代表所有新功能、所有账号或连续运行时长均已验收。微信适配仍在测试，尚未完成可靠自动回复验收，请勿按成熟功能使用。macOS 提供原生界面，Windows 提供 WSL2 + 本机 Web 面板部署方式（Linux 自动化验证通过，Windows 实机待验收，见验证记录）；QQ 桥接可在独立 Linux 环境运行。当前没有 Windows 原生 exe 安装包。
+> **项目状态：持续更新、完善与迭代中。** QQ 私聊与群真实 @ 回复已有真人接收确认，可用于个人测试和部署；不代表所有新功能、所有账号或连续运行时长均已验收。微信适配仍在测试，尚未完成可靠自动回复验收，请勿按成熟功能使用。macOS 提供原生界面，Windows x64 提供 npm 原生 QQ 后台和本机 Web 客户端；客户端和 MCP 已通过 Windows 原生自动化测试，真实 Windows QQ 账号收发仍待用户环境验收。既有 Linux / WSL2 路线保留，见[发布记录](docs/NPM_RELEASE.md)。
 
 ## npm 按需安装 · 0.3 预览版
 
-`0.3.0-preview.1` 已发布到 npm。首批范围仅 macOS Apple Silicon（arm64，macOS 14+），需要 Node.js 22+ 和 npm；Windows 原生及其他架构继续验证，不包含在本次 npm 支持范围。
+`0.3.0-preview.2` 的五个包已公开发布到 npm，支持 Windows x64 和 macOS Apple Silicon（arm64，macOS 14+），安装时自动选择本机后台。需要 Node.js 22+ 和 npm；Windows 另需 Microsoft Visual C++ x64 运行库，预构建包无需 Swift、WSL 或虚拟机。公共下载核验状态见[发布记录](docs/NPM_RELEASE.md)。
 
 先安装 QQ 模块，再选择客户端或 MCP：
 
 ```sh
-npx --yes @sakurafan1023/cli@0.3.0-preview.1 setup qq
-npx --yes @sakurafan1023/cli@0.3.0-preview.1 qq panel
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 setup qq
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 qq panel
 ```
 
 需要 Codex MCP 时，在装好 QQ 后注册：
 
 ```sh
-codex mcp add dafeiyu -- npx --yes @sakurafan1023/mcp@0.3.0-preview.1 --modules qq
+codex mcp add dafeiyu -- npx --yes @sakurafan1023/mcp@0.3.0-preview.2 --modules qq
 ```
 
 基础入口只安装选中的 QQ 模块和本机后台，不下载微信、社交浏览器、QQ、NapCat 或虚拟机。客户端与 MCP 共用后台、配置和运行状态；安装、打开面板和接入 MCP 都不会自动登录或开始回复。QQ / NapCat 桥接环境与模型凭证仍需自行配置。
@@ -42,6 +42,7 @@ codex mcp add dafeiyu -- npx --yes @sakurafan1023/mcp@0.3.0-preview.1 --modules 
 | `@sakurafan1023/cli` | 按需安装、打开面板和管理后台 |
 | `@sakurafan1023/qq` | QQ 模块、固定操作接口和平台选择 |
 | `@sakurafan1023/qq-darwin-arm64` | Apple Silicon 原生后台与 QQ 资源 |
+| `@sakurafan1023/qq-win32-x64` | Windows x64 原生后台、Swift 运行库与 QQ 资源 |
 | `@sakurafan1023/mcp` | 本地 stdio MCP 入口，7 个受限工具 |
 
 请使用完整的 scoped 包名；`npx dafeiyu` 会解析到另一个 npm 包。请按上文固定版本安装，也可显式选择 `@next`。本版仍为预览版；registry 首次发布同时自动添加了 `latest`，移除请求返回 E400，详细状态见发布记录。
@@ -52,7 +53,7 @@ codex mcp add dafeiyu -- npx --yes @sakurafan1023/mcp@0.3.0-preview.1 --modules 
 
 [v0.2.0-beta.1 更新公告与安装说明 →](docs/releases/v0.2.0-beta.1.md)
 
-QQ 独立包及客户端 / MCP 双入口已发布 macOS arm64 npm 预览版；Windows 原生后台继续开发，实机验证待完成。见 [分包与双入口说明](docs/QQ_MODULES.md)。
+QQ 独立包及客户端 / MCP 双入口新增 Windows x64 npm 预览版，同时保留 macOS arm64。Windows 原生编译和运行检查通过，真实账号收发仍需用户环境验收。见 [分包与双入口说明](docs/QQ_MODULES.md)。
 
 - **出门有个统一入口**：QQ → 社交平台（小红书 / B站）→ 微信。人格、模型调用和面板共享代码，账号与记忆各自保管。B站已完成扫码、绑定、搜索、介绍与有限评论读取、DeepSeek 草稿和话题记忆的本机验收；本轮补齐两站默认自动模式，B站发送与回读按合成契约验证，真实评论发布尚未验收。[方案与范围 →](docs/SOCIAL_PLATFORMS.md)
 - **默认就会自己逛**：小红书和 B站新配置默认自动运行。扫码绑定、配置模型、保存主题，点开始后自行判断是否接话；每轮 15 分钟、读 5 条、模型 5 次，每个平台每日最多发 3 次，间隔 5 分钟，每条 80 字。旧配置可点「使用推荐设置」，不会自动启动或清空警告。
@@ -104,7 +105,7 @@ QQ 独立包及客户端 / MCP 双入口已发布 macOS arm64 npm 预览版；Wi
 
 ### Web 面板
 
-用浏览器管理 QQ，共享同一套引擎与配置规则；提供 Windows WSL2 的操作入口。下图取自 macOS 上的隔离本机面板，不是 Windows 实机验收截图。
+用浏览器管理 QQ，共享同一套引擎与配置规则；提供 Windows 原生 QQ 后台与既有 WSL2 的操作入口。下图取自 macOS 上的隔离本机面板，不是 Windows 实机验收截图。
 
 ![Web 面板：连接状态、调用计数、连接设置与运行控制](docs/assets/panel-web-connection.jpg)
 
