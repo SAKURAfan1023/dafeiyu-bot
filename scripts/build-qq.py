@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build the canonical QQ sources as an isolated product; never include social or WeChat execution code."""
-import argparse, importlib.util, json, pathlib, platform, re, shutil, subprocess, sys
+import argparse, importlib.util, json, os, pathlib, platform, re, shutil, subprocess, sys
 
 root = pathlib.Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -52,7 +52,7 @@ if args.prepare_only:
     print(package)
     raise SystemExit(0)
 flags = ['-Xswiftc', '-DDAFEIYU_NODE_TRANSPORT'] if args.test_node_transport else []
-subprocess.run(['swift', 'build', '--package-path', str(package), '-c', args.configuration, '--jobs', '2'] + flags, check=True)
+subprocess.run(['swift', 'build', '--package-path', str(package), '-c', args.configuration, '--jobs', os.environ.get('DAFEIYU_BUILD_JOBS', '2')] + flags, check=True)
 binary_dir = subprocess.check_output(['swift', 'build', '--package-path', str(package), '-c', args.configuration, '--show-bin-path'], text=True).strip()
 if destination.exists():
     shutil.rmtree(destination)

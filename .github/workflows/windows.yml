@@ -8,6 +8,7 @@ jobs:
     timeout-minutes: 45
     env:
       PYTHONUTF8: 1
+      DAFEIYU_BUILD_JOBS: 4
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7.1.0
@@ -43,7 +44,7 @@ jobs:
         run: |
           python scripts/check-public.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          swift test --jobs 2
+          swift test --jobs 4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/test-linux-images.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
