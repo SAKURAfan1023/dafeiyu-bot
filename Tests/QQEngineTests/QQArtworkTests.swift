@@ -540,7 +540,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
             let owner = mode == "owner"
             let event: [String: Any] = ["post_type": owner ? "message_sent" : "message", "self_id": 12345, "user_id": owner ? 12345 : 54321,
                 "sender": ["user_id": owner ? 12345 : 54321], "message_type": privateChat ? "private" : "group", "sub_type": privateChat ? "friend" : "normal", "group_id": mode == "foreign" ? 88888 : 99999, "message_id": 1, "message": segments]
-            try JSONSerialization.data(withJSONObject: [event]).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: [event]), to: directory.appendingPathComponent("event-batch"))
         }
         if ["downloadPause", "scheduleQueued"].contains(mode) {
             let until = Date().addingTimeInterval(3)
@@ -617,7 +617,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         if mode == "quota" {
             let event: [String: Any] = ["post_type": "message", "self_id": 12345, "user_id": 54321, "sender": ["user_id": 54321], "message_type": "group", "sub_type": "normal", "group_id": 99999, "message_id": 2, "message": [["type": "text", "data": ["text": "/next"]]]]
             let networkBefore = ArtworkFixtureProtocol.calls.count
-            try JSONSerialization.data(withJSONObject: [event]).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: [event]), to: directory.appendingPathComponent("event-batch"))
             let until = Date().addingTimeInterval(3)
             while Date() < until && engine.sends.confirmed < 2 { try await Task.sleep(nanoseconds: 20_000_000) }
             #expect(engine.sends.confirmed == 2); #expect(engine.artworkLedger.deliveries.count == 1)
@@ -628,7 +628,7 @@ final class ArtworkFixtureProtocol: URLProtocol, @unchecked Sendable {
         if mode == "noResultPrompt" {
             #expect(engine.artworkLedger.continuation["12345:group:99999"]?.query == "不存在的角色")
             let event: [String: Any] = ["post_type": "message", "self_id": 12345, "user_id": 54321, "sender": ["user_id": 54321], "message_type": "group", "sub_type": "normal", "group_id": 99999, "message_id": 2, "message": [["type": "text", "data": ["text": "/next 美少女"]]]]
-            try JSONSerialization.data(withJSONObject: [event]).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: [event]), to: directory.appendingPathComponent("event-batch"))
             let until = Date().addingTimeInterval(3)
             while Date() < until && engine.sends.confirmed < 2 { try await Task.sleep(nanoseconds: 20_000_000) }
             #expect(engine.sends.confirmed == 2); #expect(engine.artworkLedger.deliveries.count == 1)

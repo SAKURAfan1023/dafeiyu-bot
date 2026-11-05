@@ -236,7 +236,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             rows.append(["post_type": owner ? "message_sent" : "message", "self_id": 12345, "user_id": owner ? 12345 : 54321,
                          "sender": ["user_id": owner ? 12345 : 54321], "message_type": "group", "sub_type": "normal", "group_id": 99999, "message_id": id, "message": segments])
         }
-        try JSONSerialization.data(withJSONObject: rows).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+        try writePrivateData(JSONSerialization.data(withJSONObject: rows), to: directory.appendingPathComponent("event-batch"))
         let deadline = Date().addingTimeInterval(4)
         while Date() < deadline {
             let started = DelayedModelProtocol.counts.started
@@ -285,7 +285,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             return ["post_type": "message", "self_id": 12345, "user_id": 54321 + id % 2, "sender": ["user_id": 54321 + id % 2], "message_type": "group", "sub_type": "normal", "group_id": 99999, "message_id": id, "message": segments]
         }
         func batch(_ rows: [[String: Any]]) throws {
-            try JSONSerialization.data(withJSONObject: rows).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: rows), to: directory.appendingPathComponent("event-batch"))
         }
         try batch([event(1, "刚才游戏通关了"), event(2, "终于可以休息了")])
         let firstDeadline = Date().addingTimeInterval(4)
@@ -354,7 +354,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             return ["post_type": "message", "self_id": 12345, "user_id": 54321 + id % 2, "sender": ["user_id": 54321 + id % 2], "message_type": "group", "sub_type": "normal", "group_id": group, "message_id": id, "message": segments]
         }
         func batch(_ rows: [[String: Any]]) throws {
-            try JSONSerialization.data(withJSONObject: rows).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: rows), to: directory.appendingPathComponent("event-batch"))
         }
         var first = (1..<threshold).map { event($0) }
         first.append(event(1)) // Duplicate event.
@@ -477,7 +477,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
                 let sender = id == 2 ? 12345 : 54321
                 return ["post_type": id == 2 ? "message_sent" : "message", "self_id": 12345, "user_id": sender, "sender": ["user_id": sender], "message_type": "group", "sub_type": "normal", "group_id": 99999, "message_id": id, "message": [["type": "text", "data": ["text": "合成测试资料 \(id)"]]]]
             }
-            try JSONSerialization.data(withJSONObject: events).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: events), to: directory.appendingPathComponent("event-batch"))
         }
         let deadline = Date().addingTimeInterval(4)
         while DelayedModelProtocol.counts.started == 0 && Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
@@ -630,7 +630,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         var admitted = 0
         while Date() < deadline {
             let data = try Data(contentsOf: directory.appendingPathComponent("qq-state.json"))
-            let state = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let state = try #require((try? JSONSerialization.jsonObject(with: data)) as? [String: Any], "Invalid synthetic state snapshot: \(String(decoding: data.prefix(512), as: UTF8.self))")
             admitted = (state["seen"] as? [String: Any])?.count ?? 0
             let started = DelayedModelProtocol.counts.started
             if started >= 1 && admitted == expectedMessages && engine.usage.calls == started { break }

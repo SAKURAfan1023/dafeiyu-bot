@@ -21,11 +21,12 @@ import Glibc
         let probe = Process()
         probe.executableURL = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"]))
         probe.arguments = ["-c", """
+        # Windows can retransmit refused SYNs for over two seconds.
         import socket,sys,time
-        deadline=time.monotonic()+3
+        deadline=time.monotonic()+10
         while True:
             with socket.socket() as s:
-                s.settimeout(2)
+                s.settimeout(5)
                 code=s.connect_ex(('127.0.0.1',int(sys.argv[1])))
             if code==10061: sys.exit(0)
             if time.monotonic()>=deadline: break

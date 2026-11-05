@@ -123,7 +123,7 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         if mode == "order" { batch = [event(2, "先按原性格回复", mention: true), first, event(3, "切换后的回复", mention: true)] }
         if mode == "duplicate" { batch.append(first) }
         if mode == "pauseQueue" { batch.append(event(2, "/persona calm")) }
-        try JSONSerialization.data(withJSONObject: batch).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+        try writePrivateData(JSONSerialization.data(withJSONObject: batch), to: directory.appendingPathComponent("event-batch"))
         let rejected = ["foreign", "disabled", "paused", "quoted", "atOther"].contains(mode)
         let until = Date().addingTimeInterval(rejected ? 0.5 : 9)
         while Date() < until {

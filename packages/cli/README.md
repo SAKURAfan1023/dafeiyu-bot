@@ -2,7 +2,7 @@
 
 大肥鱼的按需安装与客户端入口。基础包只带启动命令，选择 QQ 后才下载 QQ 模块和匹配平台的后台。
 
-`0.3.0-preview.2` 为首批预览版本，计划发布 macOS Apple Silicon（arm64，macOS 14 以上）与 Windows x64。需要 Node.js 22 以上和 npm。发布进度见[仓库发布说明](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/docs/NPM_RELEASE.md)。
+`0.3.0-preview.2` 为预览版本，面向 macOS Apple Silicon（arm64，macOS 14 以上）与 Windows x64。需要 Node.js 22 以上和 npm；Windows 还需 Microsoft Visual C++ x64 运行库。客户端使用本机浏览器面板。发布进度见[仓库发布说明](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/docs/NPM_RELEASE.md)。
 
 ## 安装 QQ，再打开客户端
 

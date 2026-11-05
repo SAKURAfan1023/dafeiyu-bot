@@ -149,7 +149,7 @@ private final class VisualFixture: URLProtocol, @unchecked Sendable {
                 ["post_type": "message", "self_id": 12345, "user_id": 54321, "sender": ["user_id": 54321], "message_type": "group", "sub_type": "normal", "group_id": 99999, "message_id": id,
                  "message": id == 1 ? [["type": "image", "data": ["file": "synthetic.gif", "url": "https://gchat.qpic.cn/fixture"]]] : [["type": "text", "data": ["text": "这个圆点往哪个方向动了？"]]]]
             }
-            try JSONSerialization.data(withJSONObject: rows).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: rows), to: directory.appendingPathComponent("event-batch"))
         } else { try Data().write(to: directory.appendingPathComponent("ready")) }
         let deadline = Date().addingTimeInterval(5)
         while Date() < deadline {
