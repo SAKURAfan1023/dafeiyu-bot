@@ -41,12 +41,22 @@ jobs:
           "DAFEIYU_NODE=$((Get-Command node).Source)" >> $env:GITHUB_ENV
           "DAFEIYU_PYTHON=$((Get-Command python).Source)" >> $env:GITHUB_ENV
           "DAFEIYU_RESOURCES=$pwd/Resources" >> $env:GITHUB_ENV
-      - name: Privacy and existing engine tests
+      - name: Privacy and build existing engine tests
         shell: pwsh
         run: |
           python scripts/check-public.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          swift test --jobs 4
+          swift build --build-tests --jobs 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run native engine tests
+        shell: pwsh
+        run: |
+          $testDirectory = swift build --show-bin-path
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $testBinary = @(Get-ChildItem -LiteralPath $testDirectory -File | Where-Object { $_.Name -match 'PackageTests\.(exe|xctest)$' })
+          if ($testBinary.Count -ne 1) { throw 'Expected exactly one native test runner' }
+          # SwiftPM buffers the whole test process output; run its generated binary directly for live diagnostics.
+          python -c "import subprocess,sys; subprocess.run([sys.argv[1], '--testing-library', 'swift-testing'], check=True, timeout=300)" $testBinary[0].FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/test-linux-images.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
