@@ -42,9 +42,13 @@ async function readRecord(directory) {
   if (process.platform === 'win32') {
     // Get-Acl is read-only. Paths travel in the environment, never interpolated as PowerShell code.
     const script = "$ErrorActionPreference='Stop'; try { $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; foreach($p in @($env:DAFEIYU_ACL_DIRECTORY,$env:DAFEIYU_ACL_FILE)) { $a=Get-Acl -LiteralPath $p; $owner=$a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; if(-not $a.AreAccessRulesProtected){exit 21}; if($owner -ne $sid -and $owner -ne 'S-1-5-32-544'){exit 22}; foreach($r in $a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])) { if($r.AccessControlType -eq 'Allow' -and $r.IdentityReference.Value -ne $sid){exit 23} } } } catch { [Console]::Error.WriteLine($_.FullyQualifiedErrorId); exit 24 }";
+    const aclEnv = { ...process.env, DAFEIYU_ACL_DIRECTORY: directory, DAFEIYU_ACL_FILE: file };
+    // PowerShell 7 / npm can leave incompatible modules on Windows PowerShell 5's search path.
+    // Scope the built-in module directory to this read-only child; preserve the user's environment.
+    for (const key of Object.keys(aclEnv)) if (key.toLowerCase() === 'psmodulepath') delete aclEnv[key];
+    aclEnv.PSModulePath = path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'Modules');
     await promisify(execFile)(path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
-      ['-NoProfile','-NonInteractive','-Command',script], { windowsHide: true, timeout: 5000,
-        env: { ...process.env, DAFEIYU_ACL_DIRECTORY: directory, DAFEIYU_ACL_FILE: file } });
+      ['-NoProfile','-NonInteractive','-Command',script], { windowsHide: true, timeout: 5000, env: aclEnv });
   }
   return parseRecord(JSON.parse(await fs.readFile(file, 'utf8')));
 }

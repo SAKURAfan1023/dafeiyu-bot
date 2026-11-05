@@ -55,10 +55,10 @@ test('Windows discovery rejects an extra reader ACE on its private record', {ski
   let runtime;
   try {
     runtime=await ensureRuntime({directory});
-    const script="$ErrorActionPreference='Stop'; $p=$env:DAFEIYU_ACL_TEST_FILE; $a=Get-Acl -LiteralPath $p; $sid=[System.Security.Principal.SecurityIdentifier]::new('S-1-1-0'); $r=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,'Read','Allow'); $a.AddAccessRule($r); Set-Acl -LiteralPath $p -AclObject $a";
+    const script="$ErrorActionPreference='Stop'; Import-Module ($PSHOME + '/Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1') -ErrorAction Stop; $p=$env:DAFEIYU_ACL_TEST_FILE; $a=Get-Acl -LiteralPath $p; $sid=[System.Security.Principal.SecurityIdentifier]::new('S-1-1-0'); $r=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,'Read','Allow'); $a.AddAccessRule($r); Set-Acl -LiteralPath $p -AclObject $a";
     await promisify(execFile)(path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoProfile','-NonInteractive','-Command',script],{
       timeout:5000,windowsHide:true,env:{...process.env,DAFEIYU_ACL_TEST_FILE:path.join(directory,'qq-worker.json')}});
-    await assert.rejects(ensureRuntime({directory,start:false}));
+    await assert.rejects(ensureRuntime({directory,start:false}), error => error.code === 23);
   } finally {
     if(runtime){try{await action(runtime,{action:'shutdown'},expectation(await status(runtime)));}catch{try{process.kill(runtime.pid);}catch{}}}
     await new Promise(resolve=>setTimeout(resolve,500));

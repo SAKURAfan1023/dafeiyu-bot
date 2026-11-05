@@ -20,6 +20,7 @@ jobs:
       - name: Windows ACL API contract
         shell: pwsh
         run: |
+          $env:PSModulePath = "$env:SystemRoot/System32/WindowsPowerShell/v1.0/Modules"
           $query = '$ErrorActionPreference="Stop"; try { $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; $a=Get-Acl -LiteralPath $env:RUNNER_TEMP; $owner=$a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; $rules=$a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]); Write-Output "PASS: current identity, ACL owner and access rules queried" } catch { Write-Output $_.FullyQualifiedErrorId; exit 1 }'
           & "$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -NonInteractive -Command $query
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
