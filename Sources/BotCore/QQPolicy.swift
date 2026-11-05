@@ -81,7 +81,16 @@ public struct QQIncoming: Equatable, Sendable {
 public enum QQPolicy {
     public static func identifier(_ value: Any?) -> String? {
         if let s = value as? String { return s }
-        if let n = value as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() { return n.stringValue }
+        if let n = value as? NSNumber {
+            #if canImport(CoreFoundation)
+            guard CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
+            #else
+            // Windows Foundation does not expose CoreFoundation. JSON preserves the Boolean/number distinction.
+            guard let data = try? JSONSerialization.data(withJSONObject: n, options: [.fragmentsAllowed]),
+                  !["true", "false"].contains(String(decoding: data, as: UTF8.self)) else { return nil }
+            #endif
+            return n.stringValue
+        }
         return nil
     }
     // An inline reply reference is never mention evidence or trusted quote text.
@@ -171,7 +180,9 @@ public enum QQPolicy {
           "message": segments])
     }
 }
+#if canImport(CoreFoundation)
 import CoreFoundation
+#endif
 
 public struct QQIncomingImage: Equatable, Sendable {
     public let file: String

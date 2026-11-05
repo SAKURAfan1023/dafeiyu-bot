@@ -5,6 +5,8 @@ permissions:
 jobs:
   test:
     runs-on: macos-15
+    env:
+      DAFEIYU_XHS_RUNTIME_DIR: ${{ runner.temp }}/dafeiyu-social-test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7.1.0
@@ -16,6 +18,8 @@ jobs:
         run: bash scripts/test.sh
       - name: Build app
         run: bash scripts/build.sh
+      - name: Install dependencies for existing social HTTP checks
+        run: bash scripts/setup-social.sh
       - name: Real HTTP control boundary
         run: python3 scripts/test-control-panel.py 'dist/WeChat AI Bot.app/Contents/MacOS/WeChatAIBot'
       - name: QQ isolated artifact and dual entrypoints

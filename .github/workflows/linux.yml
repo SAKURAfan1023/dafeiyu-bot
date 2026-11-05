@@ -9,6 +9,7 @@ jobs:
     timeout-minutes: 20
     env:
       DAFEIYU_BUILD_JOBS: 2
+      DAFEIYU_XHS_RUNTIME_DIR: ${{ runner.temp }}/dafeiyu-social-test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7.1.0
@@ -32,6 +33,8 @@ jobs:
         run: python3 scripts/test-linux-images.py
       - name: Build headless app
         run: bash scripts/build-linux.sh
+      - name: Install dependencies for existing social HTTP checks
+        run: bash scripts/setup-social.sh
       - name: Launcher and real HTTP control boundary
         run: python3 scripts/test-control-panel.py scripts/start-linux.sh --shell-launcher
       - name: Real synthetic OneBot WebSocket transport
