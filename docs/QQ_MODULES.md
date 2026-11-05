@@ -113,4 +113,4 @@ npm run test:distribution
 
 macOS 和 Linux CI 增加独立包验证；新增 Windows CI 执行原生构建、引擎/图片测试、QQ HTTP、OneBot 合成通信、npm 和 MCP、清除 Swift PATH 后的 tarball 安装。所有自动化使用临时数据和合成账号，不访问真实 QQ 或模型。
 
-当前已通过的本机测试记录见 `docs/VALIDATION.md`，npm 发布及公共下载验证见[发布记录](NPM_RELEASE.md)。Windows 原生 CI 已在独立分支运行，目前仍在排查剩余测试问题；Windows QQ 真实账号收发未在本机验收；发布过程没有更改现有真实账号和服务。
+当前已通过的本机测试记录见 `docs/VALIDATION.md`，npm 发布及公共下载验证见[发布记录](NPM_RELEASE.md)。Windows 原生 CI 已通过完整引擎、控制页、MCP 与清除 Swift PATH 后的安装验证，`0.3.0-preview.2` 正在上传；Windows QQ 真实账号收发未在本机验收；发布过程没有更改现有真实账号和服务。

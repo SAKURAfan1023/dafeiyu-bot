@@ -98,6 +98,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:npm-install -- --directory dist/npm
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            npm run test:npm-install -- --public --directory dist/npm
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: qq-win32-x64-preview-2

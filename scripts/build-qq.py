@@ -82,6 +82,10 @@ if sys.platform == 'win32':
 licenses = destination/'licenses'
 licenses.mkdir()
 shutil.copy2(root/'docs/licenses/Swift-LICENSE.txt', licenses/'Swift-LICENSE.txt')
+if sys.platform == 'win32':
+    for notice in (root/'docs/licenses/windows').iterdir():
+        if notice.is_file() and notice.suffix in ('.txt', '.md'):
+            shutil.copy2(notice, licenses/notice.name)
 for checkout in (package/'.build/checkouts').glob('*'):
     for pattern in ['LICENSE*', 'NOTICE*', 'Sources/CCryptoBoringSSL/LICENSE*']:
         for notice in checkout.glob(pattern):

@@ -32,3 +32,5 @@
 - Windows OneBot 传输使用 ws（MIT），依赖版本锁定于 npm lockfile；MCP 使用官方 TypeScript SDK（MIT），输入校验使用 Zod（MIT），其许可证由 npm 依赖包一并保留。
 - 独立后台包含 Swift 运行库时保留 [Swift Apache 2.0 with Runtime Library Exception](docs/licenses/Swift-LICENSE.txt)；构建脚本收集链接依赖的 LICENSE / NOTICE 至分包 licenses 目录。Microsoft Visual C++ x64 运行库使用官方运行时安装渠道，不从开发机 System32 复制到公开包。
 - Windows 原生 QQ 和 NapCat 继续由用户单独安装，本项目不分发它们或其登录资料。Pillow 按用户需要自行安装，用于图片解码和转换。
+
+- Windows Swift 6.1.3 运行库包含 Foundation ICU / ICU 74.1、libcurl 8.9.1、libxml2 2.11.5 及 zlib 1.3.1。对应原始许可和声明随 Windows 分包的 `licenses/` 分发；[版本及来源记录](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/codex/qq-windows-validation/docs/licenses/windows/SOURCES.md)。

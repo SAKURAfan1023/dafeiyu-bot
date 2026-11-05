@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Fail closed on common secrets/runtime files; print locations, never values."""
-import argparse, pathlib, re, subprocess, sys
+import argparse, hashlib, pathlib, re, subprocess, sys
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--staged', action='store_true', help='scan the Git index, exactly as prepared for commit')
 args = parser.parse_args()
@@ -40,8 +40,11 @@ for p in paths:
     if p.suffix.lower() in {'.png','.jpg','.jpeg','.webp'}: continue  # Human visual review is required separately.
     try: text=data.decode('utf-8')
     except UnicodeDecodeError: failures.append((str(rel),0,'unreviewed binary'));continue
+    # Preserve the public copyright contact in the byte-pinned official ICU license.
+    official_icu = rel.as_posix() == 'docs/licenses/windows/ICU-74.1-LICENSE.txt' and hashlib.sha256(data.replace(b'\r\n', b'\n')).hexdigest() == '17510cf7a58b4879b887ec05a45d72cf1b73544dd9ec7e72f20110ed104229ee'
     for number,line in enumerate(text.splitlines(),1):
         for label,pattern in rules.items():
+            if label == 'private email' and official_icu: continue
             if re.search(pattern,line):failures.append((str(rel),number,label))
 for path,line,label in failures: print(f'{path}:{line}: {label}')
 print(f'Checked {len(paths)} public files ({"index" if args.staged else "working tree"}); findings={len(failures)}. Images and commit metadata require separate review.')

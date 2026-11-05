@@ -1,10 +1,14 @@
 # npm 发布记录 · 0.3.0-preview.1
 
-## Windows 后续候选 · 0.3.0-preview.2
+## Windows 发布候选 · 0.3.0-preview.2
 
-用户已要求接着发布 Windows x64。下一版清单位于 `release-plan.json`，包含 macOS arm64、Windows x64 两个平台后台，以及同版本 CLI、QQ、MCP，共五个包。`0.3.0-preview.1` 已发布内容保留；`0.3.0-preview.2` 目前是源码候选，尚未上传。
+本批包含 macOS arm64、Windows x64 两个平台后台和同版本 CLI、QQ、MCP，共五个包，正在执行正式上传。旧版 `0.3.0-preview.1` 和其核验记录保留；未合并 main 或部署服务。
 
-独立验证分支为 `codex/qq-windows-validation`，已按用户授权推送；未合并 main。Windows 验证入口为 `.github/workflows/windows.yml`：原生 Swift 编译、OS 文件锁及私有 ACL、图片 Job、OneBot 合成收发、控制页、MCP 和清除 Swift PATH 后的 tarball / npx 安装。分包测试中残留的旧 npm 作用域路径已修正。Windows 产物需通过该环境运行后再进入 npm 上传清单；Mac 通过不替代 Windows 结果。原生测试已暴露并修复 CoreFoundation/WinSDK 编译差异、测试入口链接冲突和文件原子替换问题；当前继续核对测试夹具占用与端口拒绝检查，尚未上传新版本。
+[Windows 原生 CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42057072204)、[macOS CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42057072338)、[Linux CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42057072223) 全部通过。Windows 包通过 169 项原生测试、9 项 Node 测试、OneBot 合成通信、控制页、真实 SDK MCP、清除 Swift PATH 后的 tarball 和实际 npx 安装。测试未登录真实 QQ，也未调用真实模型。
+
+Windows 修复包括 Swift SDK 编译差异、原子文件保存、私有 ACL、客户端从 PowerShell 7 / npm 环境调用系统 Windows PowerShell 时的模块加载。权限限制和发送规则保留，额外读取者必须被拒绝。并发场景在测试内部保留，Windows 集成测试按顺序执行，避免无关夹具占用主线程。
+
+最终五包位于 `dist/npm-release-preview.2`，匿名 dry-run 和内容预检见其中的 `verification.json`。Windows 仅补充原始依赖许可及完整性清单；可执行文件和 15 个 DLL 与通过测试的产物字节一致，证据为 `windows-runtime-parity.json`。通用脚本使用 LF 换行；Windows 与 Mac 生成版本除换行外内容一致。发布后再核对公共下载哈希，并用全新缓存复验公共安装。
 
 以下记录保留已经公开的第一版。
 

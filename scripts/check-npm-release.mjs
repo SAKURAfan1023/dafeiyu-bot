@@ -49,7 +49,7 @@ try {
       if(module.version!==plan.version||module.configuration!=='release'||!plan.platforms.includes(module.platform+'-'+module.architecture)) throw new Error('Unverified/debug native release');
       if(entries.some(name=>/SocialBrowser|SocialControl|WeChatBridge/.test(name))) throw new Error('Non-QQ code in native package');
       const file=path.join(temporary,module.binary);
-      const binary=spawnSync('tar',['-xOf',archive,'package/'+module.binary],{maxBuffer:20000000});
+      const binary=spawnSync('tar',['-xOf',archive,'package/'+module.binary],{maxBuffer:64000000});
       if(binary.status!==0) throw new Error('Missing native binary');
       await fs.writeFile(file,binary.stdout);
       if(/\/(?:Users|home)\/[A-Za-z0-9_.-]+\//.test(run('strings',['-a',file]))) throw new Error('Private build paths in native release');
