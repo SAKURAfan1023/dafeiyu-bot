@@ -8,7 +8,7 @@ import Testing
 
 struct QQIncomingImagesTests {
     static func animatedFixture() throws -> Data {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("synthetic-images.json")
         let images = try JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))
         let encoded = try #require(images["animated"])
