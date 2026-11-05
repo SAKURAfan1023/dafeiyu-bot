@@ -49,7 +49,9 @@ codex mcp add dafeiyu -- npx --yes @sakurafan1023/mcp@0.3.0-preview.2 --modules 
 
 [npm CLI](https://www.npmjs.com/package/@sakurafan1023/cli) · [npm MCP](https://www.npmjs.com/package/@sakurafan1023/mcp) · [发布记录](docs/NPM_RELEASE.md) · [分包及使用说明](docs/QQ_MODULES.md) · [独立 Mac 测试包](docs/MACOS_MCP_TEST.md) · [测试证据](docs/VALIDATION.md)
 
-## 近期更新 · 2026 年 10 月
+## 近期更新 · 2026 年 11 月
+
+[v0.3.0-preview.2 发布说明与安装指南 →](docs/releases/v0.3.0-preview.2.md) · [GitHub 预发布与下载 →](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.2)
 
 [v0.2.0-beta.1 更新公告与安装说明 →](docs/releases/v0.2.0-beta.1.md)
 

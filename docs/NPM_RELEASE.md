@@ -24,6 +24,8 @@ Windows 修复包括 Swift SDK 编译差异、原子文件保存、私有 ACL、
 
 本版仍为预览版，请用固定版本或显式 `@next`。当前 Windows 原生包的 `latest` 为 `.2`，另外四包的 `latest` 保留 `.1`；默认标签不代表稳定性承诺。源码与文档位于独立分支 `codex/qq-windows-validation`，未合并 main；包内文档链接指向该分支。
 
+配套 [GitHub 预发布](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.2)提供同一批五个 npm tarball 和 `SHA256SUMS.txt`；[版本说明](releases/v0.3.0-preview.2.md)包含客户端、MCP 安装与停止命令、系统要求和测试边界。仓库默认首页需随该分支合并后更新，不能把分支 README 已推送视为 main 已更新。
+
 ## 历史记录 · 0.3.0-preview.1
 
 以下内容只记录首批发布时的状态；当前版本安装请见 [QQ 模块说明](QQ_MODULES.md)。
