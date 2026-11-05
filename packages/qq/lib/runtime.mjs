@@ -41,7 +41,7 @@ async function readRecord(directory) {
   }
   if (process.platform === 'win32') {
     // Get-Acl is read-only. Paths travel in the environment, never interpolated as PowerShell code.
-    const script = "$ErrorActionPreference='Stop'; try { $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; foreach($p in @($env:DAFEIYU_ACL_DIRECTORY,$env:DAFEIYU_ACL_FILE)) { $a=Get-Acl -LiteralPath $p; $owner=$a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; if(-not $a.AreAccessRulesProtected){exit 21}; if($owner -ne $sid -and $owner -ne 'S-1-5-32-544'){exit 22}; foreach($r in $a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])) { if($r.AccessControlType -eq 'Allow' -and $r.IdentityReference.Value -ne $sid){exit 23} } } } catch { exit 24 }";
+    const script = "$ErrorActionPreference='Stop'; try { $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; foreach($p in @($env:DAFEIYU_ACL_DIRECTORY,$env:DAFEIYU_ACL_FILE)) { $a=Get-Acl -LiteralPath $p; $owner=$a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; if(-not $a.AreAccessRulesProtected){exit 21}; if($owner -ne $sid -and $owner -ne 'S-1-5-32-544'){exit 22}; foreach($r in $a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])) { if($r.AccessControlType -eq 'Allow' -and $r.IdentityReference.Value -ne $sid){exit 23} } } } catch { [Console]::Error.WriteLine($_.FullyQualifiedErrorId); exit 24 }";
     await promisify(execFile)(path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
       ['-NoProfile','-NonInteractive','-Command',script], { windowsHide: true, timeout: 5000,
         env: { ...process.env, DAFEIYU_ACL_DIRECTORY: directory, DAFEIYU_ACL_FILE: file } });
@@ -136,6 +136,7 @@ export async function ensureRuntime({ directory = dataDirectory(), start = true 
     } catch (error) {
       // Only non-sensitive status codes reach launcher errors; never paths, tokens or response bodies.
       discoveryCode = Number.isInteger(error.code) || (typeof error.code === 'string' && /^[A-Z0-9_]{1,40}$/.test(error.code)) ? String(error.code) : 'validation';
+      if (error.code === 24 && typeof error.stderr === 'string' && /^[A-Za-z0-9_.,-]{1,160}$/.test(error.stderr.trim())) discoveryCode += '/' + error.stderr.trim();
       await sleep(100);
     }
   }
