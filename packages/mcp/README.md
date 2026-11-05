@@ -2,7 +2,7 @@
 
 大肥鱼 MCP 入口，适用于支持本地 stdio MCP 的 Host，例如 Codex。它与本机 QQ 客户端共用后台、配置和运行状态。
 
-`0.3.0-preview.2` 配套 QQ npm 后台针对 macOS Apple Silicon（arm64，macOS 14 以上）与 Windows x64，需要 Node.js 22 以上和 npm；Windows 还需 Microsoft Visual C++ x64 运行库。安装 MCP 本身不会自动下载全套平台模块。发布进度见[发布说明](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/docs/NPM_RELEASE.md)。
+`0.3.0-preview.2` 配套 QQ npm 后台针对 macOS Apple Silicon（arm64，macOS 14 以上）与 Windows x64，需要 Node.js 22 以上和 npm；Windows 还需 Microsoft Visual C++ x64 运行库。安装 MCP 本身不会自动下载全套平台模块。发布进度见[发布说明](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/codex/qq-windows-validation/docs/NPM_RELEASE.md)。
 
 ## 先安装 QQ 模块
 
@@ -31,7 +31,7 @@ codex mcp add dafeiyu -- npx --yes @sakurafan1023/mcp@0.3.0-preview.2 --modules 
 
 Host 需要能找到 Node/npm。默认从 `~/.local/share/dafeiyu/modules` 加载已安装 QQ，可通过 `DAFEIYU_MODULES_DIR` 指定同一个稳定模块目录。用户数据不放在 npx 缓存；升级或清理缓存不应删除配置。
 
-不希望依赖系统 Node 时，可使用仓库单独生成的[Mac 测试 ZIP](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/docs/MACOS_MCP_TEST.md)。ChatGPT 网页不能直接使用本地 stdio 命令，远程连接另见该文档，不属于这条默认安装流程。
+不希望依赖系统 Node 时，可使用仓库单独生成的[Mac 测试 ZIP](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/codex/qq-windows-validation/docs/MACOS_MCP_TEST.md)。ChatGPT 网页不能直接使用本地 stdio 命令，远程连接另见该文档，不属于这条默认安装流程。
 
 ## 可用工具
 
@@ -51,4 +51,4 @@ Host 需要能找到 Node/npm。默认从 `~/.local/share/dafeiyu/modules` 加�
 
 不提供任意 OneBot 调用、脚本执行或直接发消息接口。
 
-[完整使用说明](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/docs/QQ_MODULES.md) · [反馈问题](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
+[完整使用说明](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/codex/qq-windows-validation/docs/QQ_MODULES.md) · [反馈问题](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)

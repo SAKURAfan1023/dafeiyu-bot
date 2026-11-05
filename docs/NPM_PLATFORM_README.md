@@ -15,4 +15,4 @@ npx --yes @sakurafan1023/cli@0.3.0-preview.2 qq panel
 
 代码采用 MIT；图片与第三方运行库分别遵循包内 `THIRD_PARTY_NOTICES.md`、`Resources/` 与 `licenses/` 中的许可，不因本项目 MIT 而改变。
 
-[完整使用说明](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/main/docs/QQ_MODULES.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
+[完整使用说明](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/codex/qq-windows-validation/docs/QQ_MODULES.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)

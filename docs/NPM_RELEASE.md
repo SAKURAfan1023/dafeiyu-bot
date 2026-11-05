@@ -4,7 +4,7 @@
 
 用户已要求接着发布 Windows x64。下一版清单位于 `release-plan.json`，包含 macOS arm64、Windows x64 两个平台后台，以及同版本 CLI、QQ、MCP，共五个包。`0.3.0-preview.1` 已发布内容保留；`0.3.0-preview.2` 目前是源码候选，尚未上传。
 
-Windows 验证入口为 `.github/workflows/windows.yml`：原生 Swift 编译、OS 文件锁及私有 ACL、图片 Job、OneBot 合成收发、控制页、MCP 和清除 Swift PATH 后的 tarball / npx 安装。分包测试中残留的旧 npm 作用域路径已修正。Windows 产物需通过该环境运行后再进入 npm 上传清单；Mac 通过不替代 Windows 结果。
+独立验证分支为 `codex/qq-windows-validation`，已按用户授权推送；未合并 main。Windows 验证入口为 `.github/workflows/windows.yml`：原生 Swift 编译、OS 文件锁及私有 ACL、图片 Job、OneBot 合成收发、控制页、MCP 和清除 Swift PATH 后的 tarball / npx 安装。分包测试中残留的旧 npm 作用域路径已修正。Windows 产物需通过该环境运行后再进入 npm 上传清单；Mac 通过不替代 Windows 结果。原生测试已暴露并修复 CoreFoundation/WinSDK 编译差异、测试入口链接冲突和文件原子替换问题；当前继续核对测试夹具占用与端口拒绝检查，尚未上传新版本。
 
 以下记录保留已经公开的第一版。
 
