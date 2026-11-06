@@ -58,8 +58,9 @@ try {
   const saved=await client.callTool({name:'qq_save_connection',arguments:{...expected,endpoint:'ws://127.0.0.1:30123',expectedSelfID:'12345'}});
   assert.ok(!saved.isError);
   const record=JSON.parse(await fs.readFile(path.join(data,'qq-worker.json'),'utf8')),url=new URL(record.controlURL);
-  assert.equal((await fetch(url.origin)).status,200);assert.equal((await fetch(url.origin+'/app.js')).status,200);
-  assert.equal((await fetch(url.origin+'/api/status')).status,403);
+  const html=await fetch(url.origin);assert.equal(html.status,200);assert.match(await html.text(),/app.js/);
+  const script=await fetch(url.origin+'/app.js');assert.equal(script.status,200);assert.ok((await script.text()).length>0);
+  const denied=await fetch(url.origin+'/api/status');assert.equal(denied.status,403);await denied.text();
   const state=await fetch(url.origin+'/api/status',{headers:{'X-QQ-Control':url.hash.slice(1)}}).then(r=>r.json());
   assert.equal(state.runtime.pid,backend.pid);assert.equal(state.config.expectedSelfID,'12345');
   if(process.platform==='win32') {
