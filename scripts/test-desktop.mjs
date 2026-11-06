@@ -33,6 +33,7 @@ try {
     await fs.mkdir(path.dirname(installed));await fs.cp(path.join(mount,'DaFeiYu.app'),installed,{recursive:true});
     await run('/usr/bin/hdiutil',['detach',mount]);mount=undefined;
     await run('/usr/bin/codesign',['--verify','--deep','--strict',installed]);
+    assert.ok(!/\/(?:Users|home)\/[A-Za-z0-9_.-]+\//.test((await fs.readFile(path.join(installed,'Contents','MacOS','WeChatAIBot'))).toString('latin1')),'Public Mac executable must not retain private build paths');
     runtime=path.join(installed,'Contents','Resources','QQRuntime');node=path.join(runtime,'node');
     // Test the native client's exact copied executable and packaged resources, without launching a user session.
     await run('/usr/bin/python3',[path.join(root,'scripts','test-control-panel.py'),path.join(installed,'Contents','MacOS','WeChatAIBot')],
