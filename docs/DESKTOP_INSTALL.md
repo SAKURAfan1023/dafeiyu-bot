@@ -22,7 +22,12 @@ Windows 客户端打开本机浏览器面板。Mac 提供现有原生界面，�
 
 自行准备 QQ / NapCat 后，在客户端填写 OneBot 正向 WebSocket 地址、预期 QQ 账号和模型凭证。先连接并核对实际身份，再保存允许回复的范围并明确启动。
 
-关闭浏览器或 MCP Host 不会停止独立 QQ 后台。Windows 可先在面板断开，再双击 `Stop DaFeiYu.cmd`；Mac 原生客户端持有的后台随应用退出，MCP 单独启动的后台可用面板断开并停止。运行中的独立后台也可执行包内 `launch.mjs disconnect` 后执行 `launch.mjs stop`。
+关闭浏览器或 MCP Host 不会停止独立 QQ 后台。Windows 可先在面板断开，再双击 `Stop DaFeiYu.cmd`。Mac 原生客户端持有的后台随应用退出；如果后台由 MCP 单独启动，在终端依次执行包内命令断开并停止：
+
+```sh
+"/Applications/DaFeiYu.app/Contents/Resources/QQRuntime/node" "/Applications/DaFeiYu.app/Contents/Resources/QQRuntime/launch.mjs" disconnect
+"/Applications/DaFeiYu.app/Contents/Resources/QQRuntime/node" "/Applications/DaFeiYu.app/Contents/Resources/QQRuntime/launch.mjs" stop
+```
 
 升级或卸载前先断开并停止后台，避免替换正在使用的文件。Windows 可在“设置 → 应用”卸载；Mac 将应用移至废纸篓。用户数据保留：Windows 为 `%LOCALAPPDATA%\DaFeiYu`，Mac 为用户资料库的 `Application Support/WeChatAIBot`。安装与卸载不会删除聊天配置或记忆。
 

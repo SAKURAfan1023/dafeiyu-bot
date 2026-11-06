@@ -2,7 +2,13 @@
 
 Windows x64 原生 QQ 后台已通过 Windows Server 2022 上的编译和运行测试，包括本机 Web 客户端、MCP、私有文件权限及移除 Swift 工具链 PATH 后的安装。npm `0.3.0-preview.2` 发布进度与公共安装检查见[发布记录](NPM_RELEASE.md)。真实 Windows QQ / NapCat 账号的扫码和收发仍需在用户环境验收。
 
-原生路线不需要 WSL、虚拟机或 Swift 编译工具。需要 Node.js 22+、npm、Microsoft Visual C++ x64 运行库，以及自行配置的 Windows QQ / NapCat。图片功能另需 Python / Pillow，文本连接不依赖 Python。客户端使用本机浏览器，MCP 与它共享后台；目前未提供 Windows 原生图形界面或 MSI 安装器。具体操作见 [QQ 分包与双入口](QQ_MODULES.md)。
+原生路线不需要 WSL、虚拟机或 Swift 编译工具。安装程序自带 Node 和 QQ / MCP 模块；自行使用 npm 时需要 Node.js 22+ 和 npm。两种路线均需 Microsoft Visual C++ x64 运行库，以及自行配置的 Windows QQ / NapCat。图片功能另需 Python / Pillow，文本连接不依赖 Python。客户端使用本机浏览器，MCP 与它共享后台。
+
+## 客户端安装程序
+
+从 [GitHub Release](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.2) 下载 `DaFeiYu-0.3.0-preview.2-windows-x64-setup.exe`，双击安装，再从开始菜单打开“大肥鱼 QQ”。桌面快捷方式可在安装时勾选。也可下载便携 ZIP，解压后打开 `DaFeiYu.exe`。
+
+安装只作用于当前用户，不申请管理员权限、不修改 PATH、不设置开机启动。升级或卸载前先断开并停止后台；卸载保留用户数据。此预览版未签名，系统可能提示未知发布者。安装、停止和包内 MCP 的具体步骤见 [客户端安装说明](DESKTOP_INSTALL.md)。
 
 ## npm 原生安装
 

@@ -18,6 +18,18 @@ QQ 可用 · 社交平台测试中（小红书 / B站）· 微信测试中 · ma
 
 > **项目状态：持续更新、完善与迭代中。** QQ 私聊与群真实 @ 回复已有真人接收确认，可用于个人测试和部署；不代表所有新功能、所有账号或连续运行时长均已验收。微信适配仍在测试，尚未完成可靠自动回复验收，请勿按成熟功能使用。macOS 提供原生界面，Windows x64 提供 npm 原生 QQ 后台和本机 Web 客户端；客户端和 MCP 已通过 Windows 原生自动化测试，真实 Windows QQ 账号收发仍待用户环境验收。既有 Linux / WSL2 路线保留，见[发布记录](docs/NPM_RELEASE.md)。
 
+## 下载客户端 · 0.3 预览版
+
+| 系统 | 下载 | 安装方式 |
+| --- | --- | --- |
+| Windows x64 | [安装程序 `.exe`](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.2/DaFeiYu-0.3.0-preview.2-windows-x64-setup.exe) | 双击安装，从开始菜单或可选桌面快捷方式打开 |
+| Windows x64 | [便携版 `.zip`](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.2/DaFeiYu-0.3.0-preview.2-windows-x64-portable.zip) | 解压后打开 `DaFeiYu.exe` |
+| Mac Apple Silicon | [安装镜像 `.dmg`](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.2/DaFeiYu-0.3.0-preview.2-macos-arm64.dmg) | 将 `DaFeiYu.app` 拖入“应用程序”后打开 |
+
+客户端包内含 Node 和 QQ / MCP 模块，无需 npm、Swift、WSL 或虚拟机。Windows 仍需 Microsoft Visual C++ x64 运行库，客户端使用本机浏览器；Mac 需要 macOS 14+，使用现有原生界面。QQ / NapCat 和模型服务由用户自行配置，图片功能另需 Python / Pillow。预览包尚无开发者证书，Mac 未做 Apple 公证，首次打开可能出现系统提示。安装、停止、卸载与包内 MCP 配置见[客户端安装说明](docs/DESKTOP_INSTALL.md)。
+
+GitHub 的 `.tgz` 附件供 npm 使用，Source code 是源码；普通用户请选择上表的客户端包。
+
 ## npm 按需安装 · 0.3 预览版
 
 `0.3.0-preview.2` 的五个包已公开发布到 npm，支持 Windows x64 和 macOS Apple Silicon（arm64，macOS 14+），安装时自动选择本机后台。需要 Node.js 22+ 和 npm；Windows 另需 Microsoft Visual C++ x64 运行库，预构建包无需 Swift、WSL 或虚拟机。公共下载核验状态见[发布记录](docs/NPM_RELEASE.md)。

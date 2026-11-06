@@ -24,7 +24,9 @@ Windows 修复包括 Swift SDK 编译差异、原子文件保存、私有 ACL、
 
 本版仍为预览版，请用固定版本或显式 `@next`。当前 Windows 原生包的 `latest` 为 `.2`，另外四包的 `latest` 保留 `.1`；默认标签不代表稳定性承诺。源码与文档位于独立分支 `codex/qq-windows-validation`，未合并 main；包内文档链接指向该分支。
 
-配套 [GitHub 预发布](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.2)提供同一批五个 npm tarball 和 `SHA256SUMS.txt`；[版本说明](releases/v0.3.0-preview.2.md)包含客户端、MCP 安装与停止命令、系统要求和测试边界。仓库默认首页需随该分支合并后更新，不能把分支 README 已推送视为 main 已更新。
+配套 [GitHub 预发布](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.2)保留同一批五个 npm tarball 和 `SHA256SUMS.txt`，另外提供 Windows `.exe` 安装程序、便携 ZIP 和 Mac arm64 DMG；客户端文件的校验和为 `DESKTOP-SHA256SUMS.txt`。[版本说明](releases/v0.3.0-preview.2.md)与[客户端安装说明](DESKTOP_INSTALL.md)包含系统要求、安装与停止、包内 MCP 和保留数据的卸载方式。仓库默认首页需随该分支合并后更新，不能把分支 README 已推送视为 main 已更新。
+
+客户端打包记录：Mac DMG 已实际挂载、复制到含中文和空格的目录，应用签名完整性、原生客户端 HTTP 边界及内置 MCP / 共享后台 / 停止重启检查通过，原有 108 项应用与 78 项 BotCore 回归测试通过。[Windows 安装器验证](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42151375416)通过实际安装、开始菜单快捷方式、图形启动器、便携 ZIP、MCP、共享后台、重装保留配置、卸载保留数据检查。运行测试清除了外部 Node / Swift PATH，使用合成账号，不调用真实 QQ 或模型。客户端自带 Node 与已发布的固定 `.2` 模块；打包脚本提交记录在包内 `desktop-build.json`，不改动 npm 包或移动已有版本标签。Mac 只有临时签名、未做 Apple 公证，Windows 安装器未做 Authenticode 签名，不能把签名完整性检查当作系统信任或公证验收。
 
 ## 历史记录 · 0.3.0-preview.1
 
