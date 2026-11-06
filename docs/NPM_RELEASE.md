@@ -10,7 +10,7 @@
 
 Mac 最终 DMG 与 [Windows 安装包](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42229286982)均已通过实际安装路径下的客户端与 MCP、共享后台、离线准备 NapCat、保留已有配置和篡改拒绝测试；Windows 另通过重装、卸载保留数据。Mac 186 项既有测试通过。两个独立 QQ 文件均通过固定摘要及腾讯原始签名核验，未执行 QQ。Mac 桌面副本在核验原始 npm 完整性后移除原生调试路径、重新签名并更新本地完整性清单，不改写已发布的 npm 文件。两平台的确切打包提交分别记录在各自 `desktop-build.json`，Windows 核心与安装逻辑不因后续 Mac 调试信息处理而改变。
 
-本轮内置 NapCat 与重构后的 README 位于[PR #5](https://github.com/SAKURAfan1023/dafeiyu-bot/pull/5)，尚未合并 main；仓库默认首页不会随 Release 自动更新。上一批 `.2` 已通过 PR #4 合并 main。GitHub 侧边栏的 Packages 对应 GitHub Packages，npm registry 发布不会出现在该栏；安装文件请打开 Releases。
+本轮内置 NapCat 与重构后的 README 改动见[PR #5](https://github.com/SAKURAfan1023/dafeiyu-bot/pull/5)，仓库首页显示 `main` 分支的 README。上一批 `.2` 已通过 PR #4 合并 main。GitHub 侧边栏的 Packages 对应 GitHub Packages，npm registry 发布不会出现在该栏；安装文件请打开 Releases。
 
 ## Windows 与 Mac 发布 · 0.3.0-preview.2
 
