@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/livliv-dev/player",
+  "commit": "0ffb70f2b815d924ab10b07fa892c413846a71cd",
+  "version": "0.3.0",
+  "license": "Apache-2.0",
+  "modifications": "Player.setJointPose and pre-body layer joint transforms; PCM streaming through SpeechPlayer heard-clock hooks; expression show/hide opacity applied once in drawLayer, including clipped roles, following agent-stage. Reproducible with scripts/build-avatar-player.mjs. No upstream or Graphite artwork included."
+}

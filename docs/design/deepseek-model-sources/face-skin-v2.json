@@ -1,0 +1,18 @@
+{
+  "prompt": "Use case: precise-object-edit. Make one REGISTERED UNDERPAINT CLEAN SKIN PLATE for the attached exact anime character, not a redesign. Keep the entire image at the exact same 1024x1536 canvas, original framing, coordinates, scale, pose, face/jaw outline, ears, hair including every fringe strand, accessories, costume, arms, hands and transparency. Change ONLY facial features: erase BOTH entire eyes including all white sclera, irises, pupils, highlights, black eyelashes and upper/lower eyelid/crease lines; erase both eyebrows; erase the tiny mouth line. Fill their places with one smoothly CONTINUOUS facial skin surface matching the original surrounding pale peach skin and original cheek blush/light/shadow. Preserve the original tiny nose and blush, no eye-shaped patches or tinted ovals, no spots, rectangles or seams. Keep the EXACT original face shape and same blush distribution. This is a blank face UNDER the unchanged hair: absolutely NO bald head, NO removed fringe, no changed hair shadows, no new face or new eyes. Preserve all other artwork as close to pixel-identical as possible, without crop/zoom/translation/resizing. Genuine transparent RGBA preserved; no backdrop, shadow, glow or checkerboard. Original facial graphics will be layered on top later, so do not draw any eyes, eyebrows or mouth.",
+  "method": "Dedicated continuous full-face underpaint; original eyes, brows and mouth are separate registered artwork.",
+  "generated_files": {
+    "sailor": "exec-c4e51035-a264-4895-adfb-8d36f5a35494.png",
+    "hoodie": "exec-063ad5c6-9817-4468-b3cf-0ca1ed6dc485.png",
+    "researcher": "exec-319fa0bc-9786-4e01-b9d7-5633cf1eb3e7.png",
+    "ocean-dress": "exec-5334668a-54ed-4bac-8635-12b61279f097.png",
+    "classic-maid": "exec-61c43695-96ae-4edd-b2f0-bacc651dc810.png"
+  },
+  "sha256": {
+    "sailor": "a41c7c63e77ede6905b121873f1f9a95375237d061662e7a7cc703987703fd55",
+    "hoodie": "45dc6af1e449bfe28a268d286c54c5e58d132770347ee3d1074508260005e378",
+    "researcher": "3d42dc9136d57d60e092af559e7e2848a3ccd5eacf2b29a26496e24cdf1d0f4b",
+    "ocean-dress": "0e8c862417034555ec3ed32872ac94eeeb235cda1ce20ff4d5aaca032161d692",
+    "classic-maid": "c8fc6a8595dbe445bd7d0f6f13fa2d9f5dfc787f8ac118ef95775074bee88594"
+  }
+}

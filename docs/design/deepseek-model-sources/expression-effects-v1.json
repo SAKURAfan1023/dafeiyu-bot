@@ -1,0 +1,10 @@
+{
+  "source_generated_file": "exec-20a3eb86-9c30-436b-82d9-d563bdd381bc.png",
+  "sha256": "26c9347a5fd0e507ce22a967317d36c96b71c5a0bb68bb17b22c42b50646c334",
+  "contents": [
+    "rose cheek hatching used without its surrounding glow",
+    "single pale blue embarrassed sweat drop"
+  ],
+  "method": "New original image_gen effects. Registered source eyes and mouth remain separate; no Graphite character artwork is copied.",
+  "prompt": "Create an original production 2D anime expression-effects sprite atlas, genuinely TRANSPARENT RGBA. Exactly TWO separate sprites arranged in one horizontal row, each centered in its own half of the canvas, generous transparent margins around and between them. LEFT sprite: one delicate oval cheek blush, warm soft rose-pink with a smooth softly fading alpha edge and three very fine short diagonal rosy hatching strokes, elegant subtle youthful Japanese anime shading, no skin-colored base. RIGHT sprite: one single small pale-cyan/blue anime embarrassed sweat drop, gently curved teardrop silhouette, tiny ivory specular glint, thin soft blue contour, mostly translucent light blue interior, refined soft cel rendering. Just these two effects. No face, eyes, eyebrows, head, mouth, person, body, text, labels, divider, white box, checkerboard, background, glow cloud, border, shadow, logo or watermark. Desired aspect ratio 2:1. The sprites will be overlaid very small onto existing anime girl faces; graceful subtle proportions, no thick black outline, no emoji face."
+}

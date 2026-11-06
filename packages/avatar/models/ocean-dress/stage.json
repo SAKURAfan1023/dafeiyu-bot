@@ -1,0 +1,336 @@
+{
+  "model_id": "ocean-dress",
+  "default_view": {
+    "head": true,
+    "zoom": 2.9,
+    "x": 0,
+    "y": 0.14
+  },
+  "controls": {
+    "head_yaw": [
+      -1,
+      1
+    ],
+    "head_pitch": [
+      -1,
+      1
+    ],
+    "head_tilt": [
+      -1,
+      1
+    ],
+    "gaze_x": [
+      -1,
+      1
+    ],
+    "gaze_y": [
+      -1,
+      1
+    ],
+    "left_close": [
+      0,
+      1
+    ],
+    "right_close": [
+      0,
+      1
+    ],
+    "body_lean": [
+      -1,
+      1
+    ],
+    "mouth_open": [
+      0,
+      1
+    ],
+    "vowel": [
+      -1,
+      1
+    ],
+    "brow_left": [
+      -1,
+      1
+    ],
+    "brow_right": [
+      -1,
+      1
+    ],
+    "left_shoulder": [
+      -1,
+      1
+    ],
+    "left_elbow": [
+      -1,
+      1
+    ],
+    "left_wrist": [
+      -1,
+      1
+    ],
+    "right_shoulder": [
+      -1,
+      1
+    ],
+    "right_elbow": [
+      -1,
+      1
+    ],
+    "right_wrist": [
+      -1,
+      1
+    ]
+  },
+  "joints": {
+    "arm_left": [
+      {
+        "pivot": [
+          334,
+          626
+        ],
+        "control": "left_elbow",
+        "axis": [
+          -0.3777674139305328,
+          0.9259005243395412
+        ],
+        "span": 85
+      },
+      {
+        "pivot": [
+          382,
+          522
+        ],
+        "control": "left_shoulder"
+      }
+    ],
+    "hand_left": [
+      {
+        "pivot": [
+          283,
+          751
+        ],
+        "control": "left_wrist"
+      },
+      {
+        "pivot": [
+          334,
+          626
+        ],
+        "control": "left_elbow"
+      },
+      {
+        "pivot": [
+          382,
+          522
+        ],
+        "control": "left_shoulder"
+      }
+    ],
+    "arm_right": [
+      {
+        "pivot": [
+          690,
+          626
+        ],
+        "control": "right_elbow",
+        "axis": [
+          0.3777674139305328,
+          0.9259005243395412
+        ],
+        "span": 85
+      },
+      {
+        "pivot": [
+          642,
+          522
+        ],
+        "control": "right_shoulder"
+      }
+    ],
+    "hand_right": [
+      {
+        "pivot": [
+          741,
+          751
+        ],
+        "control": "right_wrist"
+      },
+      {
+        "pivot": [
+          690,
+          626
+        ],
+        "control": "right_elbow"
+      },
+      {
+        "pivot": [
+          642,
+          522
+        ],
+        "control": "right_shoulder"
+      }
+    ]
+  },
+  "joint_degrees": {
+    "shoulder": 30,
+    "elbow": 45,
+    "wrist": 18
+  },
+  "expression_params": {
+    "neutral": {},
+    "smile": {
+      "eyeLOpen": 0,
+      "eyeROpen": 0,
+      "mouthOpen": 0,
+      "smile": 1
+    },
+    "sad": {
+      "eyeLOpen": 0.72,
+      "eyeROpen": 0.72,
+      "browLY": 0.6,
+      "browRY": 0.6
+    },
+    "surprised": {
+      "eyeLOpen": 1,
+      "eyeROpen": 1,
+      "browLY": 0.8,
+      "browRY": 0.8
+    },
+    "raised_brow": {
+      "eyeLOpen": 0.65,
+      "eyeROpen": 1,
+      "browLY": 0.8,
+      "browRY": 0.1
+    },
+    "shy": {
+      "eyeLOpen": 0.72,
+      "eyeROpen": 0.72,
+      "browLY": 0.2,
+      "browRY": 0.2,
+      "angleY": -2,
+      "angleZ": -1.5
+    },
+    "laugh": {
+      "eyeLOpen": 0,
+      "eyeROpen": 0,
+      "browLY": 0.25,
+      "browRY": 0.25,
+      "angleY": 2
+    },
+    "thinking": {
+      "eyeLOpen": 0.85,
+      "eyeROpen": 0.65,
+      "browLY": 0.65,
+      "browRY": 0.1,
+      "eyeBallX": -0.3,
+      "eyeBallY": 0.2,
+      "angleZ": 2
+    },
+    "sleepy": {
+      "eyeLOpen": 0.35,
+      "eyeROpen": 0.4,
+      "browLY": -0.1,
+      "browRY": -0.1,
+      "angleY": -3
+    },
+    "embarrassed": {
+      "eyeLOpen": 0.65,
+      "eyeROpen": 0.9,
+      "browLY": 0.4,
+      "browRY": 0.7,
+      "eyeBallX": 0.25,
+      "angleZ": -2
+    }
+  },
+  "expression_profiles": {
+    "neutral": {
+      "label": "自然",
+      "category": "日常",
+      "usage": "默认交流、自然放松",
+      "transition_seconds": 0.4,
+      "hold_seconds": 0.6,
+      "return_seconds": 0.7,
+      "intensity": 1
+    },
+    "smile": {
+      "label": "开心",
+      "category": "日常",
+      "usage": "友好回应、赞同",
+      "transition_seconds": 0.4,
+      "hold_seconds": 1.2,
+      "return_seconds": 0.8,
+      "intensity": 1
+    },
+    "sad": {
+      "label": "关切",
+      "category": "日常",
+      "usage": "安慰、担忧",
+      "transition_seconds": 0.5,
+      "hold_seconds": 1.2,
+      "return_seconds": 0.9,
+      "intensity": 1
+    },
+    "surprised": {
+      "label": "惊讶",
+      "category": "日常",
+      "usage": "短促的意外反应",
+      "transition_seconds": 0.25,
+      "hold_seconds": 0.7,
+      "return_seconds": 0.8,
+      "intensity": 1
+    },
+    "raised_brow": {
+      "label": "好奇",
+      "category": "日常",
+      "usage": "追问、疑惑",
+      "transition_seconds": 0.4,
+      "hold_seconds": 1.2,
+      "return_seconds": 0.8,
+      "intensity": 1
+    },
+    "shy": {
+      "label": "害羞",
+      "category": "情绪",
+      "usage": "收到夸奖、温柔感谢",
+      "transition_seconds": 0.5,
+      "hold_seconds": 1.4,
+      "return_seconds": 0.9,
+      "intensity": 1
+    },
+    "laugh": {
+      "label": "大笑",
+      "category": "情绪",
+      "usage": "有趣的回应、开怀笑",
+      "transition_seconds": 0.35,
+      "hold_seconds": 1,
+      "return_seconds": 0.9,
+      "intensity": 1
+    },
+    "thinking": {
+      "label": "思考",
+      "category": "交流",
+      "usage": "推敲问题、组织回答",
+      "transition_seconds": 0.5,
+      "hold_seconds": 1.5,
+      "return_seconds": 0.9,
+      "intensity": 1
+    },
+    "sleepy": {
+      "label": "困倦",
+      "category": "交流",
+      "usage": "晚安、疲倦",
+      "transition_seconds": 0.6,
+      "hold_seconds": 1.4,
+      "return_seconds": 1,
+      "intensity": 1
+    },
+    "embarrassed": {
+      "label": "尴尬",
+      "category": "交流",
+      "usage": "小失误、无奈解释",
+      "transition_seconds": 0.4,
+      "hold_seconds": 1.2,
+      "return_seconds": 0.9,
+      "intensity": 1
+    }
+  }
+}

@@ -1,0 +1,192 @@
+{
+  "neutral": "Use case: identity-preserve. Asset type: production-ready neutral full-body source illustration for a 2D animated rig. Edit the attached approved character design. KEEP the exact same character identity, face proportions, eyes and eye spacing, head size, hair color and length, costume design, skirt length, shoes, whale decorations and rendering quality. Keep the original 1024x1536 full-canvas framing and the original front-facing head position/size. Change only the resting pose and organize the silhouette for rigging. Head upright with level gaze at viewer, neutral relaxed eyebrows and tiny CLOSED-mouth gentle smile. Arms hang comfortably slightly away from torso, about 12-15 degrees outward, elbows mildly bent, wrists straight in line with forearms. Both hands are entirely visible clear of clothing, relaxed natural five fingers, fingers slightly separated by small visible gaps, thumbs distinct. Palms mostly toward thighs with a mild forward turn; NOT the wide splayed open-palm/starfish pose, NOT claw hands, NOT fists, NOT touching or gripping clothing. Keep ordinary small delicate hand size anatomically proportional to the girl. Sleeves terminate cleanly at wrists so each hand can be separated. Arrange long hair into a few substantial coherent locks primarily BEHIND shoulders, torso and sleeves; keep only short cheek-framing locks in front. Hair must NOT cross the hands, wrists, forearms, elbows or apron. Remove scattered flying hair strands, loops of hair around arms, lace-thin wisps and interlocked hair tangles. For the classic whale maid preserve recognizable soft blue-to-cyan WAVY long hair, whale-fin ears, the single loop ahoge, and continuous large whale tail; settle the waves down behind the body, do not erase these identity features or replace with generic straight hair. Other designs keep their approved straight hair/bob/ponytails. Legs and feet straight with both shoes fully visible and clear space around silhouette. Render as one finished high-quality Japanese anime character on a genuinely TRANSPARENT RGBA background, no backdrop, shadow, gradient glow or checkerboard baked in. No labels, no sheet, no extra character, no pose variations. Do not redesign the girl or shrink her facial features. This is the final neutral rigging master; preserve the approved look while making shoulder-elbow-wrist and hair layering unambiguous.",
+  "variants": [
+    {
+      "id": "sailor",
+      "concept_file": "a-sailor.png",
+      "neutral_generated_file": "exec-699a700d-c06f-47b7-ba9b-30f700ed1b8b.png",
+      "neutral_sha256": "da29f46839a468298d249aa781c50a28a1a92a608006eac4804b7c6f9f6d5dbb"
+    },
+    {
+      "id": "hoodie",
+      "concept_file": "b-whale-hoodie.png",
+      "neutral_generated_file": "exec-10e3671c-98f5-4cb5-9432-88fd7f999c5b.png",
+      "initial_neutral_generated_file": "exec-986de57a-d206-473c-9cea-6d36f71fefc1.png",
+      "neutral_sha256": "b823ddb8efe3d75c5e80fe5a09225d18d1800163afde6ae32cd811a79d96d8a9"
+    },
+    {
+      "id": "researcher",
+      "concept_file": "c-ocean-researcher.png",
+      "neutral_generated_file": "exec-21663bd1-a703-4a75-8d81-44f27310f6f4.png",
+      "neutral_sha256": "4a7378dd6674c1ac5b97ece343a236f7c0e0464554d21a65fcc9325280e1eaf4"
+    },
+    {
+      "id": "ocean-dress",
+      "concept_file": "d-ocean-dress.png",
+      "neutral_generated_file": "exec-20f637a7-b2e2-4934-8bd4-55791ee921f0.png",
+      "neutral_sha256": "0b40d0a9548be27218b822685e25b4a8bf1ddb67d1f40f0fefb2cf050369c374"
+    },
+    {
+      "id": "classic-maid",
+      "concept_file": "e-classic-whale-maid-v2.png",
+      "neutral_generated_file": "exec-b885c7da-b87d-4abd-8635-82019ddd3d0e.png",
+      "neutral_sha256": "723d2e008d83c96e120b8190f8f2445c8dbd3677088350e990866c5fc892b8e2"
+    }
+  ],
+  "prompts": {
+    "concealed": "Use case: precise-object-edit. Registered technical occlusion-fill plate for the attached SAME character, NOT a redesign. Preserve exactly the same 1024x1536 full image framing, head/face outline, jaw/chin, ears, neck, costume, torso, skirt, legs, shoes, pose and proportions at the SAME original positions and scale. Remove all hair, fringe, cowlick, hair ribbons, whale-fin ears/head ornaments and rear hair completely. Fill the hidden scalp as a naturally rounded bald head fitting behind the ORIGINAL face, and fill the hidden upper clothing behind the removed hair with matching costume fabric. Erase only BOTH EYES including whites/iris/lashes, EYEBROWS and MOUTH from the face, making smooth featureless natural skin, retaining the tiny nose, cheek blush and original face contour. Also remove both arms from shoulder seam outward (including sleeves and hands), leaving the original sleeveless torso/shoulder sockets completed naturally. Retain the costume collar, bodice, skirt, all costume markings and whale tail if present. This is hidden fill for animated head and arm joints; most of it will be covered by original pixels. No new visible face anatomy, no new facial features, no rescaling, no moving the head or body, no silhouette shadow. Genuine clean transparent background outside head/torso/skirt/legs/tail. Absolutely no hair.",
+    "sclera": "Use case: precise-object-edit. Registered technical eye-white plate. Edit only the COLORED IRIS/PUPIL/HIGHLIGHT pixels INSIDE BOTH EYES of the attached exact character: remove those colored disks and fill their places with clean ivory-white sclera smoothly matching surrounding eye whites. Keep original outer upper and lower eyelash/lid shapes, eye opening sizes, eye corners and locations, eyebrows, nose, mouth, cheeks, face outline, head, hair, body and clothing exactly unchanged. Keep the 1024x1536 full image at identical original coordinates, without shifting or rescaling. The white eye shapes are hidden underneath moving irises extracted from the original. No new irises, pupils, gray holes, changed lashes or changed expression. Preserve genuine transparency. No other edits.",
+    "closed": "Use case: precise-object-edit. Registered blink source plate. Edit ONLY BOTH EYES of this exact character into soft natural CLOSED EYE upward crescent eyelash strokes with tapered fine lashes, at the centers of the existing eye openings. Fully remove the open eyes/whites/irises beneath them and fill with matching facial skin. Keep exact original face/chin outline, nose, mouth, eyebrows, blush, hair, costume, pose, fingers, all body parts and full 1024x1536 image framing/coordinates unchanged. Do not shift or rescale any facial feature. Sweet relaxed Japanese anime closed-eye lashes, not thick black stickers, not flat bars. Genuine transparent background preserved; no background glow or additional edits."
+  },
+  "hoodie_prompts": {
+    "concealed": "Registered 1024x1536 technical hidden-fill plate for this exact short-bob anime girl. Preserve head/face outline, jaw, neck, torso, hoodie, skirt, legs, shoes, original pose, scale and coordinates. Remove ALL hair, cowlick, accessories and both arms/sleeves/hands at the shoulder seams. Inpaint a bald scalp exactly behind the original head and complete hidden hoodie torso fabric at shoulder sockets and behind hair; preserve collar/markings. Erase both eyes including iris/whites/lashes, eyebrows and mouth into featureless original-color skin, keeping nose/blush/face/chin. Transparent RGBA outside remaining bald head/body/legs; no shadow, glow, background, hair or labels. No other redesign. Must stay registered.",
+    "sclera": "Registered 1024x1536 eye-white plate of this exact character. Remove ONLY the blue iris/pupil/highlight disks INSIDE BOTH EYES and replace those pixels with matching ivory-white sclera. Preserve original upper/lower eyelash shapes, eye opening shapes/corners/sizes/positions. Keep face, brows, nose, mouth, short bob, body, pose, clothing and all other original pixels in place, no rescaling or shifting. Genuine transparency preserved. No new pupil, no gray hole, no other edit.",
+    "closed": "Registered 1024x1536 blink source. Change ONLY the two open eyes of this exact anime girl into soft natural upward-crescent CLOSED eyelash curves at the original eye-opening centers. Erase iris/white areas into original facial skin. Keep delicate tapered lashes, not flat bars. Preserve exact face outline, head position/size, brow, nose, mouth, short bob, body/clothes/hands/pose/framing. No other changes, no shadow/background, keep transparent alpha."
+  },
+  "rear": "Use case: precise-object-edit. Registered 1024x1536 REAR HAIR hidden-fill plate from the supplied exact character. Preserve original hair color, length, root placement, large lock shapes and outer silhouette at identical image coordinates and scale. Keep only rear scalp/ponytail/back hair. Remove ALL face/skin, body, clothing, hands, arms, legs, shoes, front fringe, cheek locks, accessories, ribbons, cowlick, whale-fin ears and whale tail. Inpaint a coherent continuation of the same rear hair behind the removed body and arms, following the same downward direction and gradient. For the classic maid keep soft large wavy blue-to-cyan locks; for other characters retain straight hair/ponytail style. Do not widen, lengthen, redesign or move the hair, and do not add hair where the original hair had already ended. This image supplies only previously OCCLUDED hair pixels. Genuine TRANSPARENT background everywhere except actual rear hair; no head/face silhouette, no black holes, no shadows or glow, no labels, no background.",
+  "mouth": "Asset type: original 2D Japanese anime mouth-animation sprite atlas for cute blue-haired young-adult girl avatars. One transparent 1024x1024 image, exactly a clean grid of FOUR columns by TWO rows, eight evenly spaced mouth sprites, one centered in each cell. NO face, skin patches, eyes, body, text, labels, grid lines, background, shadows, checkerboard, watermark or cell dividers. Only the delicate mouth ink and mouth interiors, real transparent alpha around each sprite. Keep each mouth about 150px wide and same fine elegant anime linework, naturally small and youthful, warm muted rose/soft brown outline, soft pink lips/tongue, creamy white upper teeth only where appropriate; not lipstick, realistic lips, wide monster mouth, thick black shapes or giant teeth. Top row left to right: (1) slightly open small talking mouth, (2) softly open talking mouth, (3) small round O mouth for surprise/o vowel, (4) a wide vowel talking mouth with subtle upper teeth. Bottom row left to right: (5) cheerful open smile, (6) tiny closed downturned sad mouth, (7) small surprised O mouth, (8) tiny closed asymmetric thoughtful side smile. All sprites front-on, centered within their exact 256x512 cell, constant visual style and logical mouth size, clear separated components. No skin-colored background behind mouths. Genuine transparent RGBA canvas.",
+  "bob": "Use case: precise-object-edit. Keep the exact 1024x1536 registered image, original girl face, head position, eyes, neck, clothing, hands, pose, legs, shoes and transparent background unchanged. Correct ONLY the hairstyle: this approved character is a SHORT-HAIRED BOB girl. Keep the short chin-length dark blue bob with cyan inner streaks and fin-like cowlick exactly as is. Remove ALL extra long locks flowing behind the shoulders, sleeves and waist below the chin/bob; the short bob should end around the nape, absolutely no long rear hair down the arms. Fill removed long-hair areas with proper transparent background or underlying hoodie where needed. Do not alter any visible body/face/clothing pixels. No redesign, no additional hair, no text, no background glow.",
+  "source_plates": [
+    {
+      "id": "sailor",
+      "kind": "concealed",
+      "file": "sailor/concealed.png",
+      "source_generated_file": "exec-6bde5780-d49d-42e2-a47a-274c08e4955f.png",
+      "sha256": "f3daed09f05bd8c08a79417ca251ecb7bb69f76f7ce306f8f0a014a5cfc8acaf"
+    },
+    {
+      "id": "sailor",
+      "kind": "sclera",
+      "file": "sailor/sclera.png",
+      "source_generated_file": "exec-3b668603-67d2-4582-b571-75b82bf4549d.png",
+      "sha256": "45d1f25c9d8d515cc94ac9b306a312b0f1997726b416b0341ce49751d69140d6"
+    },
+    {
+      "id": "sailor",
+      "kind": "closed",
+      "file": "sailor/closed.png",
+      "source_generated_file": "exec-5c2a0fd6-6239-4c45-be8a-849f3eaff558.png",
+      "sha256": "078d32858deaa8027fd43018f84802c3273d1b1581a216ef8805f30e9c170927"
+    },
+    {
+      "id": "sailor",
+      "kind": "rear",
+      "file": "sailor/rear.png",
+      "source_generated_file": "exec-43c02eac-ca0c-4a50-891a-67cc1190c4b0.png",
+      "sha256": "18b5fddb8865a8690f9c7ec48de54ab6422abbd02407b17a0ef64e9b57253965"
+    },
+    {
+      "id": "hoodie",
+      "kind": "concealed",
+      "file": "hoodie/concealed.png",
+      "source_generated_file": "exec-245febff-a2d7-40a5-a0bb-c49ea4b42d31.png",
+      "sha256": "e2b07b69b9f00f6e3064516dc8a96d5ade4464e383dfbfc68713673afef70558"
+    },
+    {
+      "id": "hoodie",
+      "kind": "sclera",
+      "file": "hoodie/sclera.png",
+      "source_generated_file": "exec-741518bb-ee8e-4603-a90a-3f5f2d6fd687.png",
+      "sha256": "49d23d92e6d519a9c32e5b4b33f62f2f684210297685d8f1a365c77f7432ab39"
+    },
+    {
+      "id": "hoodie",
+      "kind": "closed",
+      "file": "hoodie/closed.png",
+      "source_generated_file": "exec-ed275e9a-424f-41d9-a0eb-0403a916f5ae.png",
+      "sha256": "7570e1f0091a77e00c4f319f902619d6af1641d7c5f1529609cae2234e37fece"
+    },
+    {
+      "id": "researcher",
+      "kind": "concealed",
+      "file": "researcher/concealed.png",
+      "source_generated_file": "exec-a0044573-3f83-4efe-8a23-e7cf738e9971.png",
+      "sha256": "d6eb66e5b021b24c1105862ff23117e8818bd78211743b1718750afe8032918d"
+    },
+    {
+      "id": "researcher",
+      "kind": "sclera",
+      "file": "researcher/sclera.png",
+      "source_generated_file": "exec-aa72f01a-79a6-4c4c-b7ca-530a68a31cfb.png",
+      "sha256": "addc80e0acf4a7170f3fbf0771d18a51568bac93693a36e441b075f6d023bf4f"
+    },
+    {
+      "id": "researcher",
+      "kind": "closed",
+      "file": "researcher/closed.png",
+      "source_generated_file": "exec-5a0a9f60-1e76-4f7b-afa4-81b660efb2da.png",
+      "sha256": "02488b104f557ab861ac34054db342e2f97adeeb250ca408271ca02d36939553"
+    },
+    {
+      "id": "researcher",
+      "kind": "rear",
+      "file": "researcher/rear.png",
+      "source_generated_file": "exec-c3154a11-a05e-4c5d-8b6b-d0d7b7867fa8.png",
+      "sha256": "965fe1ce85452e8787f9bb03a41f8ea527e592a3f7aabe0e3815a7aa632f2d76"
+    },
+    {
+      "id": "ocean-dress",
+      "kind": "concealed",
+      "file": "ocean-dress/concealed.png",
+      "source_generated_file": "exec-29b371fb-775f-4ec2-a33d-7b3810af6bfb.png",
+      "sha256": "5fd39262d9ed4bab927db005b6a72c86ad04b3049269879a8f54e8ef8c1bd7b9"
+    },
+    {
+      "id": "ocean-dress",
+      "kind": "sclera",
+      "file": "ocean-dress/sclera.png",
+      "source_generated_file": "exec-105e71e2-108a-4093-839e-1b4266bd7dcd.png",
+      "sha256": "50b6b93e51451ecddbddc6b5d36a270709b3fef27f7e3236a1c589e3e39e756e"
+    },
+    {
+      "id": "ocean-dress",
+      "kind": "closed",
+      "file": "ocean-dress/closed.png",
+      "source_generated_file": "exec-0d885de7-5dfb-41e7-acec-b8ece54b7dd0.png",
+      "sha256": "065bcf946027902ecaf0d5fa67ddf4a4a3c58d057cf39b2e391029ec299f9b48"
+    },
+    {
+      "id": "ocean-dress",
+      "kind": "rear",
+      "file": "ocean-dress/rear.png",
+      "source_generated_file": "exec-931c9967-a1f7-4e24-9123-9f43f1314a2b.png",
+      "sha256": "a892cfe53a8f2cb36c7022496ecfa797e7459c6b134086b431e67c8d0739247d"
+    },
+    {
+      "id": "classic-maid",
+      "kind": "concealed",
+      "file": "classic-maid/concealed.png",
+      "source_generated_file": "exec-54e7eb03-b65d-4525-9f42-f4e1ac9d20f5.png",
+      "sha256": "2eef1510f9a5faf0fa0b1792b7ce7eac2a590254e1a7953153e357b6e3410592"
+    },
+    {
+      "id": "classic-maid",
+      "kind": "sclera",
+      "file": "classic-maid/sclera.png",
+      "source_generated_file": "exec-6375c5db-9a10-4782-b4f3-d35a6204d31a.png",
+      "sha256": "736876e46e3e6b995a83948112b2e8d7ba3774d4483ea45ab71b3a66a678a5aa"
+    },
+    {
+      "id": "classic-maid",
+      "kind": "closed",
+      "file": "classic-maid/closed.png",
+      "source_generated_file": "exec-17d11b9f-e06e-4e56-92b2-810bcf49e7f4.png",
+      "sha256": "d9cbd59d8ef5bc98de4679aaafd7f637436bf27fae74e49862e405789d834025"
+    },
+    {
+      "id": "classic-maid",
+      "kind": "rear",
+      "file": "classic-maid/rear.png",
+      "source_generated_file": "exec-209af716-c342-40f4-bf83-bc9a7ee5438e.png",
+      "sha256": "7458dce7e9946307923a987126a09a73b6e0e2f2f07bb12122e05afe3d35e20d"
+    },
+    {
+      "id": "shared",
+      "kind": "mouth-atlas",
+      "file": "mouth-atlas.png",
+      "source_generated_file": "exec-7a01f8c3-a4f6-43ec-a05c-ac9b5a58262f.png",
+      "sha256": "65eef953ecf6e2396ded2de0b912b33c9205de4218c5fc7a605d293d3854a591"
+    }
+  ],
+  "bob_correction": "Use case: precise-object-edit. Keep the exact 1024x1536 registered image, original girl face, head position, eyes, neck, clothing, hands, pose, legs, shoes and transparent background unchanged. Correct ONLY the hairstyle: this approved character is a SHORT-HAIRED BOB girl. Keep the short chin-length dark blue bob with cyan inner streaks and fin-like cowlick exactly as is. Remove ALL extra long locks flowing behind the shoulders, sleeves and waist below the chin/bob; the short bob should end around the nape, absolutely no long rear hair down the arms. Fill removed long-hair areas with proper transparent background or underlying hoodie where needed. Do not alter any visible body/face/clothing pixels. No redesign, no additional hair, no text, no background glow."
+}

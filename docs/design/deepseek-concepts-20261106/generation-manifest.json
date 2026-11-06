@@ -1,0 +1,108 @@
+{
+  "generator": "built-in image_gen",
+  "created": "2026-11-06",
+  "stage": "five-character-lineup-classic-maid-reference-revision",
+  "files": [
+    {
+      "id": "a-sailor",
+      "label": "A 蓝白水手服",
+      "file": "a-sailor.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "c540a6d521b87ad2cc651a89772e44e621fc292bc582477c6effaa528f1ea017",
+      "source_generated_filename": "exec-db281f79-2e01-4973-b994-5262febab467.png"
+    },
+    {
+      "id": "b-whale-hoodie",
+      "label": "B 鲸鱼帽衫",
+      "file": "b-whale-hoodie.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "edd070a203a9aa8e543da45bc0dd5abbfe6b33aca3b609b85eb20d838e96017b",
+      "source_generated_filename": "exec-7f3c9520-2a7a-4a6b-8ef1-53950c0c2d81.png"
+    },
+    {
+      "id": "c-ocean-researcher",
+      "label": "C 深海小研究员",
+      "file": "c-ocean-researcher.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "7c24e0ac6977108ef93af7b5ed7c7f37f3b516499f84e7d5bb49fd53fcb03444",
+      "source_generated_filename": "exec-a7ec3358-2d4c-4ab9-8869-0c1b6f856f8d.png"
+    },
+    {
+      "id": "d-ocean-dress",
+      "label": "D 海洋轻礼装",
+      "file": "d-ocean-dress.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "12da7fd9759fc79926d978887c81b2245377686fcc6987b5a3de9222f0ee41bc",
+      "source_generated_filename": "exec-027af416-e7b9-49da-a36b-fb6cb664095f.png"
+    },
+    {
+      "id": "e-classic-maid",
+      "label": "E 经典蓝白女仆",
+      "file": "e-classic-maid.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "1ad21f6854b54f4357de099fbb92d5fc2f8a1d1b99a10a350c8c0840fa1add21",
+      "source_generated_filename": "exec-53dd452e-25e6-4784-97fe-8ba834564bd0.png",
+      "status": "superseded-user-rejected-classic-mismatch"
+    },
+    {
+      "id": "e-classic-whale-maid-v2",
+      "character_slot": "E",
+      "label": "E 经典 DeepSeek 鲸鱼娘·修正版",
+      "file": "e-classic-whale-maid-v2.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "6df873e48c9bf41d9a49952e541dd6bafdb80a2990ae5f66679c9f795bd4f1c1",
+      "source_generated_filename": "exec-7169b435-69a3-40d2-8cc6-60a0df2084f9.png",
+      "status": "reference-based-revision-awaiting-visual-feedback",
+      "replaces_id": "e-classic-maid",
+      "creators": [
+        "上善无形 (original whale-girl character)",
+        "ZipZipPipe (maid redesign)",
+        "image_gen (this AI redraw)"
+      ],
+      "reference_image_sha256": "73264faff3511347b1b9668d5d937cbb3f2402f8bb03cc158fc8a81bfc2d077c",
+      "artwork_notice": "CLASSIC-REFERENCE.md",
+      "references": [
+        {
+          "url": "https://www.bilibili.com/opus/1231977657712771073",
+          "role": "Original whale-girl character by 上善无形; primary post read, includes visual prompt and CC BY-NC-SA 4.0 declaration"
+        },
+        {
+          "url": "https://www.pixiv.net/artworks/148186519",
+          "role": "ZipZipPipe maid collection, page 1; image viewed through byte-verified public archive; direct Pixiv page unavailable"
+        },
+        {
+          "url": "https://www.bilibili.com/video/BV1tE9XBbErS/",
+          "role": "ZipZipPipe character video; direct page HTTP 412, credits cross-checked with archive and LivLiv CREDITS"
+        },
+        {
+          "url": "https://github.com/shuaizenge/ai-girls/blob/main/catalog.json",
+          "role": "Archive provenance, exact original image hash and author chain"
+        }
+      ]
+    }
+  ],
+  "production_decision": {
+    "date": "2026-11-06",
+    "selection": "all-five",
+    "scope": "Keep A-E for selectable MCP avatars",
+    "current_implementation": "Concept art only; rigging and MCP character switching are not yet implemented"
+  }
+}
