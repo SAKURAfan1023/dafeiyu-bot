@@ -76,7 +76,7 @@ MCP 用于让 Codex 等 AI 客户端调用已安装的 QQ 能力。先完成上�
 codex mcp add dafeiyu -- npx --yes @sakurafan1023/mcp@0.3.0-preview.2 --modules qq
 ```
 
-使用完整客户端时，也可以直接连接包内 MCP，无需另装 Node，配置示例见[客户端安装说明](docs/DESKTOP_INSTALL.md#使用包内-mcp)。
+使用完整客户端时，也可以直接连接包内 MCP，无需另装 Node，配置示例见[客户端安装说明](docs/DESKTOP_INSTALL.md#npm-与-mcp)。
 
 MCP 提供状态、联系人、连接设置、回复范围、运行控制、工具配置和记忆等 7 个工具。接入不会自动登录 QQ 或开始回复；凭证在本机面板填写，启动回复需要明确指令。
 
