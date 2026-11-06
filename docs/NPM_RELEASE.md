@@ -1,8 +1,20 @@
-# npm 发布记录 · 0.3.0-preview.2
+# 客户端与 npm 发布记录
+
+## 完整客户端 · 0.3.0-preview.3
+
+已在 GitHub 公开预发布。三个大肥鱼客户端、两个独立 QQ 安装文件和 `SHA256SUMS.txt` 共六项附件的远端大小、完整 SHA-256 均与本地候选一致；六个匿名下载入口已通过分段字节及总长度核对，校验文本已完整下载核对。发布证据保存在本机生成目录 `dist/github-release-preview.3/publication.json`。
+
+本次客户端内置完整 NapCat Shell `4.18.42`；Mac 另含官方配置工具 `1.7`。首次准备从包内解压，不再要求用户自行寻找或下载 NapCat。QQ 固定版本的腾讯原始安装文件单独提供在[同一发布页](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.3)，不嵌入大肥鱼安装包。文件选择、扫码及连接步骤见[首页快速上手](../README.md#快速上手)，包内 MCP 与卸载说明见[客户端安装指南](DESKTOP_INSTALL.md)。
+
+桌面打包版本由 `desktop-release.json` 管理；QQ / CLI / MCP 继续使用已发布的 `0.3.0-preview.2`，无需重新安装或发布 npm。同页的 `SHA256SUMS.txt` 校验三个客户端文件与两个独立 QQ 文件；旧版 `.2` 的文件、标签与校验记录保持不变。上游原始 NapCat 归档的版本、来源、SHA-256 与许可随客户端保留；已有本机 NapCat 目录不覆盖。更多改动及验证边界见[本次版本说明](releases/v0.3.0-preview.3.md)。
+
+Mac 最终 DMG 与 [Windows 安装包](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42229286982)均已通过实际安装路径下的客户端与 MCP、共享后台、离线准备 NapCat、保留已有配置和篡改拒绝测试；Windows 另通过重装、卸载保留数据。Mac 186 项既有测试通过。两个独立 QQ 文件均通过固定摘要及腾讯原始签名核验，未执行 QQ。Mac 桌面副本在核验原始 npm 完整性后移除原生调试路径、重新签名并更新本地完整性清单，不改写已发布的 npm 文件。两平台的确切打包提交分别记录在各自 `desktop-build.json`，Windows 核心与安装逻辑不因后续 Mac 调试信息处理而改变。
+
+本轮内置 NapCat 与重构后的 README 改动见[PR #5](https://github.com/SAKURAfan1023/dafeiyu-bot/pull/5)，仓库首页显示 `main` 分支的 README。上一批 `.2` 已通过 PR #4 合并 main。GitHub 侧边栏的 Packages 对应 GitHub Packages，npm registry 发布不会出现在该栏；安装文件请打开 Releases。
 
 ## Windows 与 Mac 发布 · 0.3.0-preview.2
 
-本批包含 macOS arm64、Windows x64 两个平台后台和同版本 CLI、QQ、MCP，共五个包，已公开发布。五个公共下载文件的 SHA-256、大小均与审阅过的本地 tarball 一致，`next` 均指向 `0.3.0-preview.2`。旧版 `0.3.0-preview.1` 和其核验记录保留；未合并 main 或部署服务。
+本批包含 macOS arm64、Windows x64 两个平台后台和同版本 CLI、QQ、MCP，共五个包，已公开发布。五个公共下载文件的 SHA-256、大小均与审阅过的本地 tarball 一致，`next` 均指向 `0.3.0-preview.2`。旧版 `0.3.0-preview.1` 和其核验记录保留；这批源码随后通过 PR #4 合并 main，未部署服务。以下保留 `.2` 发布时的验证与文件记录。
 
 [Windows 原生 CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42057072204)、[macOS CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42057072338)、[Linux CI](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42057072223) 全部通过。Windows 包通过 169 项原生测试、9 项 Node 测试、OneBot 合成通信、控制页、真实 SDK MCP、清除 Swift PATH 后的 tarball 和实际 npx 安装。测试未登录真实 QQ，也未调用真实模型。
 
@@ -22,9 +34,9 @@ Windows 修复包括 Swift SDK 编译差异、原子文件保存、私有 ACL、
 
 普通用户只需运行 QQ 模块说明中的固定版本命令，不必手动选择原生包。Windows x64 和 macOS arm64 共用 CLI / QQ / MCP 包，后台按系统分发；没有发布 Intel Mac、Windows ARM64 或 Linux npm 原生包。需要 Node.js 22+ 和 npm；Windows 另需 Microsoft Visual C++ x64 运行库，图片功能另需 Python / Pillow。预构建后台无需安装 Swift、WSL 或虚拟机。
 
-本版仍为预览版，请用固定版本或显式 `@next`。当前 Windows 原生包的 `latest` 为 `.2`，另外四包的 `latest` 保留 `.1`；默认标签不代表稳定性承诺。源码与文档位于独立分支 `codex/qq-windows-validation`，未合并 main；包内文档链接指向该分支。
+本版仍为预览版，请用固定版本或显式 `@next`。发布时 Windows 原生包的 `latest` 为 `.2`，另外四包的 `latest` 保留 `.1`；默认标签不代表稳定性承诺。这批源码与文档已通过 PR #4 合并 main，包内原有文档链接仍指向发布分支。
 
-配套 [GitHub 预发布](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.2)保留同一批五个 npm tarball 和 `SHA256SUMS.txt`，另外提供 Windows `.exe` 安装程序、便携 ZIP 和 Mac arm64 DMG；客户端文件的校验和为 `DESKTOP-SHA256SUMS.txt`。[版本说明](releases/v0.3.0-preview.2.md)与[客户端安装说明](DESKTOP_INSTALL.md)包含系统要求、安装与停止、包内 MCP 和保留数据的卸载方式。仓库默认首页需随该分支合并后更新，不能把分支 README 已推送视为 main 已更新。
+配套 [GitHub 预发布](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.2)保留同一批五个 npm tarball 和 `SHA256SUMS.txt`，另外提供 Windows `.exe` 安装程序、便携 ZIP 和 Mac arm64 DMG；客户端文件的校验和为 `DESKTOP-SHA256SUMS.txt`。[历史版本说明](releases/v0.3.0-preview.2.md)记录旧包的内容；当前安装与停止、包内 MCP 和保留数据的卸载方式见[客户端安装说明](DESKTOP_INSTALL.md)。
 
 客户端打包记录：Mac DMG 已实际挂载、复制到含中文和空格的目录，应用签名完整性、原生客户端 HTTP 边界及内置 MCP / 共享后台 / 停止重启检查通过，原有 108 项应用与 78 项 BotCore 回归测试通过。[Windows 安装器验证](https://github.com/SAKURAfan1023/dafeiyu-bot/actions/runs/42151950576)通过实际安装、开始菜单快捷方式、图形启动器、便携 ZIP、MCP、共享后台、重装保留配置、卸载保留数据检查。运行测试清除了外部 Node / Swift PATH，使用合成账号，不调用真实 QQ 或模型。客户端自带 Node 与已发布的固定 `.2` 模块；打包脚本提交记录在包内 `desktop-build.json`，不改动 npm 包或移动已有版本标签。Mac 只有临时签名、未做 Apple 公证，Windows 安装器未做 Authenticode 签名，不能把签名完整性检查当作系统信任或公证验收。
 

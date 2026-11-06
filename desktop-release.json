@@ -1,0 +1,35 @@
+{
+  "version": "0.3.0-preview.3",
+  "napcat": {
+    "version": "4.18.42",
+    "filename": "NapCat.Shell.zip",
+    "url": "https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.42/NapCat.Shell.zip",
+    "sha256": "02e5ff0f79916c1e04c81c1b4590056406fb4293f1f1300c955e71fd08b2829d",
+    "source": "https://github.com/NapNeko/NapCatQQ/tree/v4.18.42"
+  },
+  "macInstaller": {
+    "version": "1.7",
+    "filename": "NapCatInstaller_arm64.amd64.zip",
+    "url": "https://github.com/NapNeko/NapCat-Mac-Installer/releases/download/v1.7/NapCatInstaller_arm64.amd64.zip",
+    "sha256": "93537837ae2a5d645393fbe67a758fbaebe93ca2b8cad3a608582c4be12a92a4",
+    "source": "https://github.com/NapNeko/NapCat-Mac-Installer/tree/v1.7"
+  },
+  "qqInstallers": [
+    {
+      "platform": "win32",
+      "version": "9.9.33-260813-x64",
+      "filename": "QQ_9.9.33_260813_x64_01.exe",
+      "url": "https://qqdl.gtimg.cn/qqfile/QQNT/9.9.33/release/497e2f1f/QQ_9.9.33_260813_x64_01.exe",
+      "sha256": "b25c0d3ce9df764074a9118d0ded927e1b2d7ebf60e306112e8df18a040ec492",
+      "source": "NapCat v4.18.42 official Windows OneKey installer download URL"
+    },
+    {
+      "platform": "darwin",
+      "version": "7.0.0-260812-universal",
+      "filename": "QQ_7.0.0_260812_01.dmg",
+      "url": "https://qqdl.gtimg.cn/qqfile/QQNT/9.9.33/release/126b7ce6/QQ_7.0.0_260812_01.dmg",
+      "sha256": "b195c26df362af58954c898ab1dd984784a2ba6f57a629e6fb9b3ecc3bf9e65c",
+      "source": "Tencent official download; mirrored metadata qq-packages-20260813-1d08f1d4"
+    }
+  ]
+}

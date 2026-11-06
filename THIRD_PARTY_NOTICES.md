@@ -31,6 +31,14 @@
 
 - Windows OneBot 传输使用 ws（MIT），依赖版本锁定于 npm lockfile；MCP 使用官方 TypeScript SDK（MIT），输入校验使用 Zod（MIT），其许可证由 npm 依赖包一并保留。
 - 独立后台包含 Swift 运行库时保留 [Swift Apache 2.0 with Runtime Library Exception](docs/licenses/Swift-LICENSE.txt)；构建脚本收集链接依赖的 LICENSE / NOTICE 至分包 licenses 目录。Microsoft Visual C++ x64 运行库使用官方运行时安装渠道，不从开发机 System32 复制到公开包。
-- Windows 原生 QQ 和 NapCat 继续由用户单独安装，本项目不分发它们或其登录资料。Pillow 按用户需要自行安装，用于图片解码和转换。
+- 独立 npm 模块不包含 QQ 或 NapCat；桌面安装包内置 NapCat、发布页单独提供 QQ 原始安装文件，具体来源和许可见下节。任何安装包均不含用户登录资料。Pillow 按用户需要自行安装，用于图片解码和转换。
 
 - Windows Swift 6.1.3 运行库包含 Foundation ICU / ICU 74.1、libcurl 8.9.1、libxml2 2.11.5 及 zlib 1.3.1。对应原始许可和声明随 Windows 分包的 `licenses/` 分发；[版本及来源记录](https://github.com/SAKURAfan1023/dafeiyu-bot/blob/codex/qq-windows-validation/docs/licenses/windows/SOURCES.md)。
+
+## 内置 NapCat 与单独的 QQ 安装文件
+
+桌面客户端从 `0.3.0-preview.3` 起附带未修改的 NapCat Shell `4.18.42` 官方发行归档；Mac 另附未修改的 NapCat-Mac-Installer `1.7`。原始归档 SHA-256 和来源固定在 `desktop-release.json`。NapCat 源码与版权归 Mlikiowa / NapNeko；完整原始许可位于 `docs/licenses/napcat/NapCat-LICENSE.txt`，包含非商业用途限制及再分发条件。Mac 安装工具采用 MIT，原始许可位于 `docs/licenses/napcat/MacInstaller-LICENSE.txt`。原归档内的依赖许可随完整文件保留。
+
+大肥鱼只在用户点击准备入口后从归档生成一份本机可写副本，保留已有目录；初次准备时参照上游安装工具更新本机副本的版本标记。不会公开再分发修改后的 NapCat 核心代码。用户在官方配置工具或启动脚本中自行授权、启动 QQ 和扫码。
+
+发布页单独提供腾讯原始 QQ 安装文件及其固定摘要，不将 QQ 嵌入大肥鱼客户端或改写其安装程序。QQ 的著作权、商标与软件许可归腾讯；用户按腾讯原始安装器的许可和提示安装。Windows 固定版本来自 NapCat 官方 OneKey 所使用的 QQ 下载 URL；Mac 版本来自腾讯官方 CDN，实际账号兼容仍需用户环境验收。

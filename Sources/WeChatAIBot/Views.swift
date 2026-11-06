@@ -13,6 +13,7 @@ struct BotApp: App {
     @ViewState private var qqWebPanel: QQControlServer?
     @ViewState private var qqRegistration: QQRuntimeRegistration?
     @ViewState private var qqSharedServer: QQControlServer?
+    @ViewState private var preparingNapCat = false
     private let externalQQURL: URL?
     private let preview = CommandLine.arguments.contains("--preview-panel")
     init() {
@@ -49,6 +50,11 @@ struct BotApp: App {
             ShowDashboardButton()
             Button("在浏览器打开 QQ 面板") { openQQWebPanel() }
                 .disabled(externalQQURL == nil && qqSharedServer == nil)
+            if let resources = Bundle.main.resourceURL,
+               FileManager.default.fileExists(atPath: resources.appendingPathComponent("QQRuntime/napcat-setup.mjs").path) {
+                Button(preparingNapCat ? "正在准备 NapCat…" : "打开内置 NapCat") { Task { await prepareNapCat() } }
+                    .disabled(preparingNapCat)
+            }
             if qqWebPanel != nil { Button("关闭网页控制入口（不暂停 QQ）") { closeQQWebPanel() } }
             ForEach(SocialPlatform.allCases, id: \.self) { platform in Text("\(platform.name)：\(social[platform].status)") }
             Button("暂停全部") { engine.stop(); if let externalQQURL { pauseSharedQQ(externalQQURL) } else { qq.pause() }; social.pause() }
@@ -78,6 +84,28 @@ struct BotApp: App {
         } catch { qq.error = error.localizedDescription }
     }
     @MainActor private func closeQQWebPanel() { qqWebPanel?.stop(); qqWebPanel = nil }
+    @MainActor private func prepareNapCat() async {
+        guard let root = Bundle.main.resourceURL?.appendingPathComponent("QQRuntime") else { return }
+        preparingNapCat = true
+        defer { preparingNapCat = false }
+        do {
+            try await Task.detached(priority: .userInitiated) {
+                let process = Process()
+                process.executableURL = root.appendingPathComponent("node")
+                process.arguments = [root.appendingPathComponent("napcat-setup.mjs").path]
+                process.standardInput = FileHandle.nullDevice
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = FileHandle.nullDevice
+                try process.run(); process.waitUntilExit()
+                guard process.terminationStatus == 0 else { throw URLError(.cannotOpenFile) }
+            }.value
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "内置 NapCat 准备失败"
+            alert.informativeText = "请检查安装包是否完整，以及用户目录的访问权限。已有 NapCat 配置不会被覆盖。"
+            alert.runModal()
+        }
+    }
 }
 private struct ShowDashboardButton: View {
     @Environment(\.openWindow) private var openWindow
