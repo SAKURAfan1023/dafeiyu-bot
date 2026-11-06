@@ -17,6 +17,8 @@
     "build:macos-mcp": "node scripts/build-macos-mcp.mjs",
     "test:macos-mcp": "node scripts/test-macos-mcp.mjs",
     "check:npm-release": "node scripts/check-npm-release.mjs",
-    "test:npm-install": "node scripts/test-npm-install.mjs"
+    "test:npm-install": "node scripts/test-npm-install.mjs",
+    "build:desktop": "node scripts/build-desktop.mjs",
+    "test:desktop": "node scripts/test-desktop.mjs"
   }
 }
