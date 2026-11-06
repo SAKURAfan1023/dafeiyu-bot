@@ -2,7 +2,7 @@
 
 本轮预览版本为 `0.3.0-preview.2`，Windows x64、macOS arm64 后台及 CLI、QQ、MCP 共五个 npm 包已公开发布，具体状态见[发布记录](NPM_RELEASE.md)。Windows 原生 NapCat 按用户确认的可用前提接入，不把社区使用情况写成这台机器的实测结果。原有 macOS 客户端、Linux/WSL 路线继续保留。
 
-希望直接下载安装客户端时，使用 [Windows 安装程序 / 便携 ZIP 或 Mac DMG](DESKTOP_INSTALL.md)。这些包自带 Node 和已发布的 QQ / MCP 模块；下文 npm 路线继续提供独立的按需安装方式。
+希望直接下载安装客户端时，使用 [Windows 安装程序 / 便携 ZIP 或 Mac DMG](DESKTOP_INSTALL.md)。`0.3.0-preview.3` 完整客户端内置 NapCat `4.18.42`、Node 和已经发布的 `.2` QQ / MCP 模块；QQ 固定版本安装程序在同一发布页单独提供。npm 模块仍使用各自的固定版本，下文是面向开发者和已有 QQ 桥接环境的按需安装方式。
 
 ## 包的边界
 

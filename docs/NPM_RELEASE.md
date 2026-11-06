@@ -1,4 +1,12 @@
-# npm 发布记录 · 0.3.0-preview.2
+# 客户端与 npm 发布记录
+
+## 完整客户端 · 0.3.0-preview.3
+
+本次客户端内置完整 NapCat Shell `4.18.42`；Mac 另含官方配置工具 `1.7`。首次准备从包内解压，不再要求用户自行寻找或下载 NapCat。QQ 固定版本的腾讯原始安装文件单独提供在[同一发布页](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.3)，不嵌入大肥鱼安装包。文件选择、扫码及连接步骤见[首页快速上手](../README.md#快速上手)，包内 MCP 与卸载说明见[客户端安装指南](DESKTOP_INSTALL.md)。
+
+桌面打包版本由 `desktop-release.json` 管理；QQ / CLI / MCP 继续使用已发布的 `0.3.0-preview.2`，无需重新安装或发布 npm。同页的 `SHA256SUMS.txt` 校验三个客户端文件与两个独立 QQ 文件；旧版 `.2` 的文件、标签与校验记录保持不变。上游原始 NapCat 归档的版本、来源、SHA-256 与许可随客户端保留；已有本机 NapCat 目录不覆盖。更多改动及验证边界见[本次版本说明](releases/v0.3.0-preview.3.md)。
+
+源码与重构后的 README 位于独立分支 `codex/qq-windows-validation`，PR 尚未合并；仓库默认 main 首页不会随 Release 自动更新。GitHub 侧边栏的 Packages 对应 GitHub Packages，npm registry 发布不会出现在该栏；安装文件请打开 Releases。
 
 ## Windows 与 Mac 发布 · 0.3.0-preview.2
 

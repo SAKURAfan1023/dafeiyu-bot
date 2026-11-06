@@ -141,10 +141,25 @@ jobs:
         run: |
           npm run test:desktop
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify separate original QQ installer without executing it
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $plan = Get-Content desktop-release.json -Raw | ConvertFrom-Json
+          $qq = $plan.qqInstallers | Where-Object platform -eq 'win32'
+          $file = Join-Path $env:RUNNER_TEMP $qq.filename
+          Invoke-WebRequest -Uri $qq.url -OutFile $file
+          $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne $qq.sha256) { throw 'Original QQ SHA-256 differs from pinned release' }
+          $signature = Get-AuthenticodeSignature -LiteralPath $file
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Tencent') { throw 'Expected valid Tencent QQ signature' }
+          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($file)
+          @{file=$qq.filename;sha256=$hash;signature=$signature.Status.ToString();signer=$signature.SignerCertificate.Subject;fileVersion=$version.FileVersion;executedQQ=$false} | ConvertTo-Json | Set-Content dist/desktop/qq-win32-verification.json -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-windows-x64-preview-2
+          name: desktop-windows-x64
           path: |
             dist/desktop/*.exe
             dist/desktop/*.zip
             dist/desktop/validation-win32.json
+            dist/desktop/qq-win32-verification.json

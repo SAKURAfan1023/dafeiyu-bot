@@ -1,245 +1,138 @@
-<div align="center">
+# 大肥鱼 · DaFeiYu 🐟
 
-<img src="docs/assets/hero.png" alt="大肥鱼：DeepSeek 驱动的 QQ AI 伙伴" width="100%" />
+给 QQ 配一个有性格、有记忆的 AI 伙伴。支持 Windows 本机客户端、Mac 原生客户端，以及 MCP 工具接入。
 
-# 大肥鱼 · Da Fei Yu 🐟
+[快速上手](#快速上手) · [npm 使用](#npm-快速使用) · [MCP 接入](#mcp-接入) · [下载页](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.3) · [界面预览](docs/SCREENSHOTS.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
 
-**养一只大肥鱼：陪你聊 QQ，也能带着自己的人设去逛小红书。**
+## 快速上手
 
-QQ 可用 · 社交平台测试中（小红书 / B站）· 微信测试中 · macOS 原生 / Windows 原生 QQ 后台与本机 Web 面板
+首次使用推荐完整客户端：**包内已带完整 NapCat**，QQ 安装包在同一发布页单独提供。NapCat 负责把 QQ 连接给大肥鱼；两者都准备好后，才能收发消息。
 
-[Mac 快速开始](docs/QUICKSTART.md) · [Windows 安装](docs/WINDOWS.md) · [界面预览](#界面预览) · [在线表情库](https://photos.lifanhu.me/) · [真实案例](docs/CASES.md) · [操作指南](docs/USER_GUIDE.md) · [全部命令](docs/COMMANDS.md) · [架构与开发](docs/ARCHITECTURE.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
+### 1. 按系统下载并安装
 
-</div>
-
-大肥鱼是一个独立、非官方的成年蓝色鲸鱼娘 AI 角色，脑袋里装着 **DeepSeek**，性格由你来养。她可以是群里的嘴欠搭子，也可以是温柔陪聊的朋友；如今还多了一扇通往小红书的门。
-
-在 **QQ**，她用短句和表情包接话，认主人、看引用、记住各自聊过的事，也能帮你搜图、生图、分享插画。在 **小红书**，你给她一个人设和想逛的话题，她就能在绑定的账号下搜笔记、读文字和已加载评论，决定要不要加入讨论。两边各过各的日子，共用模型配置，各自保管记忆与记录。
-
-> **项目状态：持续更新、完善与迭代中。** QQ 私聊与群真实 @ 回复已有真人接收确认，可用于个人测试和部署；不代表所有新功能、所有账号或连续运行时长均已验收。微信适配仍在测试，尚未完成可靠自动回复验收，请勿按成熟功能使用。macOS 提供原生界面，Windows x64 提供 npm 原生 QQ 后台和本机 Web 客户端；客户端和 MCP 已通过 Windows 原生自动化测试，真实 Windows QQ 账号收发仍待用户环境验收。既有 Linux / WSL2 路线保留，见[发布记录](docs/NPM_RELEASE.md)。
-
-## 下载客户端 · 0.3 预览版
-
-| 系统 | 下载 | 安装方式 |
+| 系统 | 大肥鱼客户端，已含 NapCat | 单独的 QQ 原始安装包 |
 | --- | --- | --- |
-| Windows x64 | [安装程序 `.exe`](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.2/DaFeiYu-0.3.0-preview.2-windows-x64-setup.exe) | 双击安装，从开始菜单或可选桌面快捷方式打开 |
-| Windows x64 | [便携版 `.zip`](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.2/DaFeiYu-0.3.0-preview.2-windows-x64-portable.zip) | 解压后打开 `DaFeiYu.exe` |
-| Mac Apple Silicon | [安装镜像 `.dmg`](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.2/DaFeiYu-0.3.0-preview.2-macos-arm64.dmg) | 将 `DaFeiYu.app` 拖入“应用程序”后打开 |
+| Windows 10/11 x64 | [下载大肥鱼安装程序](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.3/DaFeiYu-0.3.0-preview.3-windows-x64-setup.exe) | [下载固定版本 QQ 9.9.33](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.3/QQ_9.9.33_260813_x64_01.exe) |
+| Mac Apple Silicon，macOS 14+ | [下载大肥鱼 DMG](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.3/DaFeiYu-0.3.0-preview.3-macos-arm64.dmg) | [下载固定版本 QQ 7.0.0](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.3/QQ_7.0.0_260812_01.dmg) |
 
-客户端包内含 Node 和 QQ / MCP 模块，无需 npm、Swift、WSL 或虚拟机。Windows 仍需 Microsoft Visual C++ x64 运行库，客户端使用本机浏览器；Mac 需要 macOS 14+，使用现有原生界面。QQ / NapCat 和模型服务由用户自行配置，图片功能另需 Python / Pillow。预览包尚无开发者证书，Mac 未做 Apple 公证，首次打开可能出现系统提示。安装、停止、卸载与包内 MCP 配置见[客户端安装说明](docs/DESKTOP_INSTALL.md)。
+先安装 QQ，再安装大肥鱼。Mac 将 QQ 放到 `/Applications/QQ.app`，将 `DaFeiYu.app` 拖入“应用程序”。已有符合版本要求的 QQ 可继续使用。
 
-GitHub 的 `.tgz` 附件供 npm 使用，Source code 是源码；普通用户请选择上表的客户端包。
+完整客户端自带 Node、QQ 后台和 MCP 模块，不需要 npm、Swift、WSL 或虚拟机。Windows 另需 [Microsoft Visual C++ x64 运行库](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist)。这些是尚未取得开发者证书的预览包，首次打开可能出现系统提示，处理方式见[安装说明](docs/DESKTOP_INSTALL.md)。
 
-## npm 按需安装 · 0.3 预览版
+### 2. 打开内置 NapCat，登录 QQ
 
-`0.3.0-preview.2` 的五个包已公开发布到 npm，支持 Windows x64 和 macOS Apple Silicon（arm64，macOS 14+），安装时自动选择本机后台。需要 Node.js 22+ 和 npm；Windows 另需 Microsoft Visual C++ x64 运行库，预构建包无需 Swift、WSL 或虚拟机。公共下载核验状态见[发布记录](docs/NPM_RELEASE.md)。
+- Windows：从开始菜单选择“打开内置 NapCat”，或双击便携目录中的 `Open NapCat.cmd`。打开的目录里，双击 `launcher-user.bat`；Windows 10 可用 `launcher-win10-user.bat`。按控制台提示扫码，并打开它提供的 NapCat WebUI 地址。
+- Mac：打开大肥鱼，在菜单栏的大肥鱼菜单中选择“打开内置 NapCat”。程序会从包内准备 NapCat 并打开配置工具；选择“切换程序入口「NapCat」”，按系统提示授权，再点“启动 NapCat”。**不必点击下载或更新 NapCat**。如果系统要求访问 QQ 数据或 App 管理权限，请按提示授权。
 
-先安装 QQ 模块，再选择客户端或 MCP：
+已有 NapCat 配置会保留。准备过程不替你登录账号，也不会开始自动回复。
+
+### 3. 接通大肥鱼并试一次回复
+
+在 NapCat WebUI 的网络配置里新增 **WebSocket Server（正向 WebSocket 服务）**：
+
+| 设置 | 填写内容 |
+| --- | --- |
+| 监听地址与端口 | `127.0.0.1`、`3001` |
+| 消息格式 | `Array` / 数组 |
+| Token | 自己设置一枚随机强令牌 |
+| 自身消息上报 | 开启 `reportSelfMessage` |
+
+回到大肥鱼的“连接与运行”：
+
+1. 填入 `ws://127.0.0.1:3001` 和扫码登录的机器人 QQ 号，保存。
+2. 填入上面的 OneBot Token，以及自己的模型 API Key，点击“连接并核对账号”。OneBot Token 与 NapCat WebUI 登录密码是两回事。
+3. 选择允许回复的好友或群，保存范围，点击“单次验收”。让好友发一句话，或在群内真正 @ 机器人。
+4. 确认收到回复后，再调整额度和运行时长，开始持续运行。
+
+连接成功不会自动开始回复。首次先接通文字；识图、生图、搜图等可选能力之后再配置，见[操作指南](docs/USER_GUIDE.md)。
+
+## npm 快速使用
+
+偏好终端时，需要 Node.js 22+ 和 npm。QQ 与 NapCat 按上面的流程准备好后，运行：
 
 ```sh
 npx --yes @sakurafan1023/cli@0.3.0-preview.2 setup qq
 npx --yes @sakurafan1023/cli@0.3.0-preview.2 qq panel
 ```
 
-需要 Codex MCP 时，在装好 QQ 后注册：
+第一条安装 QQ 模块并自动选择本机后台；第二条打开客户端面板。npm 路线与完整客户端共享账号配置和后台，可按自己的习惯选择。请使用完整包名，`npx dafeiyu` 属于另一个项目。
+
+常用后台命令：
+
+```sh
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 qq status
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 qq pause
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 qq disconnect
+npx --yes @sakurafan1023/cli@0.3.0-preview.2 qq stop
+```
+
+关闭浏览器或 MCP Host 不会退出独立后台。结束时先暂停、断开，再停止；完整客户端的操作见[安装与停止](docs/DESKTOP_INSTALL.md)。
+
+## MCP 接入
+
+MCP 用于让 Codex 等 AI 客户端调用已安装的 QQ 能力。先完成上面的 npm 安装，再注册：
 
 ```sh
 codex mcp add dafeiyu -- npx --yes @sakurafan1023/mcp@0.3.0-preview.2 --modules qq
 ```
 
-基础入口只安装选中的 QQ 模块和本机后台，不下载微信、社交浏览器、QQ、NapCat 或虚拟机。客户端与 MCP 共用后台、配置和运行状态；安装、打开面板和接入 MCP 都不会自动登录或开始回复。QQ / NapCat 桥接环境与模型凭证仍需自行配置。
+使用完整客户端时，也可以直接连接包内 MCP，无需另装 Node，配置示例见[客户端安装说明](docs/DESKTOP_INSTALL.md#使用包内-mcp)。
 
-| npm 包 | 职责 |
+MCP 提供状态、联系人、连接设置、回复范围、运行控制、工具配置和记忆等 7 个工具。接入不会自动登录 QQ 或开始回复；凭证在本机面板填写，启动回复需要明确指令。
+
+## 下载区怎么选
+
+| 你的用途 | 选择 |
 | --- | --- |
-| `@sakurafan1023/cli` | 按需安装、打开面板和管理后台 |
-| `@sakurafan1023/qq` | QQ 模块、固定操作接口和平台选择 |
-| `@sakurafan1023/qq-darwin-arm64` | Apple Silicon 原生后台与 QQ 资源 |
-| `@sakurafan1023/qq-win32-x64` | Windows x64 原生后台、Swift 运行库与 QQ 资源 |
-| `@sakurafan1023/mcp` | 本地 stdio MCP 入口，7 个受限工具 |
+| 第一次使用 Windows | 大肥鱼 `setup.exe` + 同页 QQ 安装程序 |
+| 第一次使用 Mac | 大肥鱼 `.dmg` + 同页 QQ `.dmg` |
+| Windows 想解压即用 | [大肥鱼便携 ZIP](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/download/v0.3.0-preview.3/DaFeiYu-0.3.0-preview.3-windows-x64-portable.zip)，QQ 另装 |
+| 使用 npm / MCP | 上面的命令；不必手动选原生后台包 |
+| 修改项目源码 | 仓库源码及[开发说明](docs/ARCHITECTURE.md) |
 
-请使用完整的 scoped 包名；`npx dafeiyu` 会解析到另一个 npm 包。请按上文固定版本安装，也可显式选择 `@next`。本版仍为预览版；registry 首次发布同时自动添加了 `latest`，移除请求返回 E400，详细状态见发布记录。
-
-[npm CLI](https://www.npmjs.com/package/@sakurafan1023/cli) · [npm MCP](https://www.npmjs.com/package/@sakurafan1023/mcp) · [发布记录](docs/NPM_RELEASE.md) · [分包及使用说明](docs/QQ_MODULES.md) · [独立 Mac 测试包](docs/MACOS_MCP_TEST.md) · [测试证据](docs/VALIDATION.md)
-
-## 近期更新 · 2026 年 11 月
-
-[v0.3.0-preview.2 发布说明与安装指南 →](docs/releases/v0.3.0-preview.2.md) · [GitHub 预发布与下载 →](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.2)
-
-[v0.2.0-beta.1 更新公告与安装说明 →](docs/releases/v0.2.0-beta.1.md)
-
-QQ 独立包及客户端 / MCP 双入口新增 Windows x64 npm 预览版，同时保留 macOS arm64。Windows 原生编译和运行检查通过，真实账号收发仍需用户环境验收。见 [分包与双入口说明](docs/QQ_MODULES.md)。
-
-- **出门有个统一入口**：QQ → 社交平台（小红书 / B站）→ 微信。人格、模型调用和面板共享代码，账号与记忆各自保管。B站已完成扫码、绑定、搜索、介绍与有限评论读取、DeepSeek 草稿和话题记忆的本机验收；本轮补齐两站默认自动模式，B站发送与回读按合成契约验证，真实评论发布尚未验收。[方案与范围 →](docs/SOCIAL_PLATFORMS.md)
-- **默认就会自己逛**：小红书和 B站新配置默认自动运行。扫码绑定、配置模型、保存主题，点开始后自行判断是否接话；每轮 15 分钟、读 5 条、模型 5 次，每个平台每日最多发 3 次，间隔 5 分钟，每条 80 字。旧配置可点「使用推荐设置」，不会自动启动或清空警告。
-- **频率和警告看得见**：搜索/读帖与发送分别设间隔；低频也可能被警告，没有免风控阈值。收到警告可立即标记并持续暂停，重新打开应用也不会自行恢复。
-- **大肥鱼出门了**：新增与 QQ / 微信同级的小红书板块。选好话题，她会搜帖、读帖、准备评论；你可以先审稿，也可以在明确开启后让她按规则有限参与。[认识这个小红书居民 ↓](#让她去小红书逛一会儿)
-- **出门也带着性格和记性**：八种小红书人格及自定义 prompt，同一帖子里的话题可留下七天摘要。再次读到这篇时，能带上之前的背景与最近发送记录。
-- **两端面板重构**：QQ / 微信分区导航，卡片式布局与统一数字控件；说明收进问号，首次使用可按面板内五步教程操作。
-- **角色自己定义**：十种内置性格之外，可以填写角色名和 prompt，套用闲聊、陪伴或吐槽模板，同时调整字数与配图。先应用到草稿，再保存生效。
-- **表情自己挑**：[Photos](https://photos.lifanhu.me/) 已上线 125 张 DeepSeek 娘表情，包括文字梗、搞怪与可爱图集；按台词、情绪筛选，勾选后导出资源包，再导入本机。
-- **按需加载与配图**：网页首批 16 张、本机 Web 表情库首批 12 张；按语境、指定情绪或关键词设置配图。网页图库与客户端默认 37 张表情相互独立，不自动安装整站资源。
-
-[查看两端自动模式与推荐设置 →](docs/SCREENSHOTS.md#自动运行默认配置--2026-10-28)
-
-## 让她去小红书逛一会儿
-
-**你设定她是谁，她带着这个身份去认识话题。**
-
-可以把她想成住在你电脑里的小红书居民：有自己的表达习惯，有这场聊天的笔记，也有你给她划定的活动范围。打开小红书板块，给她一个想逛的话题，再告诉她想以什么样的性格参与。
-
-| 给她什么 | 她怎么逛 |
-| --- | --- |
-| 一个性格 | 大肥鱼、温柔、雌小鬼、傲娇、元气、理性、猫娘、贴吧玩梗；也能自己写角色 prompt |
-| 一点个人设定 | 在补充设定里写兴趣、说话习惯和参与偏好，让她有更具体的脾气 |
-| 一个想看的话题 | 搜笔记，读正文和已加载评论，挑合适的话题准备接话；没读懂或不适合时可以跳过 |
-| 一段聊过的背景 | 同帖再次阅读时补上七天内的话题摘要、你校正的背景和最近五条发送记录 |
-| 一次出门的安排 | 设定主题、时长与额度；新配置默认自动运行，开始时确认本轮范围，也可改成先交草稿，随时暂停 |
-
-比如，你可以给她这样的**角色设定示例**：
-
-> 喜欢独立游戏，讲话简短，偶尔嘴欠。看到别人认真求助就好好回答；别人说玩笑话，先接住梗，别急着上课。不懂的地方别装懂。
-
-带着这份设定，她会结合实际读到的内容准备评论。草稿会连着原帖、回复对象和阅读摘要一起交给你；你可以改几个字再让她发，也可以让她在已确认的任务范围里自行决定是否参与。人设决定她怎么说，能不能接好梗还需要在实际使用中继续打磨。
-
-她有自己的小红书浏览器登录、任务、额度和话题记忆。QQ 和微信里的私聊不会被拿来当她出门闲聊的谈资；没发出去的草稿，也不会记成“我刚才说过”。
-
-**出门也可能收到平台警告。** 已有社区用户报告少量搜索、只读或模拟点击仍被限制；平台也已明确治理 AI 托管互动。阅读和发送间隔只是本机保护参数，不能保证账号安全。收到警告应暂停自动访问，在官方客户端处理；面板支持记录警告并跨重启保持暂停。[社区原帖与处理说明 →](docs/XIAOHONGSHU.md#频率与平台警告)
-
-**这位居民目前还在试住。** 首版能读文字和有限评论，暂时看不懂笔记里的图片、视频，也不会监听全站私信和通知。已实测登录、读帖、真实模型草稿，以及一条评论被平台接受；他人可见与后续互动尚未确认。发送结果不明时会停下来核对。
-
-[让她第一次出门：安装与使用 →](docs/XIAOHONGSHU.md) · [看看她的控制面板 ↓](#小红书面板) · [本次更新公告 →](docs/releases/v0.2.0-beta.1.md)
-
-## 界面预览
-
-### macOS 客户端
-
-左侧切换 QQ 与微信分区；在同一面板管理连接、运行时长、回复范围、图片工具与记忆。下图是 SwiftUI 实际渲染的演示界面，未连接 QQ。
-
-![macOS 客户端：QQ 连接与运行，左侧独立划分 QQ 和微信](docs/assets/panel-sidebar-native.png)
-
-### Web 面板
-
-用浏览器管理 QQ，共享同一套引擎与配置规则；提供 Windows 原生 QQ 后台与既有 WSL2 的操作入口。下图取自 macOS 上的隔离本机面板，不是 Windows 实机验收截图。
-
-![Web 面板：连接状态、调用计数、连接设置与运行控制](docs/assets/panel-web-connection.jpg)
-
-[查看性格编辑、Photos 与截图说明 →](docs/SCREENSHOTS.md) · [按步骤配置面板 →](docs/USER_GUIDE.md)
-
-### 小红书面板
-
-她的“出门准备台”：选性格、补设定、安排话题与活动范围。原生客户端与浏览器共用这套界面；截图不含账号或帖子资料。
-
-![小红书：人格预设、补充设定与话题记忆](docs/assets/panel-xiaohongshu-persona.png)
-
-[小红书安装与使用 →](docs/XIAOHONGSHU.md)
+发布页的 `.tgz` 是 npm 模块归档，Source code 是源码；普通用户按上表选客户端即可。校验文件、固定版本和构建来源见[发布记录](docs/NPM_RELEASE.md)。
 
 ## 能做什么
 
-| 能力 | 用法 / 说明 |
+| 能力 | 状态与说明 |
 | --- | --- |
-| 💬 QQ 自动回复 | 指定好友 / 群白名单；群真实 @；可选每 N 条普通消息评估一次加入话题 |
-| 🎭 性格与自定义 | 十种内置风格；面板可自定义名称和 prompt，每群、每好友独立选择所用风格 |
-| 🧠 上下文与记忆 | 主人 / 机器人 / 好友角色分离；引用还原；按条数、长度或时间整理，按会话检索 |
-| 🖼️ 图片与表情 | 图片/GIF 抽帧观察；37 张自带表情、本机批量导入；按语境、指定情绪或关键词配图，可调去重时间 |
-| 🗂️ Photos 画廊 | [在线挑选表情](https://photos.lifanhu.me/)：125 张 DeepSeek 娘表情，按台词、图集、情绪筛选，勾选后导出，Web / 客户端导入；每批加载 16 张 |
-| 🎨 生图与找图 | 智谱生图 + Cloudflare 备用；网页检索、网络图片；可选 Google Cloud Vision 查图来源 |
-| 🧭 插画命令 | `/search` 统一关键词/ID搜图并自动保底、`/hot` 日榜、`/next` 续图；命令不调用大模型 |
-| ⏰ 定时分享 | 每日或每小时一张，附作者、来源和继续命令，沿用会话范围、额度和去重 |
-| 🛠️ 控制面板 | SwiftUI / 本机 Web；QQ、微信分区目录，内置五步教程，问号悬停说明；连接、运行、范围、记忆与工具配置 |
-| 🚶 小红书独立角色 | 带着人设逛话题、读帖、写评论，按帖记住聊天背景；可审稿或开启有限自动参与，独立登录与额度；当前阅读范围见上文 |
+| QQ 私聊和群 @ 回复 | 可用；按好友/群授权，支持单次验收、额度、工作时段和冷却 |
+| 性格与记忆 | 内置与自定义人格，按会话保留上下文和长期记忆 |
+| 图片与表情 | 自带表情、导入图库、识图、生图、搜图和定时分享；按需配置外部服务 |
+| 客户端与 MCP | 共用后台、配置和运行规则 |
+| 小红书 / B站 | Mac 完整客户端及源码中的独立测试模块，见[社交平台说明](docs/SOCIAL_PLATFORMS.md) |
+| 微信 | 仍在测试，不作为成熟自动回复能力提供 |
 
-大肥鱼的短句不是“每秒生成一句”：默认正文上限 60 字，回复通常包含草稿和语义校对两次模型调用。思考、识图、记忆整理和联网都会影响延迟与费用，可按需要关闭。
+独立 npm 模块当前提供 QQ。其他平台功能的使用范围与实际验收分别记录，不因客户端包含入口就视为全部可用。Windows 原生后台、安装包与合成通信测试已通过；真实 Windows QQ 扫码和收发仍需用户环境验收。
 
-图片发送记录保留一周；项目日志和备份已有清理规则。NapCat 4.18.41 的外部插件限制使 QQ 聊天数据库清理暂不可用；官方缓存插件的七天预览已实测，详见 [存储与清理规则](docs/STORAGE.md)。清理任务不调用大模型，保留登录配置和长期记忆。
+[查看界面](docs/SCREENSHOTS.md) · [真实对话案例](docs/CASES.md) · [在线表情库](https://photos.lifanhu.me/)
 
-## 看真实对话案例
+<details>
+<summary>大肥鱼与客户端预览</summary>
 
-**[打开案例专页 → 6 组真实私聊 / 群聊长图](docs/CASES.md)**：连续接话、性格命令、群 @ 与引用 GIF、生图回复、不确定性表达，以及一次识图失败。共 29 条消息、14 条已核对发送记录的机器人回复。图片来自真实附件；昵称与头像匿名化，聊天界面为重新排版，**非原始 QQ 截图**。
+![大肥鱼](docs/assets/hero.png)
 
-下面是早期电竞话题的简短片段；更多连续对话见案例专页。
+![Mac QQ 客户端](docs/assets/panel-sidebar-native.png)
 
-![真实对话脱敏重排](docs/assets/chat-example.png)
+预览图为本机合成数据界面，不代表真实 QQ、Windows 或社交平台验收。
 
-来自实际 QQ 群的匿名片段，**脱敏重排，非原始 QQ 截图**。保留选中文本，省略无关发言；[取材方法与证据边界](docs/CHAT_EXAMPLE.md)。
+</details>
 
-## 从源码五步开始
+## 更多文档
 
-**Windows 用户先看 [Windows 完整安装教程](docs/WINDOWS.md)**；以下命令用于 Mac。
+| 内容 | 文档 |
+| --- | --- |
+| 安装、内置 NapCat、停止、卸载、包内 MCP | [客户端安装指南](docs/DESKTOP_INSTALL.md) |
+| Windows 及保留的 WSL 路线 | [Windows 指南](docs/WINDOWS.md) |
+| Mac 源码与既有 Linux 桥接方式 | [Mac 开发与部署](docs/QUICKSTART.md) |
+| 回复规则、图片和模型配置 | [操作指南](docs/USER_GUIDE.md) |
+| QQ 聊天命令 | [命令表](docs/COMMANDS.md) |
+| npm 模块与后台生命周期 | [QQ 模块说明](docs/QQ_MODULES.md) |
+| 测试与已知边界 | [验证记录](docs/VALIDATION.md) |
+| 数据和凭证 | [安全说明](SECURITY.md) |
 
-1. 准备 **macOS 14+、Swift 6 工具链、Python 3**，以及你自己的 **DeepSeek API Key**。
-2. 按 [快速开始](docs/QUICKSTART.md) 准备 NapCat / QQ，开启带 Token 的 OneBot 11 正向 WebSocket，并完成扫码。
-3. 克隆、测试并构建：
+## 反馈与许可
 
-   ```sh
-   git clone https://github.com/SAKURAfan1023/dafeiyu-bot.git
-   cd dafeiyu-bot
-   bash scripts/test.sh
-   bash scripts/build.sh
-   ```
+遇到问题请提交 [Issue](https://github.com/SAKURAfan1023/dafeiyu-bot/issues/new?template=bug_report.yml)，附版本、系统、复现步骤和脱敏错误。不要上传密钥、完整控制地址、二维码、真实聊天或记忆。作者公开联系 QQ：**2807307652**，请备注“大肥鱼 / GitHub”。
 
-4. 启动本机面板，打开终端输出的完整本机地址：
-
-   ```sh
-   'dist/WeChat AI Bot.app/Contents/MacOS/WeChatAIBot' --qq-control-panel
-   ```
-
-5. 填入你的机器人 QQ、OneBot Token、DeepSeek Key，连接后只启用明确允许的会话，先用“单次验收”。**连接成功不等于已经开始自动回复。**
-
-密钥在本机面板配置；可使用钥匙串或仅本次运行凭证。仓库不提供任何可直接使用的账号、API Key、Token、登录二维码或原始私聊记录；案例页仅展示经作者筛选、匿名化的片段。**浏览器关闭不会停止后台**，结束时先点击暂停，终端前台运行可按 Ctrl+C 退出。
-
-## 常用命令
-
-```text
-/persona list           查看内置与自定义性格
-/persona 猫娘          切换当前会话
-/persona 贴吧          切换贴吧吐槽风格
-/persona default        恢复面板默认
-
-/search 初音未来       关键词搜索，优先高收藏，无结果时保底
-/hot                    从日榜前列按序获取
-/search 53325959         作品 ID 直查，也支持 Pixiv 作品链接
-/next                   沿用上次来源继续
-/search help            查看完整帮助
-```
-
-命令仅对已启用会话生效，群内命令无需 @；群成员共享当前群性格。命令回执占发送额度，但不消耗模型调用、不计入普通群接话计数。编号仅用于菜单浏览，切换请使用名称。详细语法见 [命令表](docs/COMMANDS.md)。
-
-## 认识大肥鱼
-
-<div align="center">
-<img src="Resources/QQStickers/neutral.png" width="22%" alt="在呢：平静陪聊" />
-<img src="Resources/QQStickers/joy.png" width="22%" alt="好耶：开心庆祝" />
-<img src="Resources/QQStickers/sleepy.png" width="22%" alt="晚安：困倦收尾" />
-<img src="Resources/QQStickers/teasing.png" width="22%" alt="哼哼：轻松斗嘴" />
-</div>
-
-以上为原创 AI 生成的项目示意素材，不是官方 DeepSeek 形象、真实聊天截图或第三方画师作品。大肥鱼可以俏皮、猫系、抽象或犀利；表达风格不应覆盖事实、主人识别与认真求助。公开版另附 33 张蓝发鲸鱼娘 Q 版社区图，逐张保留许可与来源，不打包许可未确认的私人收藏，详见 [素材与许可](THIRD_PARTY_NOTICES.md)。
-
-打开 [Photos 表情库](https://photos.lifanhu.me/)，挑选喜欢的图片并导出资源包，再在面板「范围与回复 → 导入本机表情」中导入。表情触发条件、来源许可及构建发布见 [表情库与画廊使用说明](docs/PHOTO_GALLERY.md)。Web 和原生客户端共用发送规则；命中关键词只允许在当前合法回复中配图，不绕过白名单或主动发出消息。
-
-## 状态、成本与已知边界
-
-- **QQ 可用，持续迭代：** 已有基础私聊和群 @ 真实接收证据；其他功能需按自己的账号、模型、网络和素材再次验收。
-- **微信测试中：** 原生窗口读取与控制仍属实验实现，群 @ 可靠关联和自动发送验收未完成。
-- NapCat 是第三方 QQ 桥接，不是腾讯官方机器人接口；不能保证账号不会遇到风控，先用可接受风险的测试账号和小范围会话。
-- DeepSeek Key 与聊天产品订阅不同；外部提供方可能计费或调整免费额度。仓库不承诺永久免费 API。
-- 生图拒绝审核时不会通过换提示词或备用通道绕过；搜图只处理公开可访问作品，保留署名和来源。
-- 每条命令不调用模型，不等于没有网络访问或发送额度消耗。图片、记忆和自动接话仍需按说明配置。
-
-[安装排障](docs/QUICKSTART.md#排障) · [数据与安全](SECURITY.md) · [测试和证据边界](docs/VALIDATION.md)
-
-## 反馈与参与
-
-欢迎提交 [Bug Issue](https://github.com/SAKURAfan1023/dafeiyu-bot/issues/new?template=bug_report.yml)、功能建议和 Pull Request。反馈时提供版本、系统、复现步骤及脱敏错误；**不要上传密钥、完整控制地址、真实聊天、二维码或账号配置**。
-
-有 Bug、使用问题或建议，可联系作者 **QQ：2807307652**，请备注“大肥鱼 / GitHub”。该号码仅为作者公开联系方式，不是默认机器人账号，也不会被加入运行白名单。安全问题请先私下联系，见 [SECURITY.md](SECURITY.md)。
-
-**禁止恶意转载与滥用。** 转载或再分发请保留版权与许可声明，注明原仓库和修改内容；不得冒充作者/官方、夹带恶意代码、盗取密钥或泄露聊天及个人资料。本声明表达反滥用立场，不额外撤销 MIT 授予的合法转载、修改或商用权利。
-
-代码使用 [MIT License](LICENSE)；原创示例图采用 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)，第三方平台与工具遵循各自条款。见 [贡献指南](CONTRIBUTING.md)。
-
-## 关键词 / Topics
-
-中文：大肥鱼、DeepSeek、QQ机器人、QQ群机器人、小红书、社交Agent、AI聊天、二次元、鲸鱼娘、猫娘、角色扮演、性格切换、自动回复、NapCat、OneBot、会话记忆、长期记忆、上下文压缩、引用回复、表情包、GIF识别、图片理解、AI生图、搜图、Pixiv、画师、热门榜单、定时推送、Windows、WSL2、Linux、macOS、SwiftUI、本地面板、微信测试。
-
-English: DeepSeek, QQ bot, Xiaohongshu, social agent, AI chatbot, anime companion, virtual character, roleplay, persona, NapCat, OneBot 11, conversation memory, context summarization, multimodal, GIF vision, image generation, image search, Pixiv, scheduled messages, Windows, WSL2, Linux, macOS, Swift, SwiftUI, local control panel, experimental WeChat integration.
+项目代码采用 [MIT](LICENSE)。内置 NapCat 遵循其原始[有限再分发许可](docs/licenses/napcat/NapCat-LICENSE.txt)，含非商业用途限制；QQ 原始安装文件的版权和许可归腾讯。完整来源与第三方许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

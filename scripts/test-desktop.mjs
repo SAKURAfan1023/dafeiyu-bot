@@ -11,12 +11,13 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const root=fileURLToPath(new URL('..',import.meta.url)),run=promisify(execFile);
-const {version}=JSON.parse(await fs.readFile(path.join(root,'release-plan.json'),'utf8'));
+const {version}=JSON.parse(await fs.readFile(path.join(root,'desktop-release.json'),'utf8'));
 const output=path.join(root,'dist','desktop');
 const temporary=await fs.mkdtemp(path.join(os.tmpdir(),'DaFeiYu 安装 test '));
 const data=path.join(temporary,'QQ data');
 const env={...process.env,DAFEIYU_DATA_DIR:data,DAFEIYU_QQ_ROOT:'/invalid-synthetic-source',DAFEIYU_RESOURCES:'/invalid-synthetic-resources',
-  DAFEIYU_MODULES_DIR:'/invalid-synthetic-modules',DAFEIYU_ONEBOT_TOKEN:'synthetic-must-not-be-inherited',DAFEIYU_MODEL_KEY:'synthetic-must-not-be-inherited'};
+  DAFEIYU_MODULES_DIR:'/invalid-synthetic-modules',DAFEIYU_ONEBOT_TOKEN:'synthetic-must-not-be-inherited',DAFEIYU_MODEL_KEY:'synthetic-must-not-be-inherited',
+  DAFEIYU_NAPCAT_DIR:path.join(temporary,'NapCat data with spaces')};
 env.PATH=process.platform==='win32'?[process.env.SystemRoot,path.join(process.env.SystemRoot,'System32'),path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0')].join(';'):'/usr/bin:/bin';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 let installed,runtime,node,client,backend,mount,installer;
@@ -42,10 +43,24 @@ try {
     await run(installer,['/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',`/DIR=${installed}`],{env,timeout:180000,maxBuffer:1000000});
     await fs.access(path.join(installed,'DaFeiYu.exe'));await fs.access(path.join(installed,'unins000.exe'));
     await fs.access(path.join(process.env.APPDATA,'Microsoft','Windows','Start Menu','Programs','大肥鱼 QQ.lnk'));
+    await fs.access(path.join(process.env.APPDATA,'Microsoft','Windows','Start Menu','Programs','打开内置 NapCat.lnk'));
     runtime=path.join(installed,'runtime');node=path.join(runtime,'node.exe');
   } else throw new Error('Run desktop tests on Mac arm64 or Windows x64');
   const manifest=JSON.parse(await fs.readFile(path.join(process.platform==='darwin'?path.join(installed,'Contents','Resources'):installed,'desktop-build.json'),'utf8'));
   assert.equal(manifest.version,version);assert.equal(manifest.platform,process.platform);assert.equal(manifest.signedByDeveloper,false);
+  assert.equal(manifest.napcatVersion,'4.18.42');
+  const prepared=JSON.parse((await run(node,[path.join(runtime,'napcat-setup.mjs'),'--prepare-only'],{env,timeout:120000})).stdout);
+  assert.equal(prepared.prepared,true);assert.equal(prepared.reusedExisting,false);assert.equal(prepared.bundledVersion,'4.18.42');
+  await fs.access(path.join(env.DAFEIYU_NAPCAT_DIR,'napcat.mjs'));
+  const retained=path.join(env.DAFEIYU_NAPCAT_DIR,'config','synthetic-retained.json');
+  await fs.mkdir(path.dirname(retained),{recursive:true});await fs.writeFile(retained,'{"synthetic":true}');
+  const again=JSON.parse((await run(node,[path.join(runtime,'napcat-setup.mjs'),'--prepare-only'],{env,timeout:120000})).stdout);
+  assert.equal(again.reusedExisting,true);assert.equal(await fs.readFile(retained,'utf8'),'{"synthetic":true}');
+  const archive=path.join(runtime,'napcat','NapCat.Shell.zip'),originalArchive=await fs.readFile(archive);
+  try {
+    await fs.appendFile(archive,'synthetic corruption');
+    await assert.rejects(run(node,[path.join(runtime,'napcat-setup.mjs'),'--prepare-only'],{env,timeout:30000}),error=>error.code===1&&error.stderr.includes('integrity check failed'));
+  } finally {await fs.writeFile(archive,originalArchive);}
   for(const binary of [node,path.join(runtime,'node_modules','@sakurafan1023',`qq-${process.platform}-${process.arch}`,process.platform==='win32'?'dafeiyu-qq.exe':'dafeiyu-qq')]) await fs.access(binary);
   client=new Client({name:'synthetic-desktop-installer-host',version:'1.0.0'});
   const transport=process.platform==='darwin'
@@ -94,11 +109,14 @@ try {
     for(let i=0;i<100;i++){try{await fs.access(path.join(installed,'DaFeiYu.exe'));await sleep(100);}catch{break;}}
     await assert.rejects(fs.access(path.join(installed,'DaFeiYu.exe')));
     assert.deepEqual(await fs.readFile(path.join(data,'qq-state.json')),before);
+    assert.equal(await fs.readFile(retained,'utf8'),'{"synthetic":true}');
     await assert.rejects(fs.access(path.join(process.env.APPDATA,'Microsoft','Windows','Start Menu','Programs','大肥鱼 QQ.lnk')));
+    await assert.rejects(fs.access(path.join(process.env.APPDATA,'Microsoft','Windows','Start Menu','Programs','打开内置 NapCat.lnk')));
   }
   const result={version,platform:process.platform,architecture:process.arch,result:'passed',install:'actual DMG copy or Setup.exe',
     freshData:true,externalNodeOrSwiftOnPath:false,mcpTools:7,clientHttp:true,sharedWorker:true,hostExit:true,stopRestart:true,
-    reinstallAndUninstallPreserveData:process.platform==='win32'?'passed':'not applicable',realQQOrModelCalls:0};
+    reinstallAndUninstallPreserveData:process.platform==='win32'?'passed':'not applicable',
+    bundledNapCat:'offline preparation, existing config retention, tamper rejection passed',realQQOrModelCalls:0};
   await fs.writeFile(path.join(output,`validation-${process.platform}.json`),JSON.stringify(result,null,2)+'\n');
   console.log('PASS: installed desktop artifact, spaces/Chinese paths, bundled Node with clean PATH, client HTTP, real MCP stdio, shared backend, Host exit, stop/restart'+(process.platform==='win32'?', graphical launcher, reinstall and uninstall preserve data':' and native client packaged HTTP boundary')+'; zero real QQ/model calls');
 } finally {

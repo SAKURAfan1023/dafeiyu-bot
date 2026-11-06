@@ -13,7 +13,7 @@
 AppId=org.dafeiyu.qq
 AppName=大肥鱼 QQ
 AppVersion={#AppVersion}
-VersionInfoVersion=0.3.0.2
+VersionInfoVersion=0.3.0.3
 AppPublisher=SAKURAfan1023
 AppPublisherURL=https://github.com/SAKURAfan1023/dafeiyu-bot
 DefaultDirName={localappdata}\Programs\DaFeiYuQQ
@@ -44,6 +44,7 @@ Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 
 [Icons]
 Name: "{userprograms}\大肥鱼 QQ"; Filename: "{app}\DaFeiYu.exe"; WorkingDir: "{app}"
+Name: "{userprograms}\打开内置 NapCat"; Filename: "{app}\DaFeiYu.exe"; Parameters: "--napcat"; WorkingDir: "{app}"
 Name: "{userdesktop}\大肥鱼 QQ"; Filename: "{app}\DaFeiYu.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
