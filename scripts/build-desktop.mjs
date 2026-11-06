@@ -78,6 +78,6 @@ if (process.platform==='darwin') {
   const compiler=path.join(process.env['ProgramFiles(x86)'],'Inno Setup 6','ISCC.exe');
   run(compiler,[`/DBundleDir=${bundle}`,`/DOutputDir=${output}`,`/DAppVersion=${version}`,path.join(root,'scripts','windows-installer.iss')]);
   const archive=path.join(output,`DaFeiYu-${version}-windows-x64-portable.zip`);await fs.rm(archive,{force:true});
-  run('tar.exe',['-a','-cf',archive,'-C',work,'DaFeiYu']);
+  run('tar.exe',['-a','-cf',path.relative(work,archive),'DaFeiYu'],{cwd:work});
   console.log('Desktop installer and portable ZIP: '+output);
 }

@@ -65,7 +65,8 @@ try {
   assert.equal(state.runtime.pid,backend.pid);assert.equal(state.config.expectedSelfID,'12345');
   if(process.platform==='win32') {
     const portable=path.join(temporary,'Portable with spaces');await fs.mkdir(portable);
-    await run(path.join(process.env.SystemRoot,'System32','tar.exe'),['-xf',path.join(output,`DaFeiYu-${version}-windows-x64-portable.zip`),'-C',portable]);
+    // Windows tar's argv uses the legacy code page; CreateProcess accepts a Unicode working directory.
+    await run(path.join(process.env.SystemRoot,'System32','tar.exe'),['-xf',path.join(output,`DaFeiYu-${version}-windows-x64-portable.zip`)],{cwd:portable});
     const portableRuntime=path.join(portable,'DaFeiYu','runtime');
     const portableState=JSON.parse((await run(path.join(portableRuntime,'node.exe'),[path.join(portableRuntime,'launch.mjs'),'status'],{env,timeout:60000})).stdout);
     assert.equal(portableState.runtime.pid,backend.pid);
