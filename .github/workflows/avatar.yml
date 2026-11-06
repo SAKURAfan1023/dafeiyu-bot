@@ -1,0 +1,22 @@
+name: Avatar package
+on:
+  push:
+    paths: ['packages/avatar/**', 'scripts/*avatar*', 'package.json', 'package-lock.json', '.github/workflows/avatar.yml']
+  pull_request:
+    paths: ['packages/avatar/**', 'scripts/*avatar*', 'package.json', 'package-lock.json', '.github/workflows/avatar.yml']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run test:avatar
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/check-avatar-browser.mjs
+      - run: npm pack --workspace packages/avatar --dry-run
+      - run: python3 scripts/check-public.py

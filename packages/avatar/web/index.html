@@ -1,0 +1,23 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>大肥鱼 · 五款可动少女</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/web/style.css">
+<main>
+<section class="viewer" aria-label="实际可动模型"><canvas id="model"></canvas><nav class="camera"><button id="full">全身</button><button id="face">面部</button><button id="zoom-out" aria-label="缩小">−</button><button id="zoom-in" aria-label="放大">＋</button></nav><div class="view-state" id="connection" role="status">正在连接…</div></section>
+<aside><header><p class="eyebrow">DAFEIYU · AVATAR STUDIO</p><h1>大肥鱼</h1><p id="model-name">五款可动少女</p></header>
+<div id="characters" class="characters" aria-label="选择形象"></div>
+<div id="outcome" role="status" aria-live="polite">连接后可选择动作与表情。</div>
+<div class="toolbar"><button id="stop" class="stop">停止并复位</button><button id="reconnect">重新连接</button></div>
+<h2>声音</h2><p class="hint" id="voice-state">正在读取语音状态…</p>
+<button id="audio-unlock">开启声音</button>
+<label class="speech-label" for="speech-text">想说的话</label><textarea id="speech-text" maxlength="200" rows="3">你好呀，今天也一起加油吧。</textarea>
+<div class="buttons"><button id="say">说话</button><button id="perform">配表情说话</button><button id="stop-speech">停止说话</button></div>
+<h2>表情</h2><div id="expressions" class="buttons"></div>
+<h2>动作</h2><div id="actions" class="buttons"></div>
+<details><summary>方向与关节细调</summary><p class="hint">左右均按画面方向；正值为向右、抬头、向下看或向外轻举手。</p><div id="directions" class="fields"></div>
+<label class="select">表情<select id="expression"><option value="neutral">自然</option><option value="smile">开心</option><option value="sad">关切</option><option value="surprised">惊讶</option><option value="raised_brow">好奇</option></select></label>
+<div class="fields"><label>强度<input id="intensity" type="range" min="0" max="1" step=".01" value="1"><output>1.00</output></label></div>
+<details><summary>五官与眼睑</summary><label class="check"><input id="override-face" type="checkbox">手动覆盖预设五官</label><div id="features" class="fields"></div></details>
+<div class="times"><label>进入/秒<input id="enter" type="number" min=".25" max="3" value=".6" step=".1"></label><label>停留/秒<input id="hold" type="number" min="0" max="15" value="2" step=".1"></label><label>回位/秒<input id="return" type="number" min=".25" max="3" value=".8" step=".1"></label></div>
+<button id="apply">执行细调并回位</button></details>
+<details><summary>当前能力与素材署名</summary><p class="hint">支持头部、注视、眼口表情、呼吸、发束随动，以及双臂的肩、肘、腕细调。手指暂未独立绑定；摄像头与麦克风未接入。</p><p class="hint" id="credits"></p></details>
+<details><summary>本次调用结果</summary><pre id="result"></pre></details>
+</aside></main><!--LOCAL-TOKEN--><script type="module" src="/web/panel.mjs"></script></html>

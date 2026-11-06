@@ -6,6 +6,8 @@
 
 [快速上手](#快速上手) · [npm 使用](#npm-快速使用) · [MCP 接入](#mcp-接入) · [下载页](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/v0.3.0-preview.3) · [界面预览](docs/SCREENSHOTS.md) · [问题反馈](https://github.com/SAKURAfan1023/dafeiyu-bot/issues)
 
+另有独立的[五款可动少女与 Avatar MCP](docs/AVATAR_MODELS.md)，提供角色切换、表情、头部与肩肘腕细调，以及可选的本地流式少女声、口型同步和组合表演。独立使用：`npx --yes @sakurafan1023/avatar@0.2.0 preview`；[安装与语音配置](packages/avatar/README.md)。
+
 ## 快速上手
 
 首次使用推荐完整客户端：**包内已带完整 NapCat**，QQ 安装包在同一发布页单独提供。NapCat 负责把 QQ 连接给大肥鱼；两者都准备好后，才能收发消息。
@@ -114,7 +116,7 @@ MCP 提供状态、联系人、连接设置、回复范围、运行控制、工�
 - **图片与表情**：表情库、识图、生图、搜图与定时分享，按需启用。
 - **客户端与 MCP**：Windows / Mac 客户端与 MCP 共用后台和配置，完整客户端内置 NapCat。
 
-npm 当前只提供 QQ。小红书 / B站为 Mac 端测试模块，微信仍在测试，见[社交平台说明](docs/SOCIAL_PLATFORMS.md)。真实 Windows QQ 扫码和收发仍需用户环境验收。
+聊天 npm 模块当前提供 QQ；Avatar 是另行安装的独立模块。小红书 / B站为 Mac 端测试模块，微信仍在测试，见[社交平台说明](docs/SOCIAL_PLATFORMS.md)。真实 Windows QQ 扫码和收发仍需用户环境验收。
 
 [查看界面](docs/SCREENSHOTS.md) · [真实对话案例](docs/CASES.md) · [在线表情库](https://photos.lifanhu.me/)
 

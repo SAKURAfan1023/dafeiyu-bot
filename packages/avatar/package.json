@@ -1,0 +1,38 @@
+{
+  "name": "@sakurafan1023/avatar",
+  "version": "0.2.0",
+  "description": "Five selectable local anime avatars with offline streaming voice, audio-clock lip sync and composable MCP performance tools",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "dafeiyu-avatar": "bin/avatar.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "web",
+    "models",
+    "expressions.json",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "voice",
+    "config"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "ws": "8.22.1",
+    "zod": "3.25.76"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SAKURAfan1023/dafeiyu-bot.git",
+    "directory": "packages/avatar"
+  }
+}
