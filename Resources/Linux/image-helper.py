@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Bounded local ImageIO replacement. No network, paths, or image metadata in the protocol."""
-import base64, io, json, math, resource, sys, warnings
+import base64, io, json, math, sys, warnings
+if sys.platform != "win32":
+    import resource
 from PIL import Image, ImageOps
 
 
@@ -67,9 +69,33 @@ def process(payload):
 
 
 if __name__ == '__main__':
-    resource.setrlimit(resource.RLIMIT_AS, (768 * 1024**2, 768 * 1024**2))
-    resource.setrlimit(resource.RLIMIT_CPU, (15, 15))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (20_000_000, 20_000_000))
+    if sys.platform == 'win32':
+        # An OS Job caps memory before decoding; the parent independently caps wall time and output.
+        import ctypes
+        from ctypes import wintypes as w
+        class BasicLimits(ctypes.Structure):
+            _fields_ = [('processTime', ctypes.c_longlong), ('jobTime', ctypes.c_longlong),
+                        ('flags', w.DWORD), ('minimum', ctypes.c_size_t), ('maximum', ctypes.c_size_t),
+                        ('activeProcesses', w.DWORD), ('affinity', ctypes.c_size_t),
+                        ('priority', w.DWORD), ('scheduling', w.DWORD)]
+        class IO(ctypes.Structure):
+            _fields_ = [(name, ctypes.c_ulonglong) for name in ['readOps','writeOps','otherOps','readBytes','writeBytes','otherBytes']]
+        class Limits(ctypes.Structure):
+            _fields_ = [('basic', BasicLimits), ('io', IO), ('processMemory', ctypes.c_size_t),
+                        ('jobMemory', ctypes.c_size_t), ('peakProcess', ctypes.c_size_t), ('peakJob', ctypes.c_size_t)]
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, w.LPCWSTR]; kernel.CreateJobObjectW.restype = w.HANDLE
+        kernel.SetInformationJobObject.argtypes = [w.HANDLE, ctypes.c_int, ctypes.c_void_p, w.DWORD]
+        kernel.AssignProcessToJobObject.argtypes = [w.HANDLE, w.HANDLE]
+        kernel.GetCurrentProcess.restype = w.HANDLE
+        job = kernel.CreateJobObjectW(None, None)
+        limits = Limits(); limits.basic.flags = 0x100; limits.processMemory = 768 * 1024**2
+        if not job or not kernel.SetInformationJobObject(job, 9, ctypes.byref(limits), ctypes.sizeof(limits)) or not kernel.AssignProcessToJobObject(job, kernel.GetCurrentProcess()):
+            sys.exit(1)
+    else:
+        resource.setrlimit(resource.RLIMIT_AS, (768 * 1024**2, 768 * 1024**2))
+        resource.setrlimit(resource.RLIMIT_CPU, (15, 15))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (20_000_000, 20_000_000))
     Image.MAX_IMAGE_PIXELS = 40_000_000
     warnings.simplefilter('error', Image.DecompressionBombWarning)
     try:

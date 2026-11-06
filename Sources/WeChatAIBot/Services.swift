@@ -66,15 +66,19 @@ final class LocalStore {
         if let path = ProcessInfo.processInfo.environment["DAFEIYU_DATA_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
         } else {
-            #if os(Linux)
+            #if os(Windows)
+            guard let base = ProcessInfo.processInfo.environment["LOCALAPPDATA"], !base.isEmpty else {
+                throw AppFailure.message("Windows 用户数据目录不可用")
+            }
+            directory = URL(fileURLWithPath: base).appendingPathComponent("DaFeiYu", isDirectory: true)
+            #elseif os(Linux)
             directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/dafeiyu", isDirectory: true)
             #else
             directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("WeChatAIBot", isDirectory: true)
             #endif
         }
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
-                                              attributes: [.posixPermissions: 0o700])
+        try createPrivateDirectory(directory)
         url = directory.appendingPathComponent("state.json")
     }
     func load() throws -> StoredState {
@@ -96,8 +100,7 @@ final class LocalStore {
         var copy = state
         copy.logs = Array(copy.logs.filter { $0.date > Date().addingTimeInterval(-7 * 86400) }.suffix(5000))
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(copy).write(to: url, options: [.atomic, .completeFileProtection])
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        try writePrivateData(encoder.encode(copy), to: url, options: [.atomic, .completeFileProtection])
     }
 }
 

@@ -14,11 +14,6 @@ import Crypto
 import CoreImage
 #endif
 import BotCore
-#if canImport(Darwin)
-import Darwin
-#else
-import Glibc
-#endif
 
 private struct QQStored: Codable {
     var config = QQConfig()
@@ -107,7 +102,7 @@ struct QQRuntimeCredentials: Decodable {
     private var file: URL?
     private var persistedData: Data?
     private var observers: [NSObjectProtocol] = []
-    private var runtimeLock: Int32 = -1
+    private var runtimeLock: PlatformFileLock?
     private var singleReply = false
     private let allowAuthenticationUI: Bool
     private let credentialWriter: (String, String) throws -> Void
@@ -408,12 +403,8 @@ struct QQRuntimeCredentials: Decodable {
         defer { if session == current { busy = false } }
         do {
             guard let file else { throw AppFailure.message("QQ 状态目录不可用") }
-            let lock = open(file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
-            guard lock >= 0 else { throw AppFailure.message("无法创建 QQ 运行锁") }
-            guard flock(lock, LOCK_EX | LOCK_NB) == 0 else {
-                close(lock); throw AppFailure.message("另一个 QQ 回复引擎正在运行，请先停止它")
-            }
-            runtimeLock = lock
+            runtimeLock = try PlatformFileLock(url: file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock"),
+                                               message: "另一个 QQ 回复引擎正在运行，请先停止它")
             try config.validate(); try persist()
             let token = try runtimeCredentials?.oneBotToken ?? Keychain.load(account: "qq-onebot-token", allowAuthenticationUI: allowAuthenticationUI)
             try await connection.connect(endpoint: config.endpoint, token: token)
@@ -513,7 +504,7 @@ struct QQRuntimeCredentials: Decodable {
         #endif
         watchdog?.cancel(); watchdog = nil; connection.close(); status = reason
         // Release ownership even if a spawned process still holds a descriptor copy.
-        if runtimeLock >= 0 { _ = flock(runtimeLock, LOCK_UN); close(runtimeLock); runtimeLock = -1 }
+        runtimeLock = nil
     }
     func takeOver(_ id: UUID) {
         // Cancel the active generation as well, preventing a response from escaping a removed scope.
@@ -1246,15 +1237,10 @@ struct QQRuntimeCredentials: Decodable {
     private func persist() throws {
         guard storageOK, let file else { throw AppFailure.message("QQ 本地存储不可用") }
         // A disconnected native panel must not overwrite a running control page's state.
-        var writeLock: Int32 = -1
-        if runtimeLock < 0 {
-            writeLock = open(file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
-            guard writeLock >= 0 else { throw AppFailure.message("无法创建 QQ 配置写入锁") }
-            guard flock(writeLock, LOCK_EX | LOCK_NB) == 0 else {
-                close(writeLock); throw AppFailure.message("另一处 QQ 引擎正在运行，不能覆盖其配置")
-            }
-        }
-        defer { if writeLock >= 0 { _ = flock(writeLock, LOCK_UN); close(writeLock) } }
+        let writeLock = runtimeLock == nil ? try PlatformFileLock(
+            url: file.deletingLastPathComponent().appendingPathComponent("qq-engine.lock"),
+            message: "另一处 QQ 引擎正在运行，不能覆盖其配置") : nil
+        defer { withExtendedLifetime(writeLock) {} }
         let current = FileManager.default.fileExists(atPath: file.path) ? try Data(contentsOf: file) : nil
         guard current == persistedData else { throw AppFailure.message("QQ 配置已由另一实例更新，请重新打开面板再操作") }
         artworkLedger.trim()
@@ -1269,8 +1255,7 @@ struct QQRuntimeCredentials: Decodable {
             // QQ uses authenticated network events and may run while the desktop is locked.
             // User-enabled structured memories and bounded/redacted pending excerpts; never image bytes or credentials.
             let data = try JSONEncoder().encode(state)
-            try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+            try writePrivateData(data, to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
             persistedData = data
         } catch {
             storageOK = false; self.error = "QQ 状态保存失败：\(error.localizedDescription)"

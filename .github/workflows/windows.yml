@@ -1,0 +1,150 @@
+name: Native Windows QQ
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      installers_only:
+        description: Build and test desktop installer from published QQ packages without rebuilding the engine
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  windows-qq:
+    if: ${{ !inputs.installers_only }}
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: 1
+      DAFEIYU_BUILD_JOBS: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Windows ACL API contract
+        shell: pwsh
+        run: |
+          $env:PSModulePath = "$env:SystemRoot/System32/WindowsPowerShell/v1.0/Modules"
+          $query = '$ErrorActionPreference="Stop"; try { $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; $a=Get-Acl -LiteralPath $env:RUNNER_TEMP; $owner=$a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; $rules=$a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]); Write-Output "PASS: current identity, ACL owner and access rules queried" } catch { Write-Output $_.FullyQualifiedErrorId; exit 1 }'
+          & "$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -NonInteractive -Command $query
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: compnerd/gha-setup-swift@v0.4.0
+        with:
+          swift-version: swift-6.1.3-release
+          swift-build: 6.1.3-RELEASE
+      - uses: actions/cache/restore@v4
+        id: swift-cache
+        with:
+          path: .build
+          key: windows-swift-6.1.3-${{ hashFiles('Package.swift', 'qq-sources.json') }}-${{ github.sha }}
+          restore-keys: |
+            windows-swift-6.1.3-${{ hashFiles('Package.swift', 'qq-sources.json') }}-
+            windows-swift-6.1.3-
+      - name: Synthetic test dependencies
+        shell: pwsh
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm ci --prefix Resources/QQTransport --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install Pillow==11.3.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "DAFEIYU_NODE=$((Get-Command node).Source)" >> $env:GITHUB_ENV
+          "DAFEIYU_PYTHON=$((Get-Command python).Source)" >> $env:GITHUB_ENV
+          "DAFEIYU_RESOURCES=$pwd/Resources" >> $env:GITHUB_ENV
+      - name: Privacy and build existing engine tests
+        shell: pwsh
+        run: |
+          python scripts/check-public.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          swift build --build-tests --jobs 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run native engine tests
+        shell: pwsh
+        run: |
+          $testDirectory = swift build --show-bin-path
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $testBinary = @(Get-ChildItem -LiteralPath $testDirectory -File | Where-Object { $_.Name -match 'PackageTests\.(exe|xctest)$' })
+          if ($testBinary.Count -ne 1) { throw 'Expected exactly one native test runner' }
+          # Match SwiftPM 6.1.3 UserToolchain's x64 test runtime paths, scoped to this step.
+          $testRuntimes = @(Get-Item -Path "$env:SDKROOT/../../../Developer/Library/Testing-*/usr/bin64", "$env:SDKROOT/../../../Developer/Library/XCTest-*/usr/bin64" -ErrorAction Stop)
+          if ($testRuntimes.Count -ne 2) { throw 'Expected Swift Testing and XCTest runtime directories' }
+          $env:PATH = ($testRuntimes.FullName -join ';') + ';' + $env:PATH
+          # Integration fixtures share MainActor and block during child startup; isolate suites, retaining each test's own concurrency checks.
+          # Run SwiftPM's generated binary directly so diagnostics are streamed.
+          python -c "import subprocess,sys; subprocess.run([sys.argv[1], '--testing-library', 'swift-testing', '--no-parallel'], check=True, timeout=300)" ($testBinary[0].FullName)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-linux-images.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build only QQ and collect runtime closure
+        run: python scripts/build-qq.py
+      - name: Native transport, shared worker and MCP
+        shell: pwsh
+        run: |
+          $env:DAFEIYU_RESOURCES="$pwd/dist/qq/Resources"
+          $env:DAFEIYU_QQ_ROOT="$pwd/dist/qq"
+          python scripts/test-onebot-transport.py dist/qq/dafeiyu-qq.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-control-panel.py dist/qq/dafeiyu-qq.exe --qq-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run pack:qq
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install tarballs without Swift on PATH
+        shell: pwsh
+        run: |
+          Remove-Item Env:DAFEIYU_QQ_ROOT -ErrorAction SilentlyContinue
+          $nodeDirectory=Split-Path (Get-Command node).Source
+          $pythonDirectory=Split-Path (Get-Command python).Source
+          $env:PATH="$nodeDirectory;$pythonDirectory;$env:SystemRoot\System32;$env:SystemRoot;$env:SystemRoot\System32\WindowsPowerShell\v1.0"
+          npm run test:distribution
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:npm-install -- --directory dist/npm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            npm run test:npm-install -- --public --directory dist/npm
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qq-win32-x64-preview-2
+          path: dist/npm/*.tgz
+      - uses: actions/cache/save@v4
+        if: always() && steps.swift-cache.outputs.cache-hit != 'true'
+        with:
+          path: .build
+          key: windows-swift-6.1.3-${{ hashFiles('Package.swift', 'qq-sources.json') }}-${{ github.sha }}
+  windows-installer:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.installers_only }}
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - name: Build per-user installer and portable client
+        shell: pwsh
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run build:desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install, open client and MCP, upgrade and uninstall
+        shell: pwsh
+        run: |
+          npm run test:desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows-x64-preview-2
+          path: |
+            dist/desktop/*.exe
+            dist/desktop/*.zip
+            dist/desktop/validation-win32.json

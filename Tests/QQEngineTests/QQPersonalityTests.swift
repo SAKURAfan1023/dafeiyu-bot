@@ -75,7 +75,7 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         try Data("groupParticipation".utf8).write(to: directory.appendingPathComponent("message-shape"))
         if mode == "unknown" { try Data().write(to: directory.appendingPathComponent("drop-send")) }
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -123,7 +123,7 @@ private final class PersonalityModelProtocol: URLProtocol, @unchecked Sendable {
         if mode == "order" { batch = [event(2, "先按原性格回复", mention: true), first, event(3, "切换后的回复", mention: true)] }
         if mode == "duplicate" { batch.append(first) }
         if mode == "pauseQueue" { batch.append(event(2, "/persona calm")) }
-        try JSONSerialization.data(withJSONObject: batch).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+        try writePrivateData(JSONSerialization.data(withJSONObject: batch), to: directory.appendingPathComponent("event-batch"))
         let rejected = ["foreign", "disabled", "paused", "quoted", "atOther"].contains(mode)
         let until = Date().addingTimeInterval(rejected ? 0.5 : 9)
         while Date() < until {

@@ -9,7 +9,7 @@ enum RuntimeResources {
         #endif
     }
     static var directory: URL? {
-        #if os(Linux)
+        #if os(Linux) || os(Windows) || DAFEIYU_QQ_ONLY
         if let path = ProcessInfo.processInfo.environment["DAFEIYU_RESOURCES"] {
             return URL(fileURLWithPath: path, isDirectory: true)
         }

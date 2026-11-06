@@ -7,7 +7,7 @@ import BotCore
 @testable import WeChatAIBot
 #if canImport(Darwin)
 import Darwin
-#else
+#elseif os(Linux)
 import Glibc
 #endif
 
@@ -17,6 +17,29 @@ import Glibc
         // Check TCP refusal directly; arbitrary errors/timeouts are not success.
         try #require(url.host == "127.0.0.1")
         let port = try #require(url.port.flatMap(UInt16.init(exactly:)))
+        #if os(Windows)
+        let probe = Process()
+        probe.executableURL = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"]))
+        probe.arguments = ["-c", """
+        # Windows can retransmit refused SYNs for over two seconds.
+        import socket,sys,time
+        deadline=time.monotonic()+10
+        while True:
+            with socket.socket() as s:
+                s.settimeout(5)
+                code=s.connect_ex(('127.0.0.1',int(sys.argv[1])))
+            if code==10061: sys.exit(0)
+            if time.monotonic()>=deadline: break
+            time.sleep(.02)
+        print('Closed port did not refuse TCP; result:',code,file=sys.stderr)
+        sys.exit(1)
+        """, String(port)]
+        try probe.run()
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async { probe.waitUntilExit(); continuation.resume() }
+        }
+        #expect(probe.terminationStatus == 0)
+        #else
         let deadline = Date().addingTimeInterval(1)
         repeat {
             #if os(Linux)
@@ -57,6 +80,7 @@ import Glibc
             try await Task.sleep(nanoseconds: 20_000_000)
         } while true
         Issue.record("Closed control port did not refuse TCP connections within one second")
+        #endif
     }
 
     private func request(_ server: QQControlServer, action: [String: Any]? = nil, token: String? = nil) async throws -> (Int, [String: Any]) {
@@ -74,6 +98,25 @@ import Glibc
         }
         let (data, response) = try await URLSession.shared.data(for: request)
         return ((response as! HTTPURLResponse).statusCode, (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:])
+    }
+
+    @Test func browserRevocationKeepsSharedRuntimeAndLease() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try createPrivateDirectory(directory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
+        let shared = try QQControlServer(engine: engine), browser = try QQControlServer(engine: engine)
+        var registration: QQRuntimeRegistration? = try QQRuntimeRegistration(server: shared, directory: directory)
+        shared.start(announce: false); browser.start(announce: false)
+        defer { shared.stop(); browser.stop(); withExtendedLifetime(registration) {} }
+        #expect(QQRuntimeRegistration.existingURL(directory: directory) == shared.controlURL)
+        #expect(throws: (any Error).self) { try QQRuntimeRegistration(server: browser, directory: directory) }
+        browser.stop()
+        let (code, state) = try await request(shared, action: ["action":"pause"])
+        #expect(code == 200 && state["running"] as? Bool == false)
+        #expect(QQRuntimeRegistration.existingURL(directory: directory) == shared.controlURL)
+        registration = nil
+        #expect(QQRuntimeRegistration.existingURL(directory: directory) == nil)
     }
 
     @Test func nativeAndWebShareConfigurationAndRejectStaleEdits() async throws {
@@ -155,7 +198,7 @@ import Glibc
         defer { try? FileManager.default.removeItem(at: directory) }
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py")
         let process = Process(), output = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         process.arguments = [fixture.path, directory.path]; process.standardOutput = output
         try process.run()
         defer { if process.isRunning { process.terminate(); process.waitUntilExit() } }

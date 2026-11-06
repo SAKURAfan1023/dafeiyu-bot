@@ -1,0 +1,8 @@
+[
+  "QQEngine.swift", "OneBotConnection.swift", "LinuxOneBotTransport.swift", "NodeOneBotTransport.swift",
+  "QQControlServer.swift", "LoopbackTransport.swift", "WindowsLoopbackTransport.swift", "PlatformFileLock.swift",
+  "QQRuntimeRegistration.swift", "QQWorkerMain.swift", "RuntimeResources.swift", "LinuxSupport.swift", "Services.swift",
+  "BoundedDownload.swift", "QQIncomingImages.swift", "QQOnlineTools.swift", "QQVisualTools.swift", "QQImageGenerator.swift",
+  "QQImagePromptPlan.swift", "QQArtworkLibrary.swift", "QQStickerLibrary.swift", "QQStickerPack.swift",
+  "QQMemoryLearning.swift", "QQPanelDraft.swift", "QQRuntimeRecord.swift"
+]

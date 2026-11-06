@@ -1,0 +1,50 @@
+{
+  "name": "@sakurafan1023/qq",
+  "version": "0.3.0-preview.2",
+  "description": "DaFeiYu QQ runtime client and platform launcher",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": "./lib/runtime.mjs",
+  "bin": {
+    "dafeiyu-qq": "./bin/qq.mjs"
+  },
+  "files": [
+    "lib",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "ws": "8.22.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SAKURAfan1023/dafeiyu-bot.git",
+    "directory": "packages/qq"
+  },
+  "homepage": "https://github.com/SAKURAfan1023/dafeiyu-bot#readme",
+  "bugs": {
+    "url": "https://github.com/SAKURAfan1023/dafeiyu-bot/issues"
+  },
+  "author": "SAKURAfan1023",
+  "keywords": [
+    "dafeiyu",
+    "qq",
+    "onebot",
+    "mcp"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "next",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dafeiyu": {
+    "publishedPlatforms": [
+      "darwin-arm64",
+      "win32-x64"
+    ]
+  }
+}

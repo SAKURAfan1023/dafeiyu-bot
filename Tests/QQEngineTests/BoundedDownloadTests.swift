@@ -1,7 +1,9 @@
-#if os(Linux)
+#if os(Linux) || os(Windows)
 import Foundation
 import FoundationNetworking
+#if os(Linux)
 import Glibc
+#endif
 import Testing
 @testable import WeChatAIBot
 
@@ -11,7 +13,7 @@ import Testing
     @Test(arguments: ["normal", "length", "stream", "cancel", "redirect"])
     func actualHTTPDownloadBoundaries(_ mode: String) async throws {
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = ["-u", "-c", #"""
 import http.server, time
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -32,7 +34,16 @@ server.serve_forever()
         server.standardOutput = output; try server.run()
         // A child spawned from a Swift worker may inherit a blocked SIGTERM.
         // This disposable fixture owns no persistent state; always reap it.
-        defer { if server.isRunning { _ = Glibc.kill(server.processIdentifier, SIGKILL); server.waitUntilExit() } }
+        defer {
+            if server.isRunning {
+                #if os(Windows)
+                server.terminate()
+                #else
+                _ = Glibc.kill(server.processIdentifier, SIGKILL)
+                #endif
+                server.waitUntilExit()
+            }
+        }
         let port = try #require(Int(String(decoding: output.fileHandleForReading.availableData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)))
         let session = URLSession(configuration: .ephemeral)
         defer { session.finishTasksAndInvalidate() }

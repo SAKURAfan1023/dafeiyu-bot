@@ -3,6 +3,13 @@ import Testing
 @testable import BotCore
 
 struct QQPolicyTests {
+    @Test func numericIdentifiersNeverAcceptBooleans() throws {
+        let decoded = try JSONSerialization.jsonObject(with: Data("{\"id\":12345,\"yes\":true,\"no\":false}".utf8)) as! [String: Any]
+        #expect(QQPolicy.identifier(decoded["id"]) == "12345")
+        #expect(QQPolicy.identifier(decoded["yes"]) == nil)
+        #expect(QQPolicy.identifier(decoded["no"]) == nil)
+        #expect(QQPolicy.identifier(NSNumber(value: Int8(1))) == "1")
+    }
     @Test func proactiveGroupsKeepIdentityFreshnessAndExplicitOptIn() throws {
         let ordinary = event(group: true)
         #expect(parse(ordinary) == nil)

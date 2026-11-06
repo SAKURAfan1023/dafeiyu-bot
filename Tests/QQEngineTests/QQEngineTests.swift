@@ -7,7 +7,7 @@ import BotCore
 @testable import WeChatAIBot
 #if canImport(Darwin)
 import Darwin
-#else
+#elseif os(Linux)
 import Glibc
 #endif
 
@@ -97,7 +97,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -111,6 +111,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         other.save(endpoint: "ws://127.0.0.1:3102")
         #expect(other.error != nil) // An active owner must still exclude other writers.
 
+        #if !os(Windows)
         let attributes = try FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent("qq-engine.lock").path)
         let inode = try #require(attributes[.systemFileNumber] as? NSNumber)
         let device = try #require(attributes[.systemNumber] as? NSNumber)
@@ -127,6 +128,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         // without forking a multithreaded Swift test process.
         let inherited = dup(descriptor); try #require(inherited >= 0)
         defer { close(inherited) }
+        #endif
         engine.disconnect()
         let reopened = QQEngine(allowAuthenticationUI: false, storageDirectory: directory)
         reopened.save(endpoint: "ws://127.0.0.1:3102")
@@ -207,7 +209,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: directory) }
         try Data("groupParticipation".utf8).write(to: directory.appendingPathComponent("message-shape"))
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -224,6 +226,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
         await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" }))
+        try #require(!engine.config.targets.isEmpty)
         engine.config.targets[0].enabled = true; engine.start()
         var rows: [[String: Any]] = []
         for id in 1...2 {
@@ -233,7 +236,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             rows.append(["post_type": owner ? "message_sent" : "message", "self_id": 12345, "user_id": owner ? 12345 : 54321,
                          "sender": ["user_id": owner ? 12345 : 54321], "message_type": "group", "sub_type": "normal", "group_id": 99999, "message_id": id, "message": segments])
         }
-        try JSONSerialization.data(withJSONObject: rows).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+        try writePrivateData(JSONSerialization.data(withJSONObject: rows), to: directory.appendingPathComponent("event-batch"))
         let deadline = Date().addingTimeInterval(4)
         while Date() < deadline {
             let started = DelayedModelProtocol.counts.started
@@ -255,7 +258,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: directory) }
         try Data("groupParticipation".utf8).write(to: directory.appendingPathComponent("message-shape"))
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -274,6 +277,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
         await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" }))
+        try #require(!engine.config.targets.isEmpty)
         engine.config.targets[0].enabled = true; engine.start()
         func event(_ id: Int, _ text: String?, mention: Bool = false) -> [String: Any] {
             var segments: [[String: Any]] = text.map { [["type": "text", "data": ["text": $0]]] } ?? [["type": "image", "data": ["file": "synthetic.png"]]]
@@ -281,7 +285,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             return ["post_type": "message", "self_id": 12345, "user_id": 54321 + id % 2, "sender": ["user_id": 54321 + id % 2], "message_type": "group", "sub_type": "normal", "group_id": 99999, "message_id": id, "message": segments]
         }
         func batch(_ rows: [[String: Any]]) throws {
-            try JSONSerialization.data(withJSONObject: rows).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: rows), to: directory.appendingPathComponent("event-batch"))
         }
         try batch([event(1, "刚才游戏通关了"), event(2, "终于可以休息了")])
         let firstDeadline = Date().addingTimeInterval(4)
@@ -319,7 +323,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: directory) }
         try Data("groupParticipation".utf8).write(to: directory.appendingPathComponent("message-shape"))
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -350,7 +354,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             return ["post_type": "message", "self_id": 12345, "user_id": 54321 + id % 2, "sender": ["user_id": 54321 + id % 2], "message_type": "group", "sub_type": "normal", "group_id": group, "message_id": id, "message": segments]
         }
         func batch(_ rows: [[String: Any]]) throws {
-            try JSONSerialization.data(withJSONObject: rows).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: rows), to: directory.appendingPathComponent("event-batch"))
         }
         var first = (1..<threshold).map { event($0) }
         first.append(event(1)) // Duplicate event.
@@ -449,7 +453,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             try JSONSerialization.data(withJSONObject: stored).write(to: file)
         }
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py").path, directory.path]
         server.standardOutput = output; try server.run()
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
@@ -466,13 +470,14 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(engine.useTemporaryCredentials(token: "synthetic-test-token", key: "synthetic-key"))
         await engine.connect(); try #require(engine.connected, "\(engine.error ?? engine.status)")
         engine.add(try #require(engine.contacts.first { $0.number == "99999" && $0.group }))
+        try #require(!engine.config.targets.isEmpty)
         engine.config.targets[0].enabled = true; engine.start(); try #require(engine.running)
         if mode != "timed" {
             let events: [[String: Any]] = (1...4).map { id in
                 let sender = id == 2 ? 12345 : 54321
                 return ["post_type": id == 2 ? "message_sent" : "message", "self_id": 12345, "user_id": sender, "sender": ["user_id": sender], "message_type": "group", "sub_type": "normal", "group_id": 99999, "message_id": id, "message": [["type": "text", "data": ["text": "合成测试资料 \(id)"]]]]
             }
-            try JSONSerialization.data(withJSONObject: events).write(to: directory.appendingPathComponent("event-batch"), options: .atomic)
+            try writePrivateData(JSONSerialization.data(withJSONObject: events), to: directory.appendingPathComponent("event-batch"))
         }
         let deadline = Date().addingTimeInterval(4)
         while DelayedModelProtocol.counts.started == 0 && Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
@@ -557,7 +562,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         if group || control.hasPrefix("private") { try Data(control.utf8).write(to: directory.appendingPathComponent("message-shape")) }
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("onebot_fixture.py")
         let server = Process(), output = Pipe()
-        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["DAFEIYU_PYTHON"] ?? "/usr/bin/python3")
         server.arguments = [fixture.path, directory.path]
         server.standardOutput = output
         try server.run()
@@ -603,6 +608,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         otherPanel.save()
         #expect(otherPanel.error != nil) // Even an unchanged snapshot cannot write through the live engine's lock.
         engine.add(try #require(engine.contacts.first(where: { $0.group == group })))
+        try #require(!engine.config.targets.isEmpty)
         engine.config.targets[0].enabled = true
         if control == "longRunQueue" {
             engine.start(duration: 259201)
@@ -717,7 +723,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
             }
             #expect(actions.components(separatedBy: expectedAction).count - 1 == desired)
             if control == "periodicStickers" {
-                let lines = try String(contentsOf: directory.appendingPathComponent("payloads"), encoding: .utf8).split(separator: "\n")
+                let lines = try String(contentsOf: directory.appendingPathComponent("payloads"), encoding: .utf8).split(whereSeparator: \.isNewline)
                 let counts = try lines.map { line -> Int in
                     let payload = try JSONSerialization.jsonObject(with: Data(line.utf8)) as! [String: Any]
                     return (payload["message"] as! [[String: Any]]).count
@@ -778,6 +784,7 @@ private final class DelayedModelProtocol: URLProtocol, @unchecked Sendable {
         #expect(DelayedModelProtocol.counts.cancelled == 1)
         DelayedModelProtocol.completePending()
         if engine.connected {
+            try #require(!engine.config.targets.isEmpty)
             engine.config.targets[0].enabled = true
             engine.start() // Resume must not replay the previously queued second message.
             #expect(engine.running)

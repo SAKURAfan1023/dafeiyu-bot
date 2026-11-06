@@ -1,0 +1,17 @@
+{
+  "version": "0.3.0-preview.2",
+  "tag": "next",
+  "access": "public",
+  "registry": "https://registry.npmjs.org/",
+  "platforms": [
+    "darwin-arm64",
+    "win32-x64"
+  ],
+  "packages": [
+    "@sakurafan1023/qq-darwin-arm64",
+    "@sakurafan1023/qq-win32-x64",
+    "@sakurafan1023/qq",
+    "@sakurafan1023/cli",
+    "@sakurafan1023/mcp"
+  ]
+}

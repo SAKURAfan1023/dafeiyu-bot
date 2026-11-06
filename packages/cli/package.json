@@ -1,0 +1,45 @@
+{
+  "name": "@sakurafan1023/cli",
+  "version": "0.3.0-preview.2",
+  "description": "DaFeiYu selected-module installer and client entry",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "dafeiyu": "./bin/dafeiyu.mjs"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SAKURAfan1023/dafeiyu-bot.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/SAKURAfan1023/dafeiyu-bot#readme",
+  "bugs": {
+    "url": "https://github.com/SAKURAfan1023/dafeiyu-bot/issues"
+  },
+  "author": "SAKURAfan1023",
+  "keywords": [
+    "dafeiyu",
+    "qq",
+    "onebot",
+    "mcp"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "next",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dafeiyu": {
+    "publishedPlatforms": [
+      "darwin-arm64",
+      "win32-x64"
+    ]
+  }
+}

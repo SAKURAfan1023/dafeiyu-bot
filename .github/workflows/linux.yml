@@ -32,7 +32,19 @@ jobs:
         run: python3 scripts/test-linux-images.py
       - name: Build headless app
         run: bash scripts/build-linux.sh
+      - name: Install dependencies for existing social HTTP checks
+        run: |
+          echo "DAFEIYU_XHS_RUNTIME_DIR=$RUNNER_TEMP/dafeiyu-social-test" >> "$GITHUB_ENV"
+          DAFEIYU_XHS_RUNTIME_DIR="$RUNNER_TEMP/dafeiyu-social-test" bash scripts/setup-social.sh
       - name: Launcher and real HTTP control boundary
         run: python3 scripts/test-control-panel.py scripts/start-linux.sh --shell-launcher
       - name: Real synthetic OneBot WebSocket transport
         run: python3 scripts/test-onebot-transport.py dist/dafeiyu-linux/dafeiyu
+      - name: QQ isolated artifact and dual entrypoints
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix Resources/QQTransport --ignore-scripts --no-audit --no-fund
+          python3 scripts/build-qq.py --configuration debug
+          DAFEIYU_QQ_ROOT="$PWD/dist/qq" npm test
+          npm run pack:qq
+          npm run test:distribution

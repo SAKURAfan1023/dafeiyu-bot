@@ -1,9 +1,25 @@
 #!/usr/bin/env python3
 """Real loopback HTTP + synthetic OneBot checks; no real QQ or model requests."""
 import base64, contextlib, hashlib, runpy, threading, time
-import json, os, pathlib, select, socket, subprocess, sys, tempfile, urllib.error, urllib.parse, urllib.request, uuid
+import json, os, pathlib, queue, select, socket, subprocess, sys, tempfile, urllib.error, urllib.parse, urllib.request, uuid
 
 transport = runpy.run_path(str(pathlib.Path(__file__).with_name('test-onebot-transport.py')))
+
+# Python 3.12's Windows wall clock ticks more coarsely than Swift Date.
+clock_slack = 2 * time.get_clock_info('time').resolution if os.name == 'nt' else 0
+
+def stop_worker(process):
+    if process.poll() is None:
+        if os.name == 'nt':
+            # Kill only this test-owned worker tree before the parent exits, so its
+            # Node transport cannot retain the temporary working directory.
+            result = subprocess.run([str(pathlib.Path(os.environ['SystemRoot'])/'System32/taskkill.exe'),
+                '/PID', str(process.pid), '/T', '/F'], capture_output=True, timeout=10)
+            assert result.returncode == 0 or process.poll() is not None, 'Test worker tree did not stop'
+        else:
+            process.terminate()
+    try: process.wait(timeout=5)
+    except subprocess.TimeoutExpired: process.kill(); process.wait()
 
 @contextlib.contextmanager
 def onebot(mode='success', queue_control=None):
@@ -69,6 +85,11 @@ def onebot(mode='success', queue_control=None):
             assert not thread.is_alive(), 'synthetic OneBot did not close'
             assert not errors, str(errors)
 
+def startup_line(process):
+    lines = queue.Queue()
+    threading.Thread(target=lambda: lines.put(process.stdout.readline()), daemon=True).start()
+    return lines.get(timeout=20).decode('utf-8').strip()
+
 with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
     executable = str(pathlib.Path(sys.argv[1]).resolve())
     command = ['bash', executable] if '--shell-launcher' in sys.argv else [executable, '--qq-control-panel']
@@ -76,9 +97,7 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
     env.pop("DAFEIYU_RESOURCES", None)  # Verify packaged assets, not the source checkout.
     process = subprocess.Popen(command, cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     try:
-        if not select.select([process.stdout], [], [], 20)[0]:
-            raise RuntimeError('Panel did not start')
-        line = process.stdout.readline().decode().strip()
+        line = startup_line(process)
         if not line.startswith('QQ_CONTROL_URL='):
             raise RuntimeError('Panel did not report its address')
         url = urllib.parse.urlsplit(line.split('=', 1)[1]); origin = f'http://{url.netloc}'
@@ -87,7 +106,12 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
             try:
                 with urllib.request.urlopen(req, timeout=5) as response: return response.status, response.read()
             except urllib.error.HTTPError as error: return error.code, error.read()
-        assert request('/')[0] == 200
+        code, index = request('/')
+        assert code == 200
+        if '--qq-only' in sys.argv:
+            assert b'data-module="social"' not in index and b'data-module="wechat"' not in index
+        else:
+            assert b'data-module="social"' in index and b'data-module="wechat"' in index
         for asset, mime in [('/style.css', 'text/css'), ('/logo.png', 'image/png'), ('/sticker-pack.js', 'text/javascript')]:
             with urllib.request.urlopen(origin + asset, timeout=5) as response:
                 assert response.status == 200 and response.headers.get_content_type() == mime
@@ -105,43 +129,46 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
         assert request('/api/status', dict(headers, Origin='https://invalid.example'))[0] == 403
         assert request('/api/status', dict(headers, Host='invalid.example'))[0] == 400
         # Shared platform entry is authenticated and opens only local controls, never a site.
-        social_headers = dict(headers, **{'Content-Type': 'application/json'})
-        assert request('/api/social-panel', {'Content-Type':'application/json'}, b'{"platform":"bilibili"}')[0] == 403
-        assert request('/api/social-panel', social_headers, b'{"platform":"unknown"}')[0] == 400
-        code, data = request('/api/social-panel', social_headers, b'{"platform":"bilibili"}')
-        social_url = urllib.parse.urlsplit(json.loads(data)['url'])
-        assert code == 200 and social_url.hostname == '127.0.0.1' and social_url.fragment
-        social_origin = f'http://{social_url.netloc}'
-        for platform in ['xiaohongshu', 'bilibili']:
-            req = urllib.request.Request(social_origin + '/api/status?platform=' + platform, headers={'X-Social-Control':social_url.fragment})
-            with urllib.request.urlopen(req, timeout=5) as response: social_state = json.load(response)
-            assert social_state['platform'] == platform and not social_state['running'] and social_state['modelAttempts'] == 0
-            assert social_state['canWrite'] is True
-            assert social_state['settings']['mode'] == 'auto'
-            assert social_state['recommendedSettings']['mode'] == 'auto'
-            assert social_state['settings']['dailyWriteLimit'] == 3 and social_state['settings']['intervalSeconds'] == 300
-        # Real bundled HTTP: warning is local, persistent and isolated; no site access.
-        def social_request(path, payload=None):
-            h = {'X-Social-Control':social_url.fragment, 'Origin':social_origin}
-            if payload is not None: h['Content-Type'] = 'application/json'
-            req = urllib.request.Request(social_origin + path, data=None if payload is None else json.dumps(payload).encode(), headers=h)
-            with urllib.request.urlopen(req, timeout=5) as response: return json.load(response)
-        def social_action(name, **fields):
-            state = social_request('/api/status?platform=bilibili')
-            job = social_request('/api/action?platform=bilibili', dict(requestID=str(uuid.uuid4()), platform='bilibili', action=name, revision=state['revision'], **fields))
-            for _ in range(100):
-                result = social_request('/api/job/' + job['requestID'] + '?platform=bilibili')
-                if result['state'] != 'pending': break
-                time.sleep(.02)
-            assert result['state'] == 'complete', result
-        social_action('reportWarning')
-        blocked = social_request('/api/status?platform=bilibili')
-        assert blocked['warningAt'] and not blocked['running'] and not blocked['busy']
-        assert not social_request('/api/status?platform=xiaohongshu')['warningAt']
-        social_action('acknowledgeWarning', acknowledge=True)
-        cleared = social_request('/api/status?platform=bilibili')
-        assert not cleared['warningAt'] and not cleared['running'] and cleared['modelAttempts'] == 0
-        print('PASS: bundled social routes, platform isolation, warning/acknowledgment lifecycle; zero site/model/send calls')
+        if '--qq-only' in sys.argv:
+            assert request('/api/social-panel', headers, b'{}')[0] == 404
+        else:
+            social_headers = dict(headers, **{'Content-Type': 'application/json'})
+            assert request('/api/social-panel', {'Content-Type':'application/json'}, b'{"platform":"bilibili"}')[0] == 403
+            assert request('/api/social-panel', social_headers, b'{"platform":"unknown"}')[0] == 400
+            code, data = request('/api/social-panel', social_headers, b'{"platform":"bilibili"}')
+            social_url = urllib.parse.urlsplit(json.loads(data)['url'])
+            assert code == 200 and social_url.hostname == '127.0.0.1' and social_url.fragment
+            social_origin = f'http://{social_url.netloc}'
+            for platform in ['xiaohongshu', 'bilibili']:
+                req = urllib.request.Request(social_origin + '/api/status?platform=' + platform, headers={'X-Social-Control':social_url.fragment})
+                with urllib.request.urlopen(req, timeout=5) as response: social_state = json.load(response)
+                assert social_state['platform'] == platform and not social_state['running'] and social_state['modelAttempts'] == 0
+                assert social_state['canWrite'] is True
+                assert social_state['settings']['mode'] == 'auto'
+                assert social_state['recommendedSettings']['mode'] == 'auto'
+                assert social_state['settings']['dailyWriteLimit'] == 3 and social_state['settings']['intervalSeconds'] == 300
+            # Real bundled HTTP: warning is local, persistent and isolated; no site access.
+            def social_request(path, payload=None):
+                h = {'X-Social-Control':social_url.fragment, 'Origin':social_origin}
+                if payload is not None: h['Content-Type'] = 'application/json'
+                req = urllib.request.Request(social_origin + path, data=None if payload is None else json.dumps(payload).encode(), headers=h)
+                with urllib.request.urlopen(req, timeout=5) as response: return json.load(response)
+            def social_action(name, **fields):
+                state = social_request('/api/status?platform=bilibili')
+                job = social_request('/api/action?platform=bilibili', dict(requestID=str(uuid.uuid4()), platform='bilibili', action=name, revision=state['revision'], **fields))
+                for _ in range(100):
+                    result = social_request('/api/job/' + job['requestID'] + '?platform=bilibili')
+                    if result['state'] != 'pending': break
+                    time.sleep(.02)
+                assert result['state'] == 'complete', result
+            social_action('reportWarning')
+            blocked = social_request('/api/status?platform=bilibili')
+            assert blocked['warningAt'] and not blocked['running'] and not blocked['busy']
+            assert not social_request('/api/status?platform=xiaohongshu')['warningAt']
+            social_action('acknowledgeWarning', acknowledge=True)
+            cleared = social_request('/api/status?platform=bilibili')
+            assert not cleared['warningAt'] and not cleared['running'] and cleared['modelAttempts'] == 0
+            print('PASS: bundled social routes, platform isolation, warning/acknowledgment lifecycle; zero site/model/send calls')
         assert request('/api/action', headers, b'{"action":"pause"}')[0] == 403
         assert request('/api/action', dict(headers, **{'Content-Type': 'application/json'}), b'{"action":"pause"}')[0] == 200
         revision = [state['configurationRevision']]
@@ -230,7 +257,8 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
                 assert invalid['error'] and not invalid['running']
                 started = action({'action':'start','durationMinutes':1})
                 assert not started['error'] and started['running'] and started['config'] == saved['config']
-                assert 50 < started['runDeadline'] - time.time() <= 60
+                remaining = started['runDeadline'] - time.time()
+                assert 50 < remaining <= 60 + clock_slack, {'remaining':remaining, 'clockSlack':clock_slack}
                 failed_save = action({'action':'save','enabled':[]})
                 assert failed_save['error'] and failed_save['running'] and failed_save['config'] == saved['config']
                 if '--wait-for-expiry' in sys.argv:
@@ -245,7 +273,9 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
                 paused = action({'action':'pause'})
                 assert not paused['running'] and paused['queued'] == 0 and not paused['runDeadline']
                 once = action({'action':'start','singleReply':True,'durationMinutes':4320})
-                assert once['running'] and 890 < once['runDeadline'] - time.time() <= 900
+                remaining = once['runDeadline'] - time.time() if once['runDeadline'] else None
+                assert once['running'] and remaining is not None and 890 < remaining <= 900 + clock_slack, {
+                    'running':once['running'], 'remaining':remaining, 'clockSlack':clock_slack, 'error':once['error']}
                 paused = action({'action':'pause'})
                 unlimited = action({'action':'start','durationMinutes':0})
                 assert unlimited['running'] and not unlimited['runDeadline']
@@ -294,9 +324,7 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
         assert request('/api/status', headers)[0] == 200
         print('PASS: assets, authentication, Origin/Host, malformed requests, connection/reply persistence, stale editor rejection, stale pause, unknown scope rejection, independent image/vision/artwork persistence, invalid tool configuration rollback, identity/online rejection, saved-config start, pause/clear lifecycle, isolated zero-send state')
     finally:
-        process.terminate()
-        try: process.wait(timeout=5)
-        except subprocess.TimeoutExpired: process.kill(); process.wait()
+        stop_worker(process)
     # Reopen only this temporary state with synthetic historical outcomes. No
     # messages, model calls, or send actions are needed to verify the API display.
     file = pathlib.Path(folder) / 'qq-state.json'
@@ -307,8 +335,7 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
     file.write_text(json.dumps(stored))
     process = subprocess.Popen(command, cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     try:
-        assert select.select([process.stdout], [], [], 20)[0], 'Panel did not reopen'
-        line = process.stdout.readline().decode().strip()
+        line = startup_line(process)
         assert line.startswith('QQ_CONTROL_URL=')
         url = urllib.parse.urlsplit(line.split('=', 1)[1]); origin = f'http://{url.netloc}'
         code, data = request('/api/status', {'X-QQ-Control':url.fragment, 'Origin':origin})
@@ -321,6 +348,4 @@ with tempfile.TemporaryDirectory(prefix='dafeiyu-panel-test-') as folder:
         assert state['calls']==0 and state['confirmed']==0 and not state['running']
         print('PASS: restored runtime records are bounded, newest first, redacted, and do not alter counters')
     finally:
-        process.terminate()
-        try: process.wait(timeout=5)
-        except subprocess.TimeoutExpired: process.kill(); process.wait()
+        stop_worker(process)

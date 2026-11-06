@@ -1,0 +1,50 @@
+{
+  "name": "@sakurafan1023/mcp",
+  "version": "0.3.0-preview.2",
+  "description": "Local MCP entry for installed DaFeiYu modules",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "dafeiyu-mcp": "./bin/mcp.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "3.25.76"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SAKURAfan1023/dafeiyu-bot.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/SAKURAfan1023/dafeiyu-bot#readme",
+  "bugs": {
+    "url": "https://github.com/SAKURAfan1023/dafeiyu-bot/issues"
+  },
+  "author": "SAKURAfan1023",
+  "keywords": [
+    "dafeiyu",
+    "qq",
+    "onebot",
+    "mcp"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "next",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dafeiyu": {
+    "publishedPlatforms": [
+      "darwin-arm64",
+      "win32-x64"
+    ]
+  }
+}
