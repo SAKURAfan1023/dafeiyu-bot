@@ -1,3 +1,5 @@
+![大肥鱼](docs/assets/hero.png)
+
 # 大肥鱼 · DaFeiYu 🐟
 
 给 QQ 配一个有性格、有记忆的 AI 伙伴。支持 Windows 本机客户端、Mac 原生客户端，以及 MCP 工具接入。
@@ -92,32 +94,6 @@ MCP 提供状态、联系人、连接设置、回复范围、运行控制、工�
 
 发布页的 `.tgz` 是 npm 模块归档，Source code 是源码；普通用户按上表选客户端即可。校验文件、固定版本和构建来源见[发布记录](docs/NPM_RELEASE.md)。
 
-## 能做什么
-
-| 能力 | 状态与说明 |
-| --- | --- |
-| QQ 私聊和群 @ 回复 | 可用；按好友/群授权，支持单次验收、额度、工作时段和冷却 |
-| 性格与记忆 | 内置与自定义人格，按会话保留上下文和长期记忆 |
-| 图片与表情 | 自带表情、导入图库、识图、生图、搜图和定时分享；按需配置外部服务 |
-| 客户端与 MCP | 共用后台、配置和运行规则 |
-| 小红书 / B站 | Mac 完整客户端及源码中的独立测试模块，见[社交平台说明](docs/SOCIAL_PLATFORMS.md) |
-| 微信 | 仍在测试，不作为成熟自动回复能力提供 |
-
-独立 npm 模块当前提供 QQ。其他平台功能的使用范围与实际验收分别记录，不因客户端包含入口就视为全部可用。Windows 原生后台、安装包与合成通信测试已通过；真实 Windows QQ 扫码和收发仍需用户环境验收。
-
-[查看界面](docs/SCREENSHOTS.md) · [真实对话案例](docs/CASES.md) · [在线表情库](https://photos.lifanhu.me/)
-
-<details>
-<summary>大肥鱼与客户端预览</summary>
-
-![大肥鱼](docs/assets/hero.png)
-
-![Mac QQ 客户端](docs/assets/panel-sidebar-native.png)
-
-预览图为本机合成数据界面，不代表真实 QQ、Windows 或社交平台验收。
-
-</details>
-
 ## 更多文档
 
 | 内容 | 文档 |
@@ -130,6 +106,26 @@ MCP 提供状态、联系人、连接设置、回复范围、运行控制、工�
 | npm 模块与后台生命周期 | [QQ 模块说明](docs/QQ_MODULES.md) |
 | 测试与已知边界 | [验证记录](docs/VALIDATION.md) |
 | 数据和凭证 | [安全说明](SECURITY.md) |
+
+## 主要功能
+
+- **QQ 聊天**：私聊与群 @ 回复，按会话设置回复范围、额度和工作时段。
+- **人格与记忆**：预设或自定义性格，保留会话上下文和长期记忆。
+- **图片与表情**：表情库、识图、生图、搜图与定时分享，按需启用。
+- **客户端与 MCP**：Windows / Mac 客户端与 MCP 共用后台和配置，完整客户端内置 NapCat。
+
+npm 当前只提供 QQ。小红书 / B站为 Mac 端测试模块，微信仍在测试，见[社交平台说明](docs/SOCIAL_PLATFORMS.md)。真实 Windows QQ 扫码和收发仍需用户环境验收。
+
+[查看界面](docs/SCREENSHOTS.md) · [真实对话案例](docs/CASES.md) · [在线表情库](https://photos.lifanhu.me/)
+
+<details>
+<summary>客户端预览</summary>
+
+![Mac QQ 客户端](docs/assets/panel-sidebar-native.png)
+
+预览图为本机合成数据界面，不代表真实 QQ、Windows 或社交平台验收。
+
+</details>
 
 ## 反馈与许可
 
