@@ -69,6 +69,17 @@ if(process.platform==='darwin') {
 const native=path.join(runtime,'node_modules','@sakurafan1023',`qq-${process.platform}-${process.arch}`);
 const qq=await import(pathToFileURL(path.join(runtime,'node_modules','@sakurafan1023','qq','lib','runtime.mjs')).href);
 await qq.verifyArtifact(native,process.platform==='win32'?'dafeiyu-qq.exe':'dafeiyu-qq');
+if(process.platform==='darwin') {
+  // Verify the original npm artifact first, then remove private DWARF paths from the desktop copy.
+  const binary=path.join(native,'dafeiyu-qq');
+  run('/usr/bin/strip',['-S',binary]);
+  run('/usr/bin/codesign',['--force','--sign','-',binary]);
+  const integrityFile=path.join(native,'integrity.json');
+  const integrity=JSON.parse(await fs.readFile(integrityFile,'utf8'));
+  integrity['dafeiyu-qq']=createHash('sha256').update(await fs.readFile(binary)).digest('hex');
+  await fs.writeFile(integrityFile,JSON.stringify(integrity,null,2));
+  await qq.verifyArtifact(native,'dafeiyu-qq');
+}
 for (const name of ['cli','qq','mcp',`qq-${process.platform}-${process.arch}`]) {
   const metadata=JSON.parse(await fs.readFile(path.join(runtime,'node_modules','@sakurafan1023',name,'package.json'),'utf8'));
   if(metadata.version!==runtimeVersion) throw new Error('Installed package version mismatch');
@@ -79,7 +90,8 @@ for (const name of ['LICENSE','THIRD_PARTY_NOTICES.md']) await fs.copyFile(path.
 const source=spawnSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'});
 if(source.status!==0) throw new Error('Unable to record packaging source');
 await fs.writeFile(path.join(documents,'desktop-build.json'),JSON.stringify({version,runtimeVersion,napcatVersion:desktop.napcat.version,platform:process.platform,architecture:process.arch,nodeVersion:process.version,
-  packagingCommit:source.stdout.trim(),runtimeSource:'public npm fixed version; native integrity verified',signedByDeveloper:false},null,2)+'\n');
+  packagingCommit:source.stdout.trim(),runtimeSource:'public npm fixed version; native integrity verified',
+  macNativeDebugInfoRemoved:process.platform==='darwin',signedByDeveloper:false},null,2)+'\n');
 if (process.platform==='darwin') {
   const launcher=path.join(bundle,'Contents','Resources','dafeiyu-mcp.command');
   await fs.writeFile(launcher,'#!/bin/sh\nset -eu\nRUNTIME="$(CDPATH= cd -- "$(dirname -- "$0")/QQRuntime" && pwd)"\nexec "$RUNTIME/node" "$RUNTIME/launch.mjs" mcp\n',{mode:0o755});
