@@ -136,3 +136,27 @@ npm run test:npm-install -- --public --directory dist/npm-release-preview.2
 如果流程要求 2FA，通过 npm 官方认证页面完成，不在聊天、命令参数或仓库中保存密码、验证码或 token。
 
 参考：[npm scoped 公共包发布](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)、[npm publish 与 dry-run](https://docs.npmjs.com/cli/v11/commands/npm-publish/)。
+
+## 独立 Avatar 0.2.0（2026-11-07）
+
+这是独立角色模块，不改变上面的 QQ / CLI / MCP 包版本或桌面安装程序。
+
+| 项目 | 已核对结果 |
+| --- | --- |
+| npm | `@sakurafan1023/avatar@0.2.0`，public；`latest`、`next` 均指向 `0.2.0` |
+| GitHub | [Avatar 0.2.0 下载页](https://github.com/SAKURAfan1023/dafeiyu-bot/releases/tag/avatar-v0.2.0)，独立预览发布，不替换桌面下载入口 |
+| 源码 | PR #6 合入 `main`，发布提交 `ea3cce23d96b2fd2c6dfa3d9da3e6de9ca23dde2` |
+| npm 压缩包 | `sakurafan1023-avatar-0.2.0.tgz`，17,662,713 bytes |
+| SHA-256 | `ae61822b97925e6c2803b85aee801059586bee217791494e860ca0312ff32952` |
+| 公网安装 | 空用户配置、全新缓存从公共 npm registry 安装；268 个文件与源码、候选包逐一相同 |
+| 运行检查 | 公网安装副本完成五款真实离线语音/口型及 15 项语音生命周期检查；原视觉链路另完成 40 次动作、50 次表情、15 项检查 |
+
+```sh
+npx --yes @sakurafan1023/avatar@0.2.0 preview
+```
+
+MCP 和可选本地语音准备见 [Avatar README](../packages/avatar/README.md)。当前语音后端需要 Apple Silicon Mac 和用户显式准备的本地 Qwen3 模型；预览须开启声音。模型权重与 Python 环境不随 npm 包分发。经典女仆素材为 CC BY-NC-SA 4.0，四款原创素材及代码为 MIT。
+
+下载页同时提供五个 `.livliv`、`models-manifest.json` 和 `avatar-SHA256SUMS.txt`。这些模型不是 Cubism MOC / VTube Studio 文件；手臂关节须使用配套播放器扩展。
+
+CI 与本地/公网验收分开记录。首轮 Avatar 专项检查通过；PR 检查中曾因软件渲染截图耗时超过短姿态寿命而收到 `STALE_ACTION`，已延长测试保持时间，并允许在停止前已自然结束的动作以 confirmed completed 验证复位。此项仅修改检查脚本，不改动已发布压缩包；其他 QQ / Swift 工作流以各自的实际结果为准。

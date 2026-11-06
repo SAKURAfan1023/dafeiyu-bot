@@ -28,6 +28,14 @@ async function ended(id) {
   }
   throw Error('Motion did not complete');
 }
+// A screenshot on a loaded software GPU can outlive a bounded pose. Natural completion is also a confirmed reset.
+async function stopOrConfirmCompleted(id) {
+  const result = await client.callTool({ name: 'avatar_stop', arguments: { action_id: id } });
+  if (!result.isError) { assert(result.structuredContent.inputs_reset); return; }
+  assert.equal(result.structuredContent.code, 'STALE_ACTION');
+  const state = await call('avatar_status', { action_id: id });
+  assert.equal(state.action.state, 'completed'); assert(state.action.inputs_reset);
+}
 try {
   await client.connect(transport);
   assert.equal(client.getServerVersion().version, JSON.parse(await fs.readFile(path.join(path.dirname(entry), '../package.json'), 'utf8')).version);
@@ -81,19 +89,19 @@ try {
     ['mouth-open', { features: { mouth_open: .8 } }, 'mouthOpen', .8],
     ['zero-expression', { expression: 'smile', intensity: 0 }, 'eyeLOpen', 1],
   ]) {
-    const started = await call('avatar_pose', { ...input, transition_seconds: .25, hold_seconds: 1, return_seconds: .25 });
+    const started = await call('avatar_pose', { ...input, transition_seconds: .25, hold_seconds: 8, return_seconds: .25 });
     await page.waitForTimeout(500);
     const observed = await page.evaluate(k => window.avatarObserved[k], parameter);
     assert(Math.abs(observed - expected) < .005, `${label}: ${observed}`);
     await page.locator('#model').screenshot({ path: path.join(output, `fine-${label}.png`) });
-    assert((await call('avatar_stop', { action_id: started.action_id })).inputs_reset);
+    await stopOrConfirmCompleted(started.action_id);
     report.checks.push(label);
   }
   for (const joint of ['shoulder', 'elbow', 'wrist']) {
-    const started = await call('avatar_pose', { arms: { left: { [joint]: .8 } }, transition_seconds: .25, hold_seconds: 1, return_seconds: .25 });
+    const started = await call('avatar_pose', { arms: { left: { [joint]: .8 } }, transition_seconds: .25, hold_seconds: 8, return_seconds: .25 });
     await page.waitForTimeout(550);
     await page.locator('#model').screenshot({ path: path.join(output, `fine-left-${joint}.png`) });
-    assert((await call('avatar_stop', { action_id: started.action_id })).inputs_reset);
+    await stopOrConfirmCompleted(started.action_id);
     report.checks.push('independent-' + joint);
   }
   // Same retry resolves to the original action; busy switching and stale stops cannot steal its ownership.
