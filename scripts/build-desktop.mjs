@@ -54,8 +54,8 @@ if(source.status!==0) throw new Error('Unable to record packaging source');
 await fs.writeFile(path.join(documents,'desktop-build.json'),JSON.stringify({version,platform:process.platform,architecture:process.arch,nodeVersion:process.version,
   packagingCommit:source.stdout.trim(),runtimeSource:'public npm fixed version; native integrity verified',signedByDeveloper:false},null,2)+'\n');
 if (process.platform==='darwin') {
-  const launcher=path.join(bundle,'Contents','MacOS','dafeiyu-mcp');
-  await fs.writeFile(launcher,'#!/bin/sh\nset -eu\nRUNTIME="$(CDPATH= cd -- "$(dirname -- "$0")/../Resources/QQRuntime" && pwd)"\nexec "$RUNTIME/node" "$RUNTIME/launch.mjs" mcp\n',{mode:0o755});
+  const launcher=path.join(bundle,'Contents','Resources','dafeiyu-mcp.command');
+  await fs.writeFile(launcher,'#!/bin/sh\nset -eu\nRUNTIME="$(CDPATH= cd -- "$(dirname -- "$0")/QQRuntime" && pwd)"\nexec "$RUNTIME/node" "$RUNTIME/launch.mjs" mcp\n',{mode:0o755});
   run('/usr/bin/python3',['-c','import plistlib,sys; p=sys.argv[1]; d=plistlib.load(open(p,"rb")); d.update(CFBundleName="DaFeiYu",CFBundleDisplayName="大肥鱼",CFBundleShortVersionString="0.3.0",CFBundleVersion="3002"); plistlib.dump(d,open(p,"wb"))',path.join(bundle,'Contents','Info.plist')]);
   for (const binary of [node,path.join(native,'dafeiyu-qq'),path.join(bundle,'Contents','MacOS','WeChatAIBot')]) {
     const linked=spawnSync('/usr/bin/otool',['-L',binary],{encoding:'utf8'});

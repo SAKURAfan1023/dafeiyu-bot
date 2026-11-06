@@ -36,7 +36,7 @@ Mac 安装到“应用程序”后，Host 配置：
 {
   "mcpServers": {
     "dafeiyu": {
-      "command": "/Applications/DaFeiYu.app/Contents/MacOS/dafeiyu-mcp",
+      "command": "/Applications/DaFeiYu.app/Contents/Resources/dafeiyu-mcp.command",
       "args": []
     }
   }

@@ -1,4 +1,4 @@
-; Per-user installer. QQ data is outside {app} and is never removed by uninstall.
+﻿; Per-user installer. QQ data is outside {app} and is never removed by uninstall.
 #ifndef BundleDir
   #error BundleDir is required
 #endif

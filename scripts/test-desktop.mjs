@@ -49,7 +49,7 @@ try {
   for(const binary of [node,path.join(runtime,'node_modules','@sakurafan1023',`qq-${process.platform}-${process.arch}`,process.platform==='win32'?'dafeiyu-qq.exe':'dafeiyu-qq')]) await fs.access(binary);
   client=new Client({name:'synthetic-desktop-installer-host',version:'1.0.0'});
   const transport=process.platform==='darwin'
-    ?new StdioClientTransport({command:path.join(installed,'Contents','MacOS','dafeiyu-mcp'),env,stderr:'pipe'})
+    ?new StdioClientTransport({command:path.join(installed,'Contents','Resources','dafeiyu-mcp.command'),env,stderr:'pipe'})
     :new StdioClientTransport({command:node,args:[path.join(runtime,'launch.mjs'),'mcp'],env,stderr:'pipe'});
   await client.connect(transport);assert.equal((await client.listTools()).tools.length,7);
   const initial=(await client.callTool({name:'qq_status',arguments:{}})).structuredContent;backend=initial.runtime;
